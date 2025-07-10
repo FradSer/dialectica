@@ -18,11 +18,11 @@ def _create_agent_instruction(specialist_name: str, core_task: str, extra_guidan
         str: Formatted instruction string with newlines escaped for ADK
     """
     base_instruction = [
-        f"Current date and time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\\n",
-        f"You are the {specialist_name} specialist.\\n",
-        "You receive specific sub-tasks from the Coordinator.\\n",
-        "**Your Task:**\\n",
+        f"Current date and time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"You are the {specialist_name} specialist.",
+        "You receive specific sub-tasks from the Coordinator.",
+        "**Your Task:**",
         core_task,
     ]
     base_instruction.extend(extra_guidance)
-    return "\\n".join(base_instruction) # Use \\n for literal newline in ADK instructions 
+    return "\n".join(base_instruction) 

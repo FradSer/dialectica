@@ -2,23 +2,34 @@ import pytest
 from unittest.mock import MagicMock
 from mas_tree_of_thought.coordinator import ToTCoordinator
 from mas_tree_of_thought.validation import validate_thought_node_data # For validator mock
+from google.adk.agents import Agent
+from google.adk.tools import FunctionTool
 
 @pytest.fixture
 def coordinator_instance():
-    """Provides a ToTCoordinator instance with mocked dependencies."""
-    # Mock the validator function if it's called directly or via a helper in __init__
-    # For the purpose of these helper tests, a simple mock is sufficient.
-    mock_validator = MagicMock(return_value={"validation_status": "success", "message": "Mocked validation."})
-
+    """Provides a ToTCoordinator instance with real agent dependencies."""
+    # Create real agent instances with minimal configuration
+    planner = Agent(name="TestPlanner", model="gemini-2.0-flash", description="Test planner")
+    researcher = Agent(name="TestResearcher", model="gemini-2.0-flash", description="Test researcher") 
+    analyzer = Agent(name="TestAnalyzer", model="gemini-2.0-flash", description="Test analyzer")
+    critic = Agent(name="TestCritic", model="gemini-2.0-flash", description="Test critic")
+    synthesizer = Agent(name="TestSynthesizer", model="gemini-2.0-flash", description="Test synthesizer")
+    
+    # Create a real validator tool
+    def mock_validator(**kwargs):
+        return {"validation_status": "success", "message": "Mocked validation."}
+    
+    validator = FunctionTool(mock_validator)
+    
     return ToTCoordinator(
         name="TestCoordinator",
-        planner=MagicMock(),
-        researcher=MagicMock(),
-        analyzer=MagicMock(),
-        critic=MagicMock(),
-        synthesizer=MagicMock(),
-        validator=mock_validator, # Pass the mocked validator
-        model="gemini-2.0-flash"  # Using a string model ID as it's simpler
+        planner=planner,
+        researcher=researcher,
+        analyzer=analyzer,
+        critic=critic,
+        synthesizer=synthesizer,
+        validator=validator,
+        model="gemini-2.0-flash"
     )
 
 # Tests for _extract_score
