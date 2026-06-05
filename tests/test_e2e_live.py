@@ -12,13 +12,13 @@ import os
 
 import pytest
 
-from dialectic import create_coordinator
+from dialectica import create_coordinator
 
 pytestmark = [
     pytest.mark.e2e,
     pytest.mark.skipif(
         not os.getenv("GOOGLE_API_KEY"),
-        reason="GOOGLE_API_KEY not set (configure dialectic/.env)",
+        reason="GOOGLE_API_KEY not set (configure dialectica/.env)",
     ),
 ]
 

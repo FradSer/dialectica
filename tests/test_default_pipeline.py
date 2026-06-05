@@ -7,14 +7,14 @@ together, with the single LLM seam (agent_runtime.run_agent) mocked.
 from contextlib import contextmanager
 from unittest.mock import patch
 
-from dialectic.agent import create_coordinator
+from dialectica.agent import create_coordinator
 
 from helpers import make_constant_call_agent
 
 
 @contextmanager
 def patched_llm(fake):
-    with patch("dialectic.agent_runtime.run_agent", fake):
+    with patch("dialectica.agent_runtime.run_agent", fake):
         yield
 
 

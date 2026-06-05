@@ -5,9 +5,9 @@ the real search logic: strategy scoring, beam selection, pruning, refined-though
 persistence, and synthesis hand-off. This is the payoff of the pluggable design.
 """
 
-from dialectic.coordinator import Coordinator
-from dialectic.models import EvaluationResult, ThoughtData
-from dialectic.selection import BeamSearch, GreedySearch
+from dialectica.coordinator import Coordinator
+from dialectica.models import EvaluationResult, ThoughtData
+from dialectica.selection import BeamSearch, GreedySearch
 
 
 class FakeGenerator:

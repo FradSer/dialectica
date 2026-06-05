@@ -2,9 +2,9 @@
 
 from unittest.mock import patch
 
-from dialectic.agent_factory import create_agent
-from dialectic.generation import LlmGenerator, parse_list
-from dialectic.models import ThoughtData
+from dialectica.agent_factory import create_agent
+from dialectica.generation import LlmGenerator, parse_list
+from dialectica.models import ThoughtData
 
 
 def test_parse_multiline_items_keep_body():
@@ -41,7 +41,7 @@ async def test_generator_uses_strategy_prompt_for_root():
         return "1. alpha\n2. beta"
 
     root = ThoughtData(thoughtId="root", thought="the problem", depth=0)
-    with patch("dialectic.agent_runtime.run_agent", fake):
+    with patch("dialectica.agent_runtime.run_agent", fake):
         items = await gen.expand(root, "the problem")
 
     assert items == ["alpha", "beta"]
@@ -57,7 +57,7 @@ async def test_generator_caps_item_count():
         return many
 
     root = ThoughtData(thoughtId="root", thought="p", depth=0)
-    with patch("dialectic.agent_runtime.run_agent", fake):
+    with patch("dialectica.agent_runtime.run_agent", fake):
         items = await gen.expand(root, "p")
     assert len(items) == 5
 
@@ -71,7 +71,7 @@ async def test_generator_uses_child_prompt_for_inner_node():
         return "1. step one\n2. step two"
 
     node = ThoughtData(thoughtId="root_s0", parentId="root", thought="a strategy", depth=1)
-    with patch("dialectic.agent_runtime.run_agent", fake):
+    with patch("dialectica.agent_runtime.run_agent", fake):
         items = await gen.expand(node, "the problem")
 
     assert items == ["step one", "step two"]
