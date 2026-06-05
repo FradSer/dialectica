@@ -1,86 +1,98 @@
-# mas-tree-of-thought ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
+# Dialectic ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-adk-orange.svg)](https://google.github.io/adk-docs/) 
+[![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-adk%202.1+-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20对抗-red.svg)]()
 
 [English](README.md) | 简体中文
 
-本项目实现了一个由根代理（`ToT_Coordinator`）协调的多代理系统。协调器使用LLM驱动的评估过程管理思维树（ToT），以探索复杂问题的潜在解决方案。
+**Dialectic（辩证）** 是一个可插拔的对抗式推理引擎。它在「思维树」上搜索：每个思维经过生成、对抗评估与迭代改进，再综合成答案——*正题 → 反题 → 合题*（Generator → Discriminator → Synthesizer）。设计参考了 [karpathy/autoresearch](https://github.com/karpathy/autoresearch) 的「提议→评估→保留最优」循环与 Claude Code 的可组合 workflows；每个阶段都是可替换组件，默认装配为思维树 + GAN 风格对抗评估循环，基于 Google ADK 2.1。
 
-## 核心概念
+## 核心特性
 
-*   **带LLM驱动探索的思维树 (ToT):** 通过构建一棵树来探索问题，其中每个节点代表一个想法或中间步骤。探索过程由专家LLM代理动态评估每个想法的前景来指导，而不是固定的束宽或深度。
-*   **协调器代理 (`ToT_Coordinator`):** 策划ToT工作流。它初始化树，管理活动想法的集合，将生成和评估任务委托给专家代理，根据评估（包括终止建议）确定要继续探索的路径，并从发现的最有希望的想法中综合最终结果。它被实现为一个 ADK [自定义代理 (Custom Agent)](https://google.github.io/adk-docs/agents/custom-agents/)，以管理 ToT 流程中复杂的条件逻辑。
-*   **专家代理:** 一个代理团队（规划器、研究员、分析器、评论家、综合器），每个代理处理协调器委托的特定类型的子任务（例如，生成下一步、评估想法、收集信息、综合结果）。
-    *   `Researcher` 代理明确使用了 ADK 内置的 `google_search` 工具。
-*   **想法验证器工具 (`validator_tool`):** 一个包装了 `validate_thought_node_data` 函数的 `FunctionTool` 实例。协调器使用它在将每个想法节点添加到树之前确保其结构完整性和所需的元数据。
-*   **动态生成与评估:** 生成的想法数量可以是动态的。评估过程包含研究发现、分析、批判等因素，以及至关重要的关于是否继续探索某条路径的建议。
-*   **多节点综合:** 最终结果不仅仅是根据单一最佳路径综合而成，而是考虑探索过程中识别出的多个高分想法节点，这些节点可能来自树的不同分支或深度。
+### 🧩 可插拔引擎（正题 → 反题 → 合题）
+`Engine` 只负责搜索的**控制流**，每个决策都委托给注入的组件——任何阶段都可替换而不动引擎：
+
+| 阶段 | 职责 | 默认实现 |
+|------|------|----------|
+| `Generator` | 提出思维（**正题**） | `LlmGenerator` |
+| `Evaluator` | 批评并改进（**反题**） | `AdversarialEvaluator` |
+| `Selector` | 选择搜索前沿 | `BeamSearch` |
+| `Synthesizer` | 综合成答案（**合题**） | `LlmSynthesizer` |
+
+只需改生成器的提示词或替换某个阶段，就能把它重定向到代码审查、研究、决策等任务——见 [可插拔架构](#可插拔架构)。
+
+### 🔄 GAN 风格对抗评估（保留最优）
+每个思维经历**迭代对抗优化**，而非单次评估：
+1. **Discriminator** 用结构化 verdict 打分（分数、缺陷、建议）
+2. **Generator** 据此改写
+3. **Discriminator** 重新打分
+4. 循环直到达到阈值、收到终止信号，或用尽 `max_gan_rounds`
+
+改进**不假设单调**——循环保留**分数最高的那一轮**（类似 autoresearch 的「只保留超越当前最优的改动」），并把那一版改进文本存到节点上，让综合用的是改进版而非原版。
+
+### 🌳 择优 beam 的树搜索
+- **策略先评分再入 beam**——前沿反映优劣，而非生成顺序
+- **束搜索**保留 top-k 最有希望的路径（`BeamSearch`，或 `GreedySearch`）
+- **剪枝**：低于阈值的路径丢弃；beam 清空即停止探索
+- **多节点综合**：最终答案整合跨分支的高分思维
+
+### 📊 结构化评估结果
+`Discriminator` 通过 ADK `output_schema` 返回 `DiscriminatorVerdict`（无脆弱文本解析）。引擎将其包装为 `EvaluationResult`：`score`、`flaws`、`suggestions`、`should_terminate`、`reasoning`、`adversarial_rounds`、`refined_thought`，以及完整的每轮 `history`。
 
 ## 工作流
 
-`ToT_Coordinator` 管理以下阶段：
+`Engine` 管理三个阶段的工作流：
 
-1.  **初始化:**
-    *   从用户接收初始问题。
-    *   创建思维树的根节点。
-    *   调用 `Planner` 代理生成一组初始的不同策略（初始活动路径）。
-    *   验证并将这些初始策略节点添加到树中。
-2.  **探索循环 (只要存在活动路径就继续):**
-    *   **生成:** 对于每个活动节点，调用 `Planner` 代理生成潜在的下一个想法（步骤、子主题、问题）。生成的数量可以是动态的。验证并添加状态为 'generated' 的新节点。
-    *   **评估:** 对于每个新生成的节点：
-        *   调用 `Researcher` 代理（配备 `google_search` 工具）收集相关信息。
-        *   调用 `Analyzer` 和 `Critic` 代理评估想法的合理性和前景，并考虑研究结果。提取分数和**终止建议** (True/False)。
-        *   使用分数、研究结果、评估细节和终止建议更新节点。状态变为 'evaluated'。
-    *   **选择/状态更新:** 审查所有 'evaluated' 状态的节点。
-        *   *不*建议终止的节点状态设置为 'active'，并构成下一步生成的池。
-        *   建议终止的节点状态设置为 'terminated_early'。
-        *   如果没有节点变为 'active'，循环终止。
-3.  **综合:**
-    *   根据分数阈值（如果无节点满足阈值，则回退到前N个）从整个树（evaluated、active 或 terminated_early）中识别多个高分节点。
-    *   构建一个包含初始问题和已识别高分想法的上下文。
-    *   调用 `Synthesizer` 代理，提供此多节点上下文，以生成最终答案。
+### 阶段 1：初始化
+- 从用户问题创建根节点
+- `Generator.expand(root)` 生成初始策略（用 `ThoughtData` 验证）
+- **每个策略都经过对抗评分**，达标者进入 beam（若全不达标，回退取 Selector 的 top-k）
+
+### 阶段 2：探索（束搜索）
+迭代最多 `max_depth` 次：
+1. **选择**：`Selector.select(...)` 从活跃束选出前沿
+2. **生成**：`Generator.expand(parent)` 产生子思维
+3. **评估**：`Evaluator.evaluate(...)` 跑 GAN 循环，保留最优轮次并持久化改进后的思维
+4. **过滤**：分数 ≥ `score_threshold` 的子节点组成下一个 beam
+
+beam 清空或达到 `max_depth` 时停止探索。
+
+### 阶段 3：综合
+- `Synthesizer.synthesize(...)` 取高分的已评估思维
+- 产生连贯、全面的最终答案
 
 ```mermaid
 graph TD
-    A[用户输入: 问题] --> B(协调器: 初始化);
-    B --> C{规划器: 生成初始策略};
-    C --> D(协调器: 验证并添加初始活动路径);
+    A[用户输入: 问题] --> B[Engine: 初始化];
+    B --> C[Generator: 扩展根 → 初始策略];
+    C --> D[Evaluator: 给每个策略评分 → 达标者入 beam];
     D --> E[开始探索迭代];
 
     subgraph 探索迭代
         direction TB
-        E_Input(当前活动路径) --> F{规划器: 为每个活动路径生成下一个想法};
-        F --> G(协调器: 验证并添加新节点 - 状态: Generated);
-        G -- 对每个新节点 --> H{研究员: 收集信息};
-        H --> I{分析器/评论家: 评估、评分并建议终止};
-        I --> J(协调器: 更新节点评估结果 - 状态: Evaluated);
-        J --> G;
+        E_Input[Selector: 选择前沿] --> F[Generator: 为每个节点扩展子思维];
+        F --> G -- 对每个子节点 --> H[GAN 对抗循环];
 
-        J -- 所有新节点评估后 --> K{协调器: 确定下一次迭代的状态};
-        K -- 过滤已评估节点 --> K1{设置状态: active - 如果未终止};
-        K -- 过滤已评估节点 --> K2{设置状态: terminated_early - 如果建议终止};
-        K1 --> L[下一个活动路径];
+        subgraph GAN 对抗循环
+            direction TB
+            H1[Discriminator: 结构化打分] --> H2{达阈值 / 终止 / 用尽轮次?};
+            H2 -- 否 --> H3[Generator: 据批评改进];
+            H3 --> H1;
+            H2 -- 是 --> H4[保留最优轮 + 持久化改进思维];
+        end
+
+        H4 --> J{分数 >= 阈值?};
+        J -- 是 --> K[加入下一个 beam];
+        J -- 否 --> L[剪枝];
     end
 
-    E --> E_Input;
-    L -- 活动路径是否存在? --> E;
-    L -- 没有活动路径存在 --> M(协调器: 从树中选择高分节点);
-    M --> N{综合器: 根据高分上下文生成最终答案};
-    N --> O[最终输出];
-
-    %% 代理交互 (澄清映射)
-    C --> Planner_Init(Planner);
-    F --> Planner_Gen(Planner);
-    H --> Researcher_Eval(Researcher);
-    I --> Analyzer_Eval(Analyzer);
-    I --> Critic_Eval(Critic);
-    G --> Validator_Gen(Validator Tool);
-    D --> Validator_Init(Validator Tool);
-    N --> Synthesizer_Final(Synthesizer);
+    K --> M{beam 非空且未达 max_depth?};
+    M -- 是 --> E_Input;
+    M -- 否 --> N[Synthesizer: 综合高分思维];
+    N --> P[最终输出 + thought_tree / best_path / stats];
 ```
 
 > **警告：高 Token 消耗**
-> 本项目在思维树流程的每一步（生成、研究、分析、批判）都涉及多次 LLM 调用。运行复杂问题可能会消耗大量 Token。请密切关注您的使用量和相关成本。
+> GAN 对抗评估每个思维需要 2-6 次 LLM 调用。典型问题（50-200 个思维）可能需要 200-800 次 LLM 调用。请密切关注您的使用量和相关成本。
 
 ## 安装与使用
 
@@ -89,28 +101,326 @@ graph TD
     git clone https://github.com/FradSer/mas-tree-of-thought
     cd mas-tree-of-thought
     ```
+
 2.  **设置环境变量:**
-    *   进入 `multi_tool_agent` 目录: `cd multi_tool_agent`
-    *   复制环境变量示例文件: `cp .env.example .env`
-    *   编辑 `.env` 文件，填入你实际的 API 密钥、模型配置和云项目详情（如果适用）。请遵循文件中的注释说明。
-3.  **使用 uv 安装依赖:**
+    ```bash
+    cd dialectic
+    cp .env.example .env
+    # 编辑 .env 填入你的 API 密钥和模型偏好
+    ```
+
+3.  **安装依赖:**
     ```bash
     uv sync
     ```
-4.  **运行项目:**
-    ```bash
-    adk web
+
+4.  **运行一个问题:**
+    ```python
+    import asyncio
+    from dialectic import create_engine
+
+    async def main():
+        engine = create_engine("设计一个可持续的城市交通系统")
+        result = await engine.run()
+        print(result["final_answer"])
+
+    asyncio.run(main())
     ```
 
-**所需环境变量 (在 `multi_tool_agent/.env` 文件中定义):**
+## 配置
 
-*   **LLM 配置:**
-    *   `PLANNER_MODEL_CONFIG`, `RESEARCHER_MODEL_CONFIG`, `ANALYZER_MODEL_CONFIG`, `CRITIC_MODEL_CONFIG`, `SYNTHESIZER_MODEL_CONFIG`, `COORDINATOR_MODEL_CONFIG`: 为每个代理指定模型（例如，`google:gemini-2.0-flash`, `openrouter:google/gemini-2.5-pro`, `openai:gpt-4o`）。详见 `agent.py` 中的 `_configure_llm_models`。
-*   **API 密钥/凭证:**
-    *   `GOOGLE_API_KEY`: 如果使用 Google AI Studio 模型，则需要。
-    *   `GOOGLE_GENAI_USE_VERTEXAI=true`: 如果使用 Vertex AI，则设置此项以及 `GOOGLE_CLOUD_PROJECT` 和 `GOOGLE_CLOUD_LOCATION`。
-    *   `OPENROUTER_API_KEY`: 如果使用 OpenRouter 模型，则需要。
-    *   `OPENAI_API_KEY` 和 `OPENAI_API_BASE`: 如果通过 LiteLLM 使用 OpenAI 或兼容模型，则需要。
-*   **可选的速率限制 (针对 Google AI Studio 免费套餐):**
-    *   `USE_FREE_TIER_RATE_LIMITING=true`: 设置为启用调用之间的延迟。
-    *   `FREE_TIER_SLEEP_SECONDS=2.0`: 调整延迟时间（默认为 2 秒）。
+### 环境变量
+
+**模型配置：**
+```bash
+# 所有代理的默认模型
+DEFAULT_MODEL_CONFIG=google:gemini-3.5-flash
+
+# 角色特定覆盖（可选）
+GENERATOR_MODEL_CONFIG=google:gemini-3.1-pro
+DISCRIMINATOR_MODEL_CONFIG=google:gemini-3.1-pro
+SYNTHESIZER_MODEL_CONFIG=google:gemini-3.1-pro
+```
+
+**支持的提供商：**
+- `google:gemini-3.5-flash`（Google AI Studio）
+- `openrouter:anthropic/claude-3.5-sonnet`（OpenRouter）
+- `openai:gpt-4o`（OpenAI）
+
+**API 凭证：**
+```bash
+# Google AI Studio
+GOOGLE_API_KEY=your-key-here
+
+# 或 Vertex AI
+GOOGLE_GENAI_USE_VERTEXAI=true
+GOOGLE_CLOUD_PROJECT=your-project
+GOOGLE_CLOUD_LOCATION=us-central1
+
+# OpenRouter
+OPENROUTER_API_KEY=sk-or-...
+
+# OpenAI
+OPENAI_API_KEY=sk-...
+OPENAI_API_BASE=https://api.openai.com/v1
+```
+
+### 引擎参数
+
+```python
+engine = create_engine(
+    problem="你的问题陈述",
+    max_depth=4,              # 最大树深度
+    beam_width=3,             # 每次迭代的活跃路径数
+    max_gan_rounds=3,         # 最大对抗优化轮次
+    score_threshold=7.0,      # 继续的最低分数
+    synthesizer_model=None,   # 可选的模型覆盖
+)
+```
+
+## 使用示例
+
+### 基本使用
+
+```python
+from dialectic import create_engine
+
+# 创建引擎
+engine = create_engine(
+    "设计一个可持续的城市交通系统"
+)
+
+# 运行工作流
+result = await engine.run()
+
+# 访问结果
+print(result["final_answer"])
+print(f"生成了 {len(result['thought_tree'])} 个思维")
+print(f"最佳路径: {result['best_path']}")
+```
+
+### 查看结果
+
+`run()` 返回答案以及完整的搜索轨迹：
+
+```python
+result = await engine.run()
+result["final_answer"]   # 综合后的答案
+result["best_path"]      # 从根到最高分思维的节点 id
+result["thought_tree"]   # 所有节点，含分数与每轮 GAN 历史
+result["stats"]          # total_thoughts, max_depth_reached, duration_seconds
+```
+
+### 自定义配置
+
+```python
+engine = create_engine(
+    problem="优化供应链物流",
+    max_depth=5,
+    beam_width=5,
+    max_gan_rounds=4,
+    score_threshold=8.0,
+    synthesizer_model="google:gemini-3.1-pro",
+)
+```
+
+## 项目结构
+
+```
+dialectic/
+├── __init__.py           # 公共 API 导出
+├── agent.py              # 组合根：create_engine() 装配默认实现
+├── coordinator.py        # 搜索引擎 —— 编排可插拔的各阶段
+├── protocols.py          # 阶段接口：Generator/Evaluator/Selector/Synthesizer
+├── generation.py         # LlmGenerator（默认 Generator）+ 列表解析
+├── gan_evaluator.py      # AdversarialEvaluator / SinglePassEvaluator（Evaluator）
+├── selection.py          # BeamSearch / GreedySearch（Selector）
+├── synthesis.py          # LlmSynthesizer（默认 Synthesizer）
+├── agent_runtime.py      # 唯一的 LLM 调用入口（run_agent）
+├── agent_factory.py      # 动态代理创建（角色模板）
+├── models.py             # ThoughtData, DiscriminatorVerdict, EvaluationResult
+├── llm_config.py         # 模型配置工厂
+├── validation.py         # 思维验证工具
+└── instructions.py       # 指令模板辅助
+tests/
+├── conftest.py           # 加载 .env 供 e2e 跳过判断
+├── helpers.py            # 确定性的 mock LLM 替身
+├── test_models.py        # schema / verdict 单元测试
+├── test_generation.py    # 列表解析 + 生成器提示路由
+├── test_gan_evaluator.py # GAN 循环 + 单遍评估器（mock LLM）
+├── test_coordinator.py   # 引擎控制流（注入 fake 阶段）
+├── test_default_pipeline.py  # 默认组合集成（mock LLM）
+└── test_e2e_live.py      # 真实 Gemini E2E（标记 `e2e`）
+```
+
+## 测试
+
+测试分两层：
+
+- **Mock 测试**（默认）—— 快速、确定、无需 API key。它把 LLM 调用点替换为替身，
+  验证真实的编排逻辑：束搜索、GAN 优化循环、剪枝、综合。
+- **真实 E2E**（`@pytest.mark.e2e`）—— 用真实 Gemini API 跑完整工作流。默认不选中，
+  且在未设置 `GOOGLE_API_KEY`（从 `dialectic/.env` 加载）时自动跳过。
+
+```bash
+uv run pytest          # 仅 mock 测试（秒级，无需 key）
+uv run pytest -m e2e   # 真实 API E2E（较慢，需要 GOOGLE_API_KEY）
+```
+
+## 可插拔架构
+
+`Coordinator` 只负责搜索的**控制流**，每个决策都委托给注入的组件——任何阶段都可以
+替换而不动引擎。也就是说，引擎本身是一个通用的推理工作流，ToT + GAN 只是默认装配。
+
+| 接口 | 职责 | 默认实现 | 可选实现 |
+|------|------|----------|----------|
+| `Generator` | 把节点扩展成候选思维 | `LlmGenerator` | 自定义提示词/agent |
+| `Evaluator` | 给思维打分（可选改进） | `AdversarialEvaluator`（GAN 循环） | `SinglePassEvaluator`（廉价） |
+| `Selector` | 选择下一轮搜索前沿 | `BeamSearch(width)` | `GreedySearch` |
+| `Synthesizer` | 把思维综合成答案 | `LlmSynthesizer` | 自定义 |
+
+`create_engine(...)` 负责装配默认实现。要定制，自己构建组件并直接构造 `Coordinator`：
+
+```python
+from dialectic import Coordinator, BeamSearch, SinglePassEvaluator
+from dialectic.agent import build_default_components
+from dialectic.agent_factory import create_agent
+from dialectic.models import DiscriminatorVerdict
+
+# 从默认实现起步，替换其中一个阶段：
+generator, _evaluator, _selector, synthesizer = build_default_components()
+discriminator = create_agent(
+    role="Discriminator", role_name="Discriminator", output_schema=DiscriminatorVerdict
+)
+
+engine = Coordinator(
+    problem="...",
+    generator=generator,
+    evaluator=SinglePassEvaluator(discriminator),   # 更便宜：不跑改进循环
+    selector=BeamSearch(width=5),                    # 更宽的前沿
+    synthesizer=synthesizer,
+    max_depth=3,
+    score_threshold=7.0,
+)
+result = await engine.run()
+```
+
+接口都是 `typing.Protocol`（结构化类型，无需继承），任何实现了对应方法的对象都行——
+比如一个非 LLM 的启发式 `Evaluator`，或一个保持前沿多样性而非纯 top-k 的 `Selector`。
+
+## 关键组件
+
+### Coordinator
+按阶段接口编排三阶段工作流：
+- 初始化 → 探索 → 综合
+- 管理思维树和活跃束
+- 把生成、打分、选择、综合委托给注入的组件
+
+### AgentFactory
+从角色模板创建代理：
+- 标准化系统提示
+- 每角色的工具配置
+- 每角色的模型配置
+- 运行时代理实例化
+
+### AdversarialEvaluator
+实现 GAN 风格评估：
+- Generator 提出/改进思维
+- Discriminator 通过反馈进行批判
+- 迭代优化循环
+- 结构化评估结果
+
+### ThoughtData 模型
+验证思维结构：
+- 必需字段（id, parent_id, depth, content）
+- 可选评估数据
+- GAN 轮次跟踪
+- 评估历史
+
+## 迁移到 v0.3
+
+v0.3 把项目更名为 **Dialectic**，并把单体 coordinator 改造成可插拔引擎。旧的公共名称仍作为别名可用。
+
+| 旧 | 新 |
+|----|----|
+| 包 `multi_tool_agent` | 包 `dialectic` |
+| `create_engine(...)` | `create_engine(...)`（旧名保留别名） |
+| `Coordinator` | `Engine`（旧名保留别名） |
+| `coordinator.run(invocation_context)` | `engine.run()`（无参数） |
+| `adk web` | 编程式运行：`await create_engine(...).run()` |
+
+```python
+# 旧
+from multi_tool_agent import create_engine
+result = await create_engine("...").run(ctx)
+
+# 新
+from dialectic import create_engine
+result = await create_engine("...").run()
+```
+
+定制现在是一等公民——自己构建各阶段并注入（见 [可插拔架构](#可插拔架构)）。对使用默认管线的调用方而言，唯一的破坏性变更就是把导入路径 `multi_tool_agent` 改成 `dialectic`。
+
+## 性能考虑
+
+**Token 消耗：**
+- GAN 评估：每个思维 2-6 次 LLM 调用（取决于轮次）；策略也会评分
+- 束搜索：约 beam_width × max_depth 次迭代
+- 典型问题：数十到上百个思维，数百次 LLM 调用
+
+**优化策略：**
+- 将 `max_gan_rounds` 降到 1-2 加快执行
+- 提高 `score_threshold` 剪得更狠；降低则探索更多路径
+- 收窄 beam（`beam_width`）或用 `GreedySearch` 减少扇出
+- Generator 用轻量模型、Discriminator 用更强模型
+- 换成 `SinglePassEvaluator` 完全跳过改进循环
+
+## 故障排除
+
+### 导入错误
+```bash
+# 确保 Python 3.11+
+python --version
+
+# 重新安装依赖
+rm -rf .venv
+uv sync
+```
+
+### ADK 版本不匹配
+```bash
+# 检查安装的版本
+uv pip show google-adk
+
+# 应显示 2.1.0 或更高
+```
+
+### API 密钥问题
+```bash
+# 测试 Google AI Studio
+export GOOGLE_API_KEY=your-key
+uv run python -c "from dialectic import create_engine; print('OK')"
+```
+
+## 贡献
+
+欢迎贡献！感兴趣的领域：
+- 新的阶段实现（`Generator` / `Evaluator` / `Selector` / `Synthesizer`）
+- 替代的搜索/选择策略（如保持多样性的前沿）
+- 性能优化
+- 文档改进
+- 测试覆盖率
+
+## 许可证
+
+[你的许可证信息]
+
+## 参考资料
+
+- [karpathy/autoresearch](https://github.com/karpathy/autoresearch) —— 提议 → 评估 → 保留最优 循环
+- [Google ADK 文档](https://google.github.io/adk-docs/)
+- [思维树论文](https://arxiv.org/abs/2305.10601)
+
+## 致谢
+
+基于 [Google ADK](https://github.com/google/adk-python) 构建，灵感来自思维树研究、[karpathy/autoresearch](https://github.com/karpathy/autoresearch) 的自主保留最优循环，以及 Claude Code 的可组合 workflows。

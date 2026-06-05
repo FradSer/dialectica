@@ -1,12 +1,28 @@
 [project]
-name = "adk-mas-sequential-thinking"
-version = "0.1.0"
-description = "A multi-agent system coordinated by a root agent (ToT_Coordinator) that manages a Tree of Thoughts (ToT) using an LLM-driven evaluation process to explore potential solutions for complex problems."
+name = "dialectic"
+version = "0.3.0"
+description = "An adversarial reasoning engine: a pluggable tree-search workflow where thoughts are generated, adversarially evaluated, and synthesized (thesis -> antithesis -> synthesis)."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
-    "google-adk>=1.0.0",
+    "google-adk>=2.0.0",
     "litellm>=1.66.0",
     "pydantic>=2.11.3",
-    "python-dotenv>=1.1.0",
+    "python-dotenv>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+asyncio_mode = "auto"
+# Skip the live-API E2E test by default; opt in with `uv run pytest -m e2e`.
+addopts = "-m 'not e2e'"
+markers = [
+    "e2e: end-to-end test that calls the real Gemini API (requires GOOGLE_API_KEY)",
 ]
