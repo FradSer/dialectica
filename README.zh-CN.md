@@ -28,7 +28,7 @@ async def main():
 asyncio.run(main())
 ```
 
-库从 `os.environ` 读取配置，**不会**自己加载 `.env`。如果是想开发 Dialectica 本身，见 [安装与使用](#安装与使用)。
+库从 `os.environ` 读取配置，**不会**自己加载 `.env`。如果是想开发 Dialectica 本身，见 [本地开发](#本地开发)。
 
 ## 核心特性
 
@@ -118,38 +118,18 @@ graph TD
 > **警告：高 Token 消耗**
 > GAN 对抗评估每个思维需要 2-6 次 LLM 调用。典型问题（50-200 个思维）可能需要 200-800 次 LLM 调用。请密切关注您的使用量和相关成本。
 
-## 安装与使用
+## 本地开发
 
-1.  **克隆仓库:**
-    ```bash
-    git clone https://github.com/FradSer/dialectica
-    cd dialectica
-    ```
+仅当你想开发 Dialectica 本身时需要（只是*使用*它的话见 [安装](#安装)）：
 
-2.  **设置环境变量:**
-    ```bash
-    cd dialectica
-    cp .env.example .env
-    # 编辑 .env 填入你的 API 密钥和模型偏好
-    ```
+```bash
+git clone https://github.com/FradSer/dialectica
+cd dialectica
+uv sync
+cp dialectica/.env.example dialectica/.env   # 填入 GOOGLE_API_KEY 以跑 live e2e 测试
+```
 
-3.  **安装依赖:**
-    ```bash
-    uv sync
-    ```
-
-4.  **运行一个问题:**
-    ```python
-    import asyncio
-    from dialectica import create_engine
-
-    async def main():
-        engine = create_engine("设计一个可持续的城市交通系统")
-        result = await engine.run()
-        print(result["final_answer"])
-
-    asyncio.run(main())
-    ```
+然后跑测试 —— 见 [测试](#测试)。
 
 ## 配置
 
@@ -359,30 +339,6 @@ result = await engine.run()
 - 可选评估数据
 - GAN 轮次跟踪
 - 评估历史
-
-## 迁移到 v0.3
-
-v0.3 把项目更名为 **Dialectica**，并把单体 coordinator 改造成可插拔引擎。旧的公共名称仍作为别名可用。
-
-| 旧 | 新 |
-|----|----|
-| 包 `multi_tool_agent` | 包 `dialectica` |
-| `create_engine(...)` | `create_engine(...)`（旧名保留别名） |
-| `Coordinator` | `Engine`（旧名保留别名） |
-| `coordinator.run(invocation_context)` | `engine.run()`（无参数） |
-| `adk web` | 编程式运行：`await create_engine(...).run()` |
-
-```python
-# 旧
-from multi_tool_agent import create_engine
-result = await create_engine("...").run(ctx)
-
-# 新
-from dialectica import create_engine
-result = await create_engine("...").run()
-```
-
-定制现在是一等公民——自己构建各阶段并注入（见 [可插拔架构](#可插拔架构)）。对使用默认管线的调用方而言，唯一的破坏性变更就是把导入路径 `multi_tool_agent` 改成 `dialectica`。
 
 ## 性能考虑
 

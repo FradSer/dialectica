@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.1-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20Adversarial-purple.svg)]()
 
-English | [简体中文](README.zh-CN.md)
+English | [简体中文](https://github.com/FradSer/dialectica/blob/main/README.zh-CN.md)
 
 **Dialectica** is a pluggable adversarial reasoning engine. It searches a tree of "thoughts" where each thought is generated, adversarially evaluated and iteratively refined, then synthesized into an answer — *thesis → antithesis → synthesis* (Generator → Discriminator → Synthesizer). Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch)'s propose→evaluate→keep-best loop and Claude Code's composable workflows, every stage is a swappable component; the default wiring is Tree-of-Thoughts + a GAN-style evaluation loop on Google ADK 2.1.
 
@@ -29,7 +29,7 @@ asyncio.run(main())
 ```
 
 The library reads configuration from `os.environ` and does **not** load `.env`
-itself. To work on Dialectica instead, see [Setup and Usage](#setup-and-usage).
+itself. To work on Dialectica instead, see [Development](#development).
 
 ## Key Features
 
@@ -117,38 +117,18 @@ Exploration stops when the beam empties or `max_depth` is reached.
 - `Synthesizer.synthesize(...)` takes the top-scoring evaluated thoughts
 - Produces a coherent, comprehensive final answer
 
-## Setup and Usage
+## Development
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/FradSer/dialectica
-   cd dialectica
-   ```
+To work on Dialectica itself (not needed just to *use* it — see [Install](#install)):
 
-2. **Set up environment variables:**
-   ```bash
-   cd dialectica
-   cp .env.example .env
-   # Edit .env with your API keys and model preferences
-   ```
+```bash
+git clone https://github.com/FradSer/dialectica
+cd dialectica
+uv sync
+cp dialectica/.env.example dialectica/.env   # add GOOGLE_API_KEY for the live e2e test
+```
 
-3. **Install dependencies:**
-   ```bash
-   uv sync
-   ```
-
-4. **Run a problem:**
-   ```python
-   import asyncio
-   from dialectica import create_engine
-
-   async def main():
-       engine = create_engine("Design a sustainable urban transport system")
-       result = await engine.run()
-       print(result["final_answer"])
-
-   asyncio.run(main())
-   ```
+Then run the suite — see [Testing](#testing).
 
 ## Configuration
 
@@ -369,34 +349,6 @@ Validates thought structure:
 - GAN round tracking
 - Evaluation history
 
-## Migration to v0.3
-
-v0.3 renames the project to **Dialectica** and turns the monolithic coordinator
-into a pluggable engine. The old public names still work as aliases.
-
-| Was | Now |
-|-----|-----|
-| package `multi_tool_agent` | package `dialectica` |
-| `create_engine(...)` | `create_engine(...)` *(old name aliased)* |
-| `Coordinator` | `Engine` *(old name aliased)* |
-| `coordinator.run(invocation_context)` | `engine.run()` *(no argument)* |
-| `adk web` | run programmatically: `await create_engine(...).run()` |
-
-```python
-# Old
-from multi_tool_agent import create_engine
-result = await create_engine("...").run(ctx)
-
-# New
-from dialectica import create_engine
-result = await create_engine("...").run()
-```
-
-Customization is now first-class — build the stages and inject them (see
-[Pluggable Architecture](#pluggable-architecture)). Update any import path
-`multi_tool_agent` → `dialectica`; that is the only breaking change for callers
-using the default pipeline.
-
 ## Performance Considerations
 
 **Token Consumption:**
@@ -449,7 +401,7 @@ Contributions welcome! Areas of interest:
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/FradSer/dialectica/blob/main/LICENSE)
 
 ## References
 
