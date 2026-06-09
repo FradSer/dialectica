@@ -1,7 +1,5 @@
 scopes:
-    - name: mta
-      description: core agent logic, specialist definitions, and tool integrations in multi_tool_agent/; does not cover configuration files or project metadata.
     - name: dialectica
-      description: core dialectica engine and pluggable stages in dialectica/; does not cover agent-specific logic or multi_tool_agent/.
+      description: Core engine, agent protocols, and processing stages in dialectica/; does not cover test suites or project-wide configuration
     - name: tests
-      description: automated test suites for all project components in tests/; does not cover source code or build configuration.
+      description: Automated verification and integration test suites in tests/; does not cover application source code or build configuration
