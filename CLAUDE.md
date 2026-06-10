@@ -14,9 +14,11 @@ Dialectica is a pluggable adversarial reasoning engine: Tree-of-Thoughts search 
 
 ## Testing workflow
 
-BDD-driven TDD: new behavior starts with a Gherkin `.feature` scenario (Given/When/Then), then RED test → GREEN code → REFACTOR. When updating tests, update the matching `.feature` first.
+BDD-driven TDD: new behavior starts with a Gherkin scenario in `tests/features/*.feature`, executable via pytest-bdd — step definitions live in `tests/test_*_feature.py` (bound with `scenarios(...)`). Then RED test → GREEN code → REFACTOR. When updating tests, update the matching `.feature` first.
 
-Mock the LLM at the single seam `agent_runtime.run_agent()` — never patch ADK internals or per-stage agents. `asyncio_mode = auto`, so async tests need no decorator. Tests load `dialectica/.env` via `tests/conftest.py`.
+Mock the LLM at the single seam `agent_runtime.run_agent()` — never patch ADK internals or per-stage agents (`tests/helpers.py` has the fakes). `asyncio_mode = auto`, so plain async tests need no decorator; pytest-bdd steps are sync — wrap coroutines with `asyncio.run()`. Tests load `dialectica/.env` via `tests/conftest.py`.
+
+CI (`.github/workflows/test.yml`) runs `ruff format --check`, `ruff check`, and `pytest` on every push/PR; the release workflow runs the same gates.
 
 ## Architecture
 
