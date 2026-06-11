@@ -191,4 +191,113 @@ assert longest(['x', 'y', 'z']) == 'x'
 assert longest(['x', 'yyy', 'zzzz', 'www', 'kkkk', 'abc']) == 'zzzz'
 """,
     ),
+    CodeProblem(
+        id="find-zero",
+        entry_point="find_zero",
+        prompt='''def find_zero(xs: list[float]) -> float:
+    """xs are coefficients of a polynomial:
+    xs[0] + xs[1] * x + xs[2] * x^2 + ...
+    find_zero finds x such that the polynomial evaluates to zero.
+    find_zero returns only one zero point, even if there are many.
+    Moreover, find_zero only takes list xs having an even number of
+    coefficients and the largest non-zero coefficient, as it guarantees a
+    solution.
+    >>> round(find_zero([1, 2]), 2)  # f(x) = 1 + 2x
+    -0.5
+    >>> round(find_zero([-6, 11, -6, 1]), 2)  # (x - 1) * (x - 2) * (x - 3)
+    1.0
+    """
+''',
+        tests="""def _poly(xs, x):
+    return sum(c * x**i for i, c in enumerate(xs))
+
+assert abs(_poly([-6, 1], find_zero([-6, 1]))) < 1e-3
+assert abs(_poly([1, 2], find_zero([1, 2]))) < 1e-3
+assert abs(_poly([-6, 11, -6, 1], find_zero([-6, 11, -6, 1]))) < 1e-3
+assert abs(_poly([-24, 26, -9, 1], find_zero([-24, 26, -9, 1]))) < 1e-3
+""",
+    ),
+    CodeProblem(
+        id="min-path",
+        entry_point="minPath",
+        prompt='''def minPath(grid: list[list[int]], k: int) -> list[int]:
+    """Given a grid with N rows and N columns (N >= 2) and a positive integer
+    k, each cell of the grid contains a value. Every integer in the range
+    [1, N * N] inclusive appears exactly once on the cells of the grid.
+
+    You have to find the minimum path of length k in the grid. You can start
+    from any cell, and in each step you can move to any of the neighbor cells
+    sharing an edge with the current cell. You CAN go through cells you have
+    visited before. A path A (of length k) is considered less than a path B
+    (of length k) if, after listing the values on the cells that A and B go
+    through, the lexicographically smaller list wins. The answer is unique.
+
+    Return an ordered list of the values on the cells that the minimum path
+    goes through.
+    >>> minPath([[1, 2, 3], [4, 5, 6], [7, 8, 9]], 3)
+    [1, 2, 1]
+    >>> minPath([[5, 9, 3], [4, 1, 6], [7, 8, 2]], 1)
+    [1]
+    """
+''',
+        tests="""assert minPath([[1, 2, 3], [4, 5, 6], [7, 8, 9]], 3) == [1, 2, 1]
+assert minPath([[5, 9, 3], [4, 1, 6], [7, 8, 2]], 1) == [1]
+assert minPath([[2, 1], [3, 4]], 4) == [1, 2, 1, 2]
+assert minPath([[6, 4, 13, 10], [5, 7, 12, 1], [3, 16, 11, 15], [8, 14, 9, 2]], 5) == [1, 10, 1, 10, 1]
+""",
+    ),
+    CodeProblem(
+        id="do-algebra",
+        entry_point="do_algebra",
+        prompt='''def do_algebra(operator: list[str], operand: list[int]) -> int:
+    """Given two lists operator and operand. The first list has basic algebra
+    operations, and the second list is a list of integers. Use the two given
+    lists to build the algebraic expression and return its evaluation.
+
+    The basic algebra operations: Addition ( + ), Subtraction ( - ),
+    Multiplication ( * ), Floor division ( // ), Exponentiation ( ** ).
+
+    Example:
+    operator = ['+', '*', '-'], operand = [2, 3, 4, 5]
+    => expression = 2 + 3 * 4 - 5 => result = 9
+
+    Note: the length of operator list is equal to the length of operand list
+    minus one. Operands are non-negative integers; operator list has at least
+    one operator. Standard precedence applies.
+    """
+''',
+        tests="""assert do_algebra(['+', '*', '-'], [2, 3, 4, 5]) == 9
+assert do_algebra(['//', '*'], [7, 3, 4]) == 8
+assert do_algebra(['**', '*', '+'], [2, 3, 4, 5]) == 37
+assert do_algebra(['+', '*', '-', '//'], [2, 3, 4, 5, 2]) == 12
+""",
+    ),
+    CodeProblem(
+        id="max-fill",
+        entry_point="max_fill",
+        prompt='''def max_fill(grid: list[list[int]], capacity: int) -> int:
+    """You are given a rectangular grid of wells. Each row represents a single
+    well, and each 1 in a row represents a single unit of water. Each well has
+    a corresponding bucket that can be used to extract water from it, and all
+    buckets have the same capacity. Your task is to use the buckets to empty
+    the wells. Output the number of times you need to lower the buckets.
+
+    Example 1:
+        grid = [[0,0,1,0], [0,1,0,0], [1,1,1,1]], capacity = 1
+        => 6
+    Example 2:
+        grid = [[0,0,1,1], [0,0,0,0], [1,1,1,1], [0,1,1,1]], capacity = 2
+        => 5
+    Example 3:
+        grid = [[0,0,0], [0,0,0]], capacity = 5
+        => 0
+    """
+''',
+        tests="""assert max_fill([[0, 0, 1, 0], [0, 1, 0, 0], [1, 1, 1, 1]], 1) == 6
+assert max_fill([[0, 0, 1, 1], [0, 0, 0, 0], [1, 1, 1, 1], [0, 1, 1, 1]], 2) == 5
+assert max_fill([[0, 0, 0], [0, 0, 0]], 5) == 0
+assert max_fill([[1, 1, 1, 1], [1, 1, 1, 1]], 2) == 4
+assert max_fill([[1, 1, 1, 1], [1, 1, 1, 1]], 9) == 2
+""",
+    ),
 ]
