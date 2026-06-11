@@ -118,6 +118,25 @@ graph TD
 > **警告：高 Token 消耗**
 > GAN 对抗评估每个思维需要 2-6 次 LLM 调用。典型问题（50-200 个思维）可能需要 200-800 次 LLM 调用。请密切关注您的使用量和相关成本。
 
+## 与思维树论文的对应关系
+
+默认装配与 [Yao et al. 2023](https://arxiv.org/abs/2305.10601) 框架的映射：
+
+| ToT 论文概念 | Dialectica |
+|--------------|------------|
+| 思维分解（thought decomposition） | 通用两级提示词：根 → 策略、节点 → 下一步（`generation.py` 模板）——非论文中的按任务定制 |
+| 思维生成器 `G(p, s, k)` —— **propose** | `LlmGenerator`：单次调用提出 k 个不同候选（受 `max_items` 上限约束） |
+| 思维生成器 —— **sample**（k 次独立 CoT 采样） | 未内置；可通过自定义 `Generator` 插入 |
+| 状态评估器 `V(p, S)` —— **value**（独立标量打分） | Discriminator 的 0-10 结构化裁决 |
+| 状态评估器 —— **vote**（比较式投票） | 未内置；可通过自定义 `Evaluator`/`Selector` 插入 |
+| ToT-BFS（广度上限 `b`） | `BeamSearch(width=b)`；`GreedySearch` 即 `b=1` |
+| DFS 剪枝阈值 `v_th` | `score_threshold`（低于阈值的子节点被剪掉） |
+| DFS + **回溯**（backtracking） | 未实现——beam 清空即停止探索，不会回访父节点 |
+| 评估器 **lookahead** 前瞻模拟 | 未实现（提示词层面的缺口） |
+
+超出论文的刻意扩展：评估器会*改写*思维（GAN 保留最优循环——论文的评估器
+从不修改状态）；最终由 `Synthesizer` 跨分支整合高分思维（论文输出最佳路径）。
+
 ## 本地开发
 
 仅当你想开发 Dialectica 本身时需要（只是*使用*它的话见 [安装](#安装)）：
@@ -253,7 +272,15 @@ tests/
 ├── test_gan_evaluator.py # GAN 循环 + 单遍评估器（mock LLM）
 ├── test_coordinator.py   # 引擎控制流（注入 fake 阶段）
 ├── test_default_pipeline.py  # 默认组合集成（mock LLM）
-└── test_e2e_live.py      # 真实 Gemini E2E（标记 `e2e`）
+├── test_eval_harness.py  # 评测工具单元测试（裁决规范化、计数、报告）
+├── test_e2e_live.py      # 真实 Gemini E2E（标记 `e2e`）
+└── test_eval_live.py     # 真实 Gemini 评测工具 E2E（标记 `e2e`）
+evals/                     # 评测工具（开发工具，不随包发布）
+├── problems.py            # 基准问题集
+├── baseline.py            # 单次调用基线（对照组）
+├── judge.py               # 盲评裁判（换位双评消除位置偏差）
+├── harness.py             # 编排、调用计数、报告渲染
+└── __main__.py            # CLI：uv run python -m evals
 ```
 
 ## 测试
@@ -286,31 +313,39 @@ uv run python -m evals --limit 2 --json out.json
 
 ### 实验结果（2026-06）
 
-5 道基准题 × 3 轮（裁判统一为 `gemini-3.5-flash` 盲评；引擎配置
-`max_depth=2, beam_width=2, max_gan_rounds=2`）：
+5 道基准题 × 两轮完整矩阵（裁判统一为 `gemini-3.5-flash` 盲评换位双评；引擎配置
+`max_depth=2, beam_width=2, max_gan_rounds=2`）。V1 与 V2 之间只改了一处：
+Discriminator 评分标准中的 **"Innovation"（创新性）** 替换为 **"Feasibility
+under stated constraints"（给定约束下的可行性）**——V2 因此构成一次对照实验，
+检验对抗评分标准如何引导答案。表中单元格为 V1 → V2：
 
 | 问题 | 引擎(flash) vs flash | 引擎(flash) vs **pro** | 引擎(qwen) vs qwen |
 |------|------|------|------|
-| cloud-costs | 平 | 引擎 | 引擎 |
-| api-versioning | 引擎 | 引擎 | 基线 |
-| flaky-tests | 引擎 | 引擎 | 引擎 |
-| meeting-overload | 平 | 基线 | 基线 |
-| urban-transport | 基线 | 基线 | 平 |
-| **合计（胜-负-平）** | **2-1-2** | **3-2-0** | **2-2-1** |
+| cloud-costs | 平 → 引擎 | 引擎 → 引擎 | 引擎 → 基线 |
+| api-versioning | 引擎 → 引擎 | 引擎 → 引擎 | 基线 → 引擎 |
+| flaky-tests | 引擎 → 引擎 | 引擎 → 引擎 | 引擎 → 引擎 |
+| meeting-overload | 平 → 基线 | 基线 → 引擎 | 基线 → 基线 |
+| urban-transport | 基线 → 引擎 | 基线 → 基线 | 平 → 引擎 |
+| **合计（胜-负-平）** | **2-1-2 → 4-1-0** | **3-2-0 → 4-1-0** | **2-2-1 → 3-2-0** |
 
 pro = 单次 `gemini-3.1-pro-preview` 调用；qwen = `qwen3.6-35b-a3b`。
-引擎成本约为基线的 20 倍调用（Gemini）/ 32 倍（Qwen）。
+引擎成本约为基线的 20 倍调用（Gemini）/ 30 倍（Qwen）。
 
-15 场对比（总计 7-5-3）的结论：
+30 场对比的结论：
 
-- **技术/工程类问题引擎稳赢**（7-1-1）：裁判反复肯定对抗精炼磨出的细节深度
-  （契约测试管线、brownout 的 HTTP 语义、带防博弈护栏的隔离机制）。
-- **组织/社会类问题引擎稳输**（0-4-2）：败因一致为"过度复杂、不切实际"，
-  且跨模型家族复现——指向脚手架（Discriminator 评分标准）而非某个模型。
-- flash 引擎对单次更强的 pro 调用净胜（3-2）：搜索能在技术问题上买回模型档位差。
+- **评分标准是方向盘，不只是过滤器**：换掉一条标准就把总战绩从 7-5-3 推到
+  **11-4-0**。因为 GAN 循环会按批评*改写*思维（不同于纯价值函数），
+  Discriminator 奖励什么，最终答案就长成什么样。
+- **技术/工程类问题引擎稳赢**：V1 为 7-1-1，V2 为 8-1-0。裁判反复肯定
+  对抗精炼磨出的细节深度（契约测试管线、brownout 的 HTTP 语义、
+  锁定财务承诺前的稳定观察期与回滚预案）。
+- **组织/社会类问题从稳输翻为平手**：V1 为 0-4-2（败因一致为"过度复杂、
+  不切实际"，跨模型家族复现），可行性标准落地后 V2 为 3-3-0。
+- flash 引擎对单次更强的 pro 调用净胜 **4-1**：搜索能买回模型档位差，
+  代价约 20 倍调用。
 
-实践建议：把 Dialectica 当作**技术方案深化引擎**使用。完整报告（含全部答案
-与裁决理由）运行后生成于 `evals/results/`。
+注意：每格单 seed、flash 裁判——结论是方向性的，非定论。完整报告
+（含全部答案与裁决理由）运行后生成于 `evals/results/`。
 
 ## 可插拔架构
 

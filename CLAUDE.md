@@ -35,7 +35,7 @@ All public stage methods are `async`.
 
 Top-level `evals/` is the eval harness (dev tool, not shipped in the wheel): each benchmark problem (`problems.py`) is solved by the engine and by a single-call baseline (`baseline.py`), then a blind judge (`judge.py`) compares both answers twice with swapped positions — disagreement is a tie. `harness.py` counts LLM calls through the `run_agent` seam and renders the report. Model overrides: `BASELINE_MODEL_CONFIG` / `JUDGE_MODEL_CONFIG`.
 
-Eval findings (2026-06, 3 runs × 5 problems, see README "Results"): the engine wins technical/engineering problems 7-1-1 but loses organizational/social ones 0-4-2, consistently judged "over-complex" — the pattern reproduces across Gemini and Qwen, implicating the Discriminator's criteria (the "Innovation" axis) rather than any model. Engine cost ≈ 20-32× baseline calls. Reports land in `evals/results/` (gitignored).
+Eval findings (2026-06, two 3-run × 5-problem matrices, see README "Results"): with the original "Innovation" discriminator criterion (V1) the engine won technical problems 7-1-1 but lost organizational ones 0-4-2 ("over-complex"), reproducing across Gemini and Qwen. Replacing "Innovation" with "Feasibility under stated constraints" (V2) moved the overall record 7-5-3 → 11-4-0 (technical 8-1-0, organizational 3-3-0; flash engine beats a single pro call 4-1). Key insight: because the GAN loop refines thoughts against the critique, discriminator criteria steer answer content, not just selection. Engine cost ≈ 20-30× baseline calls. Reports land in `evals/results/` (gitignored).
 
 ## Gotchas
 

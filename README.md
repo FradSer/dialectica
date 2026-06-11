@@ -117,6 +117,27 @@ Exploration stops when the beam empties or `max_depth` is reached.
 - `Synthesizer.synthesize(...)` takes the top-scoring evaluated thoughts
 - Produces a coherent, comprehensive final answer
 
+## Relation to the Tree of Thoughts paper
+
+How the default wiring maps onto [Yao et al. 2023](https://arxiv.org/abs/2305.10601):
+
+| ToT paper concept | Dialectica |
+|-------------------|------------|
+| Thought decomposition | Generic two-level prompts: root → strategies, node → next steps (`generation.py` templates) — not per-task like the paper's |
+| Thought generator `G(p, s, k)` — **propose** | `LlmGenerator`: one call proposes k distinct candidates (capped by `max_items`) |
+| Thought generator — **sample** (k i.i.d. CoT samples) | Not built in; pluggable via a custom `Generator` |
+| State evaluator `V(p, S)` — **value** (independent scalar) | The Discriminator's 0-10 structured verdict |
+| State evaluator — **vote** (comparative) | Not built in; pluggable via a custom `Evaluator`/`Selector` |
+| ToT-BFS with breadth limit `b` | `BeamSearch(width=b)`; `GreedySearch` is `b=1` |
+| DFS pruning threshold `v_th` | `score_threshold` (children below it are pruned) |
+| DFS + **backtracking** | Not implemented — when the beam empties, exploration stops instead of revisiting parents |
+| Evaluator **lookahead** simulation | Not implemented (prompt-level gap) |
+
+Deliberate extensions beyond the paper: the evaluator *refines* thoughts (the
+GAN keep-best loop — the paper's evaluator never mutates state), and a final
+`Synthesizer` integrates top thoughts across branches (the paper outputs the
+best path).
+
 ## Development
 
 To work on Dialectica itself (not needed just to *use* it — see [Install](#install)):
@@ -305,40 +326,47 @@ Model overrides via env: `BASELINE_MODEL_CONFIG` and `JUDGE_MODEL_CONFIG`
 
 ### Results (2026-06)
 
-Three runs on the 5 default benchmark problems, all judged blind by
+Two full matrix runs on the 5 default benchmark problems, all judged blind by
 `gemini-3.5-flash` with position-swap bias control (engine config:
-`max_depth=2, beam_width=2, max_gan_rounds=2, threshold=7.0`):
+`max_depth=2, beam_width=2, max_gan_rounds=2, threshold=7.0`). Between V1 and
+V2 exactly one thing changed: the discriminator's **"Innovation"** criterion
+was replaced with **"Feasibility under stated constraints"** — making V2 a
+controlled test of how the adversarial criteria steer answers. Cells read
+V1 → V2:
 
 | Problem | engine(flash) vs flash | engine(flash) vs **pro** | engine(qwen) vs qwen |
 |---------|------------------------|--------------------------|----------------------|
-| cloud-costs | tie | engine | engine |
-| api-versioning | engine | engine | baseline |
-| flaky-tests | engine | engine | engine |
-| meeting-overload | tie | baseline | baseline |
-| urban-transport | baseline | baseline | tie |
-| **Total (W-L-T)** | **2-1-2** | **3-2-0** | **2-2-1** |
+| cloud-costs | tie → engine | engine → engine | engine → baseline |
+| api-versioning | engine → engine | engine → engine | baseline → engine |
+| flaky-tests | engine → engine | engine → engine | engine → engine |
+| meeting-overload | tie → baseline | baseline → engine | baseline → baseline |
+| urban-transport | baseline → engine | baseline → baseline | tie → engine |
+| **Total (W-L-T)** | **2-1-2 → 4-1-0** | **3-2-0 → 4-1-0** | **2-2-1 → 3-2-0** |
 
 flash = `gemini-3.5-flash` · pro = `gemini-3.1-pro-preview` (single call) ·
 qwen = `qwen3.6-35b-a3b`. Engine cost: ~20× LLM calls vs the baseline's 1 on
-Gemini, ~32× on Qwen (a stricter discriminator triggers more GAN rounds).
+Gemini, ~30× on Qwen (a stricter discriminator triggers more GAN rounds).
 
-What the 15 comparisons (7-5-3 overall) say:
+What the 30 comparisons say:
 
-- **The engine reliably wins on technical/engineering problems** — 7-1-1
-  across cloud costs, API versioning, and flaky-test remediation. Judges
-  repeatedly credited refinement-produced depth: contract-testing pipelines,
-  correct HTTP semantics for brownouts (503 vs 410), quarantine engines with
-  anti-gaming guardrails.
-- **It loses on organizational/social problems** — 0-4-2 on meeting overload
-  and urban transport, consistently judged "over-complex, impractical". The
-  pattern reproduces across model families, implicating the scaffold (the
-  discriminator's criteria) rather than any one model.
-- A flash engine beats a single stronger pro call 3-2 — search can buy back
-  model-tier quality on technical problems, at ~20× the calls.
+- **The criteria are a steering knob, not just a filter.** Swapping one
+  evaluation criterion moved the overall record from 7-5-3 to **11-4-0**.
+  Because the GAN loop *refines* thoughts against the critique (unlike a pure
+  value function), whatever the discriminator rewards gets written into the
+  final answer.
+- **Technical/engineering problems: the engine wins reliably** — 7-1-1 in V1,
+  8-1-0 in V2. Judges credit refinement-produced depth: contract-testing
+  pipelines, correct HTTP semantics for brownouts (503 vs 410), rollback
+  procedures and stabilization windows before financial commitments.
+- **Organizational/social problems flipped from losing to parity** — 0-4-2 in
+  V1 (consistently judged "over-complex, impractical", across both model
+  families) to 3-3-0 in V2 after the feasibility criterion landed.
+- A flash engine beats a single stronger **pro** call 4-1 — search can buy
+  back model-tier quality, at ~20× the calls.
 
-Practical takeaway: Dialectica is best used as a **technical-decision
-deepener**. The full reports (answers + judge reasoning) land in
-`evals/results/` when you run the harness.
+Caveats: one seed per cell and a flash judge — directional, not definitive.
+Full reports (answers + judge reasoning) land in `evals/results/` when you
+run the harness.
 
 ## Pluggable Architecture
 
