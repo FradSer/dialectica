@@ -375,7 +375,17 @@ What the 30 comparisons say:
 - A flash engine beats a single stronger **pro** call 4-1 — search can buy
   back model-tier quality, at ~20× the calls.
 
-Caveats: one seed per cell and a flash judge — directional, not definitive.
+A second seed of the V2 configuration (V3, run after hardening the engine
+with concurrent sibling evaluation and verdict retry) scored 2-2-1 / 3-2-0 /
+4-0-1. Pooled across both seeds, the feasibility criteria go **20-8-2**
+(technical 15-2-1, organizational 5-6-1). Concurrency cut the engine's
+wall-clock 2-3×: 64-108 s/problem on Gemini (vs 143-228 s sequential),
+272-314 s on Qwen (vs 533-915 s) — at unchanged call counts. The Qwen
+backend transiently returns empty verdicts ~7-10% of the time; verdict
+retry healed all of them (5/5 in V3) where the sequential runs had silently
+scored them 0.
+
+Caveats: a flash judge and small samples — directional, not definitive.
 Full reports (answers + judge reasoning) land in `evals/results/` when you
 run the harness.
 
