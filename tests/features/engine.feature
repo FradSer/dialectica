@@ -17,3 +17,10 @@ Feature: Tree-of-Thoughts engine
     When the engine runs
     Then the beam is empty
     And the final answer is "FINAL SYNTHESIZED ANSWER"
+
+  Scenario: Sibling thoughts are evaluated concurrently
+    Given the default pipeline with max depth 2 and beam width 2
+    And every thought is scored 8.0
+    When the engine runs with a concurrency probe
+    Then at least 2 LLM calls were in flight simultaneously
+    And the tree contains 10 thoughts

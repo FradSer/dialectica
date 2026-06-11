@@ -38,6 +38,37 @@ def run_engine(coordinator, fake_llm):
         return asyncio.run(coordinator.run())
 
 
+class ConcurrencyProbe:
+    """Wraps a fake LLM and records how many calls overlap in time."""
+
+    def __init__(self, inner):
+        self.inner = inner
+        self.in_flight = 0
+        self.max_in_flight = 0
+
+    async def __call__(self, agent, instruction: str) -> str:
+        self.in_flight += 1
+        self.max_in_flight = max(self.max_in_flight, self.in_flight)
+        try:
+            await asyncio.sleep(0.005)  # let concurrent calls overlap
+            return await self.inner(agent, instruction)
+        finally:
+            self.in_flight -= 1
+
+
+@when("the engine runs with a concurrency probe", target_fixture="result")
+def run_engine_with_probe(coordinator, fake_llm, request):
+    probe = ConcurrencyProbe(fake_llm)
+    request.config._concurrency_probe = probe
+    with patch("dialectica.agent_runtime.run_agent", probe):
+        return asyncio.run(coordinator.run())
+
+
+@then(parsers.parse("at least {n:d} LLM calls were in flight simultaneously"))
+def calls_overlapped(request, n: int):
+    assert request.config._concurrency_probe.max_in_flight >= n
+
+
 @then(parsers.parse('the final answer is "{answer}"'))
 def final_answer_is(result, answer: str):
     assert result["final_answer"] == answer

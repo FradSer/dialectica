@@ -26,12 +26,12 @@ CI (`.github/workflows/test.yml`) runs `ruff format --check`, `ruff check`, and 
 Pluggable workflow — every stage is a `typing.Protocol` in `protocols.py`, swappable without touching the engine:
 
 - `Generator.expand` → propose thoughts · `Evaluator.evaluate` → score & refine · `Selector.select` → choose frontier · `Synthesizer.synthesize` → final answer
-- `coordinator.py` runs the 3 phases: Initialize → Explore (beam-search loop) → Synthesize.
-- `agent.py` is the composition root (`create_engine`, `build_default_components`) — wiring only.
-- `agent_factory.py` builds ADK `LlmAgent`s from `ROLE_TEMPLATES` (role → system prompt). `agent_runtime.run_agent()` is the only place that actually calls the LLM.
-- Defaults: `LlmGenerator`, `AdversarialEvaluator` (GAN refine loop) / `SinglePassEvaluator`, `BeamSearch` / `GreedySearch`, `LlmSynthesizer`.
+- `coordinator.py` runs the 3 phases: Initialize → Explore (beam-search loop) → Synthesize. Sibling expansions/evaluations run concurrently via `asyncio.gather`.
+- `agent.py` is the composition root (`create_engine`, `build_default_components`) — wiring only. Knobs: `score_threshold` (beam admission) vs `gan_score_threshold` (stop-refining bar), and `criteria` (discriminator rubric — steers answer content; default `DEFAULT_EVALUATION_CRITERIA`, feasibility-anchored).
+- `agent_factory.py` builds ADK `LlmAgent`s from `ROLE_TEMPLATES` (Generator/Discriminator/Synthesizer). `agent_runtime.run_agent()` is the only place that actually calls the LLM; it retries transient failures with exponential backoff (`_call_agent_once` is the raw transport — retry tests patch that, everything else patches `run_agent`).
+- Defaults: `LlmGenerator`, `AdversarialEvaluator` (GAN refine loop; aborts after 3 consecutive unparseable verdicts) / `SinglePassEvaluator`, `BeamSearch` / `GreedySearch`, `LlmSynthesizer`.
 
-All public stage methods are `async`.
+All public stage methods are `async`. The library never calls `logging.basicConfig` — the consuming app owns logging setup.
 
 Top-level `evals/` is the eval harness (dev tool, not shipped in the wheel): each benchmark problem (`problems.py`) is solved by the engine and by a single-call baseline (`baseline.py`), then a blind judge (`judge.py`) compares both answers twice with swapped positions — disagreement is a tie. `harness.py` counts LLM calls through the `run_agent` seam and renders the report. Model overrides: `BASELINE_MODEL_CONFIG` / `JUDGE_MODEL_CONFIG`.
 
@@ -41,7 +41,7 @@ Eval findings (2026-06, two 3-run × 5-problem matrices, see README "Results"): 
 
 - The library does **not** load `.env` — consuming apps own that. Only the test suite loads it (`dialectica/.env`).
 - Models: use `gemini-3.5-flash` (default) or `gemini-3.1-pro-preview` only — there is no stable `gemini-3.1-pro` (404 on generateContent). Configure via `provider:model_name` env vars (`DEFAULT_MODEL_CONFIG`, plus optional `GENERATOR_MODEL_CONFIG` / `DISCRIMINATOR_MODEL_CONFIG` / `SYNTHESIZER_MODEL_CONFIG`). Parsed in `llm_config.py`.
-- Env vars: `GOOGLE_API_KEY` for AI Studio, or the Vertex trio (`GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`). See `dialectica/.env.example`.
+- Env vars: `GOOGLE_API_KEY` for AI Studio, or the Vertex trio (`GOOGLE_GENAI_USE_VERTEXAI=true`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`). See `.env.example` (repo root; copy to `dialectica/.env` for the test suite).
 
 ## Style
 

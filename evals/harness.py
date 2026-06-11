@@ -6,8 +6,6 @@ mocked tests intercept it — judge calls are deliberately not counted against
 either contender.
 """
 
-import asyncio
-import logging
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -20,8 +18,6 @@ from dialectica.coordinator import Coordinator
 from .baseline import SingleCallBaseline
 from .judge import BlindJudge
 from .problems import EvalProblem
-
-logger = logging.getLogger(__name__)
 
 
 class CallCounter:
@@ -48,40 +44,6 @@ def count_agent_calls() -> Iterator[CallCounter]:
     agent_runtime.run_agent = counting_run_agent
     try:
         yield counter
-    finally:
-        agent_runtime.run_agent = original
-
-
-@contextmanager
-def retry_agent_calls(max_attempts: int = 3, base_delay: float = 2.0) -> Iterator[None]:
-    """Retry transient ``run_agent`` failures with exponential backoff.
-
-    An eval run is hundreds of sequential LLM calls; without this, a single
-    transient network error or rate limit throws away the whole run. The last
-    failure is re-raised so persistent errors still surface.
-    """
-    original = agent_runtime.run_agent
-
-    async def retrying_run_agent(agent, instruction: str) -> str:
-        for attempt in range(1, max_attempts + 1):
-            try:
-                return await original(agent, instruction)
-            except Exception as e:
-                if attempt == max_attempts:
-                    raise
-                delay = base_delay * 2 ** (attempt - 1)
-                logger.warning(
-                    "Agent call failed (attempt %d/%d), retrying in %.1fs: %s",
-                    attempt,
-                    max_attempts,
-                    delay,
-                    e,
-                )
-                await asyncio.sleep(delay)
-
-    agent_runtime.run_agent = retrying_run_agent
-    try:
-        yield
     finally:
         agent_runtime.run_agent = original
 
@@ -129,39 +91,42 @@ async def run_eval(
     baseline: SingleCallBaseline,
     judge: BlindJudge,
 ) -> EvalReport:
-    """Run every problem through the engine and the baseline, then judge blind."""
+    """Run every problem through the engine and the baseline, then judge blind.
+
+    Transient-failure retry lives in ``agent_runtime.run_agent`` itself, so
+    the harness measures exactly what the library does in production.
+    """
     results: list[ProblemResult] = []
-    with retry_agent_calls():
-        for problem in problems:
-            with count_agent_calls() as engine_counter:
-                engine_start = time.perf_counter()
-                engine_run = await engine_factory(problem.statement).run()
-                engine_seconds = time.perf_counter() - engine_start
-            engine_answer = engine_run["final_answer"]
+    for problem in problems:
+        with count_agent_calls() as engine_counter:
+            engine_start = time.perf_counter()
+            engine_run = await engine_factory(problem.statement).run()
+            engine_seconds = time.perf_counter() - engine_start
+        engine_answer = engine_run["final_answer"]
 
-            with count_agent_calls() as baseline_counter:
-                baseline_start = time.perf_counter()
-                baseline_answer = await baseline.answer(problem.statement)
-                baseline_seconds = time.perf_counter() - baseline_start
+        with count_agent_calls() as baseline_counter:
+            baseline_start = time.perf_counter()
+            baseline_answer = await baseline.answer(problem.statement)
+            baseline_seconds = time.perf_counter() - baseline_start
 
-            comparison = await judge.compare(
-                problem.statement, engine_answer, baseline_answer
+        comparison = await judge.compare(
+            problem.statement, engine_answer, baseline_answer
+        )
+
+        results.append(
+            ProblemResult(
+                problem_id=problem.id,
+                problem=problem.statement,
+                engine_answer=engine_answer,
+                baseline_answer=baseline_answer,
+                engine_calls=engine_counter.count,
+                baseline_calls=baseline_counter.count,
+                engine_seconds=engine_seconds,
+                baseline_seconds=baseline_seconds,
+                winner=comparison.winner,
+                judge_reasoning=[v.reasoning for v in comparison.verdicts],
             )
-
-            results.append(
-                ProblemResult(
-                    problem_id=problem.id,
-                    problem=problem.statement,
-                    engine_answer=engine_answer,
-                    baseline_answer=baseline_answer,
-                    engine_calls=engine_counter.count,
-                    baseline_calls=baseline_counter.count,
-                    engine_seconds=engine_seconds,
-                    baseline_seconds=baseline_seconds,
-                    winner=comparison.winner,
-                    judge_reasoning=[v.reasoning for v in comparison.verdicts],
-                )
-            )
+        )
 
     return EvalReport.from_results(results)
 

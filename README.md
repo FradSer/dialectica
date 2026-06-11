@@ -146,7 +146,7 @@ To work on Dialectica itself (not needed just to *use* it — see [Install](#ins
 git clone https://github.com/FradSer/dialectica
 cd dialectica
 uv sync
-cp dialectica/.env.example dialectica/.env   # add GOOGLE_API_KEY for the live e2e test
+cp .env.example dialectica/.env   # add GOOGLE_API_KEY for the live e2e test
 ```
 
 Then run the suite — see [Testing](#testing).
@@ -194,13 +194,24 @@ OPENAI_API_BASE=https://api.openai.com/v1
 ```python
 engine = create_engine(
     problem="Your problem statement",
-    max_depth=4,              # Max tree depth
-    beam_width=3,             # Active paths per iteration
-    max_gan_rounds=3,         # Max adversarial refinement rounds
-    score_threshold=7.0,      # Min score to continue
-    synthesizer_model=None,   # Optional model override
+    max_depth=4,               # Max tree depth
+    beam_width=3,              # Active paths per iteration
+    max_gan_rounds=3,          # Max adversarial refinement rounds
+    score_threshold=7.0,       # Min score to enter the beam
+    gan_score_threshold=None,  # "Stop refining" bar (default: score_threshold)
+    criteria=None,             # Discriminator rubric (default: feasibility-anchored)
+    synthesizer_model=None,    # Optional model override
 )
 ```
+
+`criteria` deserves attention: the eval matrix showed the discriminator's
+rubric steers answer *content*, not just selection (see
+[Results](#results-2026-06)). The default rubric is feasibility-anchored;
+pass your own to retarget the engine, e.g. a security-review rubric.
+
+Sibling thoughts are expanded and evaluated **concurrently**, and the runtime
+retries transient LLM failures with exponential backoff — a single network
+error no longer destroys a long run.
 
 ## Usage Examples
 

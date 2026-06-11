@@ -35,3 +35,15 @@ Feature: GAN adversarial evaluation
     When the evaluator judges "a thought"
     Then the evaluation requests termination
     And the loop ran 1 round
+
+  Scenario: Custom evaluation criteria reach the discriminator
+    Given an adversarial evaluator with custom criteria "JUDGE ONLY ON COST"
+    And the discriminator returns scores "8.0"
+    When the evaluator judges "a thought"
+    Then the discriminator was instructed with "JUDGE ONLY ON COST"
+
+  Scenario: Persistently unparseable verdicts abort instead of burning budget
+    Given an adversarial evaluator with max rounds 5 and score threshold 7.0
+    And the discriminator always returns malformed output
+    When the evaluator judges "a thought" expecting failure
+    Then the evaluation aborts after 3 consecutive unparseable verdicts

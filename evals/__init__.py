@@ -14,7 +14,6 @@ from .harness import (
     ProblemResult,
     count_agent_calls,
     render_markdown,
-    retry_agent_calls,
     run_eval,
 )
 from .judge import BlindJudge, JudgeVerdict, PairwiseResult, create_judge_agent
@@ -33,6 +32,5 @@ __all__ = [
     "create_baseline_agent",
     "create_judge_agent",
     "render_markdown",
-    "retry_agent_calls",
     "run_eval",
 ]

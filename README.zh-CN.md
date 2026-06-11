@@ -145,7 +145,7 @@ graph TD
 git clone https://github.com/FradSer/dialectica
 cd dialectica
 uv sync
-cp dialectica/.env.example dialectica/.env   # 填入 GOOGLE_API_KEY 以跑 live e2e 测试
+cp .env.example dialectica/.env   # 填入 GOOGLE_API_KEY 以跑 live e2e 测试
 ```
 
 然后跑测试 —— 见 [测试](#测试)。
@@ -193,13 +193,22 @@ OPENAI_API_BASE=https://api.openai.com/v1
 ```python
 engine = create_engine(
     problem="你的问题陈述",
-    max_depth=4,              # 最大树深度
-    beam_width=3,             # 每次迭代的活跃路径数
-    max_gan_rounds=3,         # 最大对抗优化轮次
-    score_threshold=7.0,      # 继续的最低分数
-    synthesizer_model=None,   # 可选的模型覆盖
+    max_depth=4,               # 最大树深度
+    beam_width=3,              # 每次迭代的活跃路径数
+    max_gan_rounds=3,          # 最大对抗优化轮次
+    score_threshold=7.0,       # 入 beam 的最低分数
+    gan_score_threshold=None,  # GAN「足够好，停止精炼」线（默认同 score_threshold）
+    criteria=None,             # Discriminator 评分标准（默认可行性导向）
+    synthesizer_model=None,    # 可选的模型覆盖
 )
 ```
+
+`criteria` 值得特别注意：评测矩阵证明 Discriminator 的评分标准会引导答案的
+**内容**而不只是筛选（见[实验结果](#实验结果2026-06)）。默认标准以可行性为锚；
+传入自定义标准即可重定向引擎（例如安全审查标准）。
+
+兄弟思维会**并发**展开与评估；运行时对瞬时 LLM 失败做指数退避重试——
+单次网络错误不再毁掉整个长跑。
 
 ## 使用示例
 

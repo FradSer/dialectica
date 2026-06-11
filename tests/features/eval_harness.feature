@@ -30,13 +30,3 @@ Feature: Eval harness
     Given a mocked LLM
     When 3 agent calls run inside the call counter
     Then the counter reports 3 calls
-
-  Scenario: Transient LLM failures are retried instead of killing the run
-    Given a mocked LLM that fails 2 times before succeeding
-    When an agent call runs with retries enabled
-    Then the call succeeds after 3 attempts
-
-  Scenario: A persistent LLM failure still surfaces
-    Given a mocked LLM that always fails
-    When an agent call runs with retries enabled
-    Then the call fails after exhausting 3 attempts

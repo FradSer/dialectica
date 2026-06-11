@@ -46,3 +46,21 @@ async def test_default_pipeline_prunes_low_scores():
         result = await coordinator.run()
     assert coordinator.active_beam == []
     assert result["final_answer"] == "FINAL SYNTHESIZED ANSWER"
+
+
+def test_gan_threshold_can_differ_from_beam_threshold():
+    coordinator = create_coordinator(
+        problem="p", score_threshold=7.0, gan_score_threshold=9.0
+    )
+    assert coordinator.score_threshold == 7.0
+    assert coordinator.evaluator.score_threshold == 9.0
+
+
+def test_gan_threshold_defaults_to_beam_threshold():
+    coordinator = create_coordinator(problem="p", score_threshold=6.5)
+    assert coordinator.evaluator.score_threshold == 6.5
+
+
+def test_custom_criteria_reach_the_evaluator():
+    coordinator = create_coordinator(problem="p", criteria="ONLY COST MATTERS")
+    assert coordinator.evaluator.criteria == "ONLY COST MATTERS"

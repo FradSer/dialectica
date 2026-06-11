@@ -10,7 +10,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 from dialectica import agent_runtime
 from dialectica.agent import create_coordinator
 from evals.baseline import SingleCallBaseline, create_baseline_agent
-from evals.harness import count_agent_calls, retry_agent_calls, run_eval
+from evals.harness import count_agent_calls, run_eval
 from evals.judge import BlindJudge, create_judge_agent
 from evals.problems import EvalProblem
 
@@ -180,57 +180,3 @@ def run_calls_inside_counter(plain_llm, n: int):
 @then(parsers.parse("the counter reports {n:d} calls"))
 def counter_reports(counter, n: int):
     assert counter.count == n
-
-
-class FlakyLlm:
-    """Async run_agent stand-in that fails ``failures`` times, then succeeds."""
-
-    def __init__(self, failures: int):
-        self.failures = failures
-        self.attempts = 0
-
-    async def __call__(self, agent, instruction: str) -> str:
-        self.attempts += 1
-        if self.attempts <= self.failures:
-            raise ConnectionError("transient network failure")
-        return "ok"
-
-
-@given(
-    parsers.parse("a mocked LLM that fails {n:d} times before succeeding"),
-    target_fixture="flaky_llm",
-)
-def flaky_llm(n: int):
-    return FlakyLlm(failures=n)
-
-
-@given("a mocked LLM that always fails", target_fixture="flaky_llm")
-def always_failing_llm():
-    return FlakyLlm(failures=10**6)
-
-
-@when("an agent call runs with retries enabled", target_fixture="retry_outcome")
-def run_call_with_retries(flaky_llm):
-    async def go():
-        with retry_agent_calls(max_attempts=3, base_delay=0):
-            return await agent_runtime.run_agent(None, "x")
-
-    with patch("dialectica.agent_runtime.run_agent", flaky_llm):
-        try:
-            return {"result": asyncio.run(go()), "error": None}
-        except ConnectionError as e:
-            return {"result": None, "error": e}
-
-
-@then(parsers.parse("the call succeeds after {n:d} attempts"))
-def call_succeeds_after(retry_outcome, flaky_llm, n: int):
-    assert retry_outcome["error"] is None
-    assert retry_outcome["result"] == "ok"
-    assert flaky_llm.attempts == n
-
-
-@then(parsers.parse("the call fails after exhausting {n:d} attempts"))
-def call_fails_after(retry_outcome, flaky_llm, n: int):
-    assert retry_outcome["result"] is None
-    assert isinstance(retry_outcome["error"], ConnectionError)
-    assert flaky_llm.attempts == n
