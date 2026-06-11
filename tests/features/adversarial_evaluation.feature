@@ -42,6 +42,13 @@ Feature: GAN adversarial evaluation
     When the evaluator judges "a thought"
     Then the discriminator was instructed with "JUDGE ONLY ON COST"
 
+  Scenario: A verdict with invalid string escapes is repaired
+    Given an adversarial evaluator with max rounds 3 and score threshold 7.0
+    And the discriminator returns a verdict with invalid escapes and score 8.0
+    When the evaluator judges "a thought"
+    Then the result score is 8.0
+    And the loop ran 1 round
+
   Scenario: A verdict wrapped in a markdown code fence is accepted
     Given an adversarial evaluator with max rounds 3 and score threshold 7.0
     And the discriminator returns a fenced verdict with score 8.0

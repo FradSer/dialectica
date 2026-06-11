@@ -80,6 +80,21 @@ def llm_spec_fenced(score: float):
 
 @given(
     parsers.parse(
+        "the discriminator returns a verdict with invalid escapes and score {score:g}"
+    ),
+    target_fixture="llm_spec",
+)
+def llm_spec_bad_escapes(score: float):
+    raw = (
+        f'{{"score": {score}, "flaws": [], "suggestions": [],'
+        ' "should_terminate": false,'
+        ' "reasoning": "complexity is \\(O(n)\\) which is fine"}'
+    )
+    return {"raw_verdict": raw, "refined": "A refined, stronger thought."}
+
+
+@given(
+    parsers.parse(
         "the discriminator returns malformed output once and then score {score:g}"
     ),
     target_fixture="llm_spec",
@@ -117,6 +132,14 @@ def _build_fake(llm_spec):
             return llm_spec["refined"]
 
         return fake
+    if llm_spec.get("raw_verdict"):
+
+        async def raw_fake(agent, instruction: str) -> str:
+            if "Discriminator" in agent.name:
+                return llm_spec["raw_verdict"]
+            return llm_spec["refined"]
+
+        return raw_fake
 
     inner = make_call_agent(llm_spec["verdicts"], refined=llm_spec["refined"])
     if llm_spec.get("fenced"):

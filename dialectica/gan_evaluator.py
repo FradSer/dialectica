@@ -21,11 +21,20 @@ logger = logging.getLogger(__name__)
 # markdown code fence even when asked for raw JSON.
 _FENCE_RE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
 
+# Backslash not starting a valid JSON escape — local models emit things like
+# LaTeX "\(O(n)\)" inside JSON strings, which strict parsing rejects.
+_BAD_ESCAPE_RE = re.compile(r'\\(?![\\"/bfnrtu])')
+
 
 def strip_code_fence(text: str) -> str:
     """Return the body of a markdown code fence, or ``text`` unchanged."""
     match = _FENCE_RE.match(text)
     return match.group(1) if match else text
+
+
+def repair_json_escapes(text: str) -> str:
+    """Escape lone backslashes that would make JSON string parsing fail."""
+    return _BAD_ESCAPE_RE.sub(r"\\\\", text)
 
 
 def _format_context(context: dict[str, Any]) -> str:
@@ -82,14 +91,23 @@ def parse_verdict(response: str) -> EvaluationResult:
     response is JSON. If the model still returns malformed output, the thought
     is scored 0.0 so the search prunes it rather than crashing the run.
     """
+    body = strip_code_fence(response)
     try:
-        verdict = DiscriminatorVerdict.model_validate_json(strip_code_fence(response))
+        verdict = DiscriminatorVerdict.model_validate_json(body)
         return EvaluationResult.from_verdict(verdict)
-    except ValidationError as e:
-        logger.warning("Discriminator returned unparseable verdict: %s", e)
-        return EvaluationResult(
-            score=0.0, reasoning="Unparseable discriminator output.", parse_failed=True
-        )
+    except ValidationError:
+        try:
+            verdict = DiscriminatorVerdict.model_validate_json(
+                repair_json_escapes(body)
+            )
+            return EvaluationResult.from_verdict(verdict)
+        except ValidationError as e:
+            logger.warning("Discriminator returned unparseable verdict: %s", e)
+            return EvaluationResult(
+                score=0.0,
+                reasoning="Unparseable discriminator output.",
+                parse_failed=True,
+            )
 
 
 async def score_thought(
