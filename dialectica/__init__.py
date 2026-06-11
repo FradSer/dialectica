@@ -34,7 +34,11 @@ from .agent import (
 )
 from .agent_factory import ROLE_TEMPLATES, create_agent
 from .coordinator import Coordinator
-from .gan_evaluator import AdversarialEvaluator, SinglePassEvaluator
+from .gan_evaluator import (
+    DEFAULT_EVALUATION_CRITERIA,
+    AdversarialEvaluator,
+    SinglePassEvaluator,
+)
 from .generation import LlmGenerator
 from .models import DiscriminatorVerdict, EvaluationResult, ThoughtData
 from .protocols import Evaluator, Generator, Selector, Synthesizer
@@ -59,6 +63,7 @@ __all__ = [
     "LlmGenerator",
     "AdversarialEvaluator",
     "SinglePassEvaluator",
+    "DEFAULT_EVALUATION_CRITERIA",
     "BeamSearch",
     "GreedySearch",
     "LlmSynthesizer",

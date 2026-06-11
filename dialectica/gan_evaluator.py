@@ -21,7 +21,30 @@ def _format_context(context: dict[str, Any]) -> str:
     return "\n".join(f"- {k}: {v}" for k, v in context.items() if v)
 
 
-def build_discriminator_instruction(thought: str, context: dict[str, Any]) -> str:
+# The criteria steer answer *content*, not just selection: the GAN loop
+# refines thoughts against the critique, so whatever the discriminator
+# rewards gets written into the final answer (see README "Results").
+DEFAULT_EVALUATION_CRITERIA = """\
+1. **Soundness**: Is the thought logically sound and feasible?
+2. **Completeness**: Does it address the problem adequately?
+3. **Feasibility under stated constraints**: Does it respect the problem's
+   explicit constraints (budget, team size, timeline, politics)? Penalize
+   complexity that the stated actors could not realistically execute.
+4. **Practicality**: Can it be implemented effectively with the means at hand?
+   Prefer simple, executable steps over clever but fragile ones."""
+
+# Consecutive unparseable discriminator verdicts tolerated before aborting.
+# A single bad verdict prunes one thought; a systematic parse failure (wrong
+# model, broken structured output) would otherwise burn the whole run's
+# budget producing nothing but zero scores.
+MAX_CONSECUTIVE_PARSE_FAILURES = 3
+
+
+def build_discriminator_instruction(
+    thought: str,
+    context: dict[str, Any],
+    criteria: str = DEFAULT_EVALUATION_CRITERIA,
+) -> str:
     return f"""Evaluate the following thought critically:
 
 **Thought:**
@@ -31,13 +54,7 @@ def build_discriminator_instruction(thought: str, context: dict[str, Any]) -> st
 {_format_context(context)}
 
 **Evaluation Criteria:**
-1. **Soundness**: Is the thought logically sound and feasible?
-2. **Completeness**: Does it address the problem adequately?
-3. **Feasibility under stated constraints**: Does it respect the problem's
-   explicit constraints (budget, team size, timeline, politics)? Penalize
-   complexity that the stated actors could not realistically execute.
-4. **Practicality**: Can it be implemented effectively with the means at hand?
-   Prefer simple, executable steps over clever but fragile ones.
+{criteria}
 
 Score the thought from 0 to 10, list specific flaws and actionable suggestions,
 give a brief reasoning, and set should_terminate to true only if the path is
@@ -60,16 +77,33 @@ def parse_verdict(response: str) -> EvaluationResult:
     except ValidationError as e:
         logger.warning("Discriminator returned unparseable verdict: %s", e)
         return EvaluationResult(
-            score=0.0, reasoning="Unparseable discriminator output."
+            score=0.0, reasoning="Unparseable discriminator output.", parse_failed=True
         )
 
 
 async def score_thought(
-    discriminator: LlmAgent, thought: str, context: dict[str, Any]
+    discriminator: LlmAgent,
+    thought: str,
+    context: dict[str, Any],
+    criteria: str = DEFAULT_EVALUATION_CRITERIA,
 ) -> EvaluationResult:
     """Run one discriminator scoring pass on ``thought``."""
-    instruction = build_discriminator_instruction(thought, context)
+    instruction = build_discriminator_instruction(thought, context, criteria)
     return parse_verdict(await agent_runtime.run_agent(discriminator, instruction))
+
+
+def _bump_parse_failures(count: int, result: EvaluationResult) -> int:
+    """Track consecutive parse failures, aborting once the limit is hit."""
+    if not result.parse_failed:
+        return 0
+    count += 1
+    if count >= MAX_CONSECUTIVE_PARSE_FAILURES:
+        raise RuntimeError(
+            f"Discriminator output was unparseable {count} times in a row — "
+            "aborting instead of burning the run's budget. Check the model's "
+            "structured-output support."
+        )
+    return count
 
 
 def _round_record(
@@ -88,13 +122,22 @@ def _round_record(
 class SinglePassEvaluator:
     """Score a thought once, with no refinement loop (cheap Evaluator)."""
 
-    def __init__(self, discriminator: LlmAgent):
+    def __init__(
+        self, discriminator: LlmAgent, criteria: str = DEFAULT_EVALUATION_CRITERIA
+    ):
         self.discriminator = discriminator
+        self.criteria = criteria
+        self._consecutive_parse_failures = 0
 
     async def evaluate(
         self, thought_content: str, context: dict[str, Any]
     ) -> EvaluationResult:
-        result = await score_thought(self.discriminator, thought_content, context)
+        result = await score_thought(
+            self.discriminator, thought_content, context, self.criteria
+        )
+        self._consecutive_parse_failures = _bump_parse_failures(
+            self._consecutive_parse_failures, result
+        )
         result.adversarial_rounds = 1
         result.history = [_round_record(1, thought_content, result)]
         result.refined_thought = thought_content
@@ -115,11 +158,14 @@ class AdversarialEvaluator:
         discriminator: LlmAgent,
         max_rounds: int = 3,
         score_threshold: float = 7.0,
+        criteria: str = DEFAULT_EVALUATION_CRITERIA,
     ):
         self.generator = generator
         self.discriminator = discriminator
         self.max_rounds = max_rounds
         self.score_threshold = score_threshold
+        self.criteria = criteria
+        self._consecutive_parse_failures = 0
 
     async def evaluate(
         self,
@@ -142,7 +188,10 @@ class AdversarialEvaluator:
             logger.info(f"GAN round {round_num}/{self.max_rounds}")
 
             eval_result = await score_thought(
-                self.discriminator, current_thought, context
+                self.discriminator, current_thought, context, self.criteria
+            )
+            self._consecutive_parse_failures = _bump_parse_failures(
+                self._consecutive_parse_failures, eval_result
             )
             history.append(_round_record(round_num, current_thought, eval_result))
 

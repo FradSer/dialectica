@@ -1,14 +1,13 @@
 """Dynamic agent factory for creating specialist agents at runtime.
 
 Creates LlmAgent instances from role templates (Generator, Discriminator,
-Synthesizer, ...) with per-role prompts, tools, and model configuration.
+Synthesizer) with per-role prompts, tools, and model configuration.
 """
 
 import logging
 from typing import Any
 
 from google.adk.agents import LlmAgent
-from google.adk.tools import google_search
 
 from .llm_config import get_model_config
 
@@ -46,20 +45,6 @@ Your task:
 Your evaluation will drive iterative refinement, so be thorough and constructive.""",
         "tools": [],
     },
-    "ResearchGenerator": {
-        "system_prompt": """You are a {role_name} that combines research with thought generation.
-
-Your task:
-- Use the google_search tool to gather relevant information
-- Generate thoughts grounded in real-world facts and data
-- Synthesize research findings into actionable ideas
-- Cite sources when making claims
-
-{additional_context}
-
-Generate informed thoughts that leverage external knowledge.""",
-        "tools": [google_search],
-    },
     "Synthesizer": {
         "system_prompt": """You are a {role_name} responsible for integrating insights into a final answer.
 
@@ -89,7 +74,7 @@ def create_agent(
     """Create a specialist agent with a specific role.
 
     Args:
-        role: The agent role (Generator, Discriminator, ResearchGenerator, Synthesizer)
+        role: The agent role (Generator, Discriminator, Synthesizer)
         role_name: Optional custom name for the role (defaults to role)
         additional_context: Extra context to inject into the system prompt
         tools: Optional list of tools to give the agent

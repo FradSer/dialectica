@@ -76,6 +76,9 @@ class EvaluationResult(BaseModel):
     refined_thought: str = Field(
         "", description="Final thought text the returned score applies to."
     )
+    parse_failed: bool = Field(
+        False, description="True if the discriminator output was unparseable."
+    )
 
     model_config = ConfigDict(extra="forbid")
 

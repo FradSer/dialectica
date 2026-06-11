@@ -8,6 +8,7 @@ file — that is what makes it general-purpose rather than a single hardcoded
 ToT+GAN pipeline.
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -98,11 +99,18 @@ class Coordinator:
 
         # Score strategies before beam selection so the beam reflects merit,
         # not generation order. The beam is the strategies clearing the bar.
-        self.active_beam = []
-        for sid in strategy_ids:
-            score = await self._evaluate_node(self.thought_tree[sid], self.problem)
-            if score >= self.score_threshold:
-                self.active_beam.append(sid)
+        # Siblings are independent, so they are scored concurrently.
+        scores = await asyncio.gather(
+            *(
+                self._evaluate_node(self.thought_tree[sid], self.problem)
+                for sid in strategy_ids
+            )
+        )
+        self.active_beam = [
+            sid
+            for sid, score in zip(strategy_ids, scores)
+            if score >= self.score_threshold
+        ]
 
         # Don't stall the whole run if nothing cleared the bar: seed exploration
         # with the best strategies the selector would keep.
@@ -123,10 +131,16 @@ class Coordinator:
         )
 
     async def _explore(self):
-        """Phase 2: beam search — select, expand, score, repeat."""
-        iteration = 0
-        while self.active_beam and iteration < self.max_depth:
-            iteration += 1
+        """Phase 2: beam search — select, expand, score, repeat.
+
+        Strategies start at depth 1, so ``max_depth - 1`` iterations reach
+        depth ``max_depth``; iterating further would only no-op on the depth
+        guard. Within an iteration, parent expansions and child evaluations
+        are independent and run concurrently.
+        """
+        for iteration in range(1, self.max_depth):
+            if not self.active_beam:
+                break
             logger.info(
                 f"Explore iteration {iteration}, beam size: {len(self.active_beam)}"
             )
@@ -134,27 +148,35 @@ class Coordinator:
             frontier = self.selector.select(
                 [self.thought_tree[nid] for nid in self.active_beam]
             )
+            parents = [p for p in frontier if p.depth < self.max_depth]
 
-            new_beam: list[str] = []
-            for parent in frontier:
-                if parent.depth >= self.max_depth:
-                    continue
+            expansions = await asyncio.gather(
+                *(self.generator.expand(p, self.problem) for p in parents)
+            )
 
-                children = await self.generator.expand(parent, self.problem)
-                for i, content in enumerate(children):
+            children: list[tuple[ThoughtData, ThoughtData]] = []
+            for parent, contents in zip(parents, expansions):
+                for i, content in enumerate(contents):
                     child = self._add_node(
                         f"{parent.thoughtId}_c{i}",
                         parent_id=parent.thoughtId,
                         content=content,
                         depth=parent.depth + 1,
                     )
-                    if child is None:
-                        continue
-                    score = await self._evaluate_node(child, parent.thought)
-                    if score >= self.score_threshold:
-                        new_beam.append(child.thoughtId)
+                    if child is not None:
+                        children.append((child, parent))
 
-            self.active_beam = new_beam
+            scores = await asyncio.gather(
+                *(
+                    self._evaluate_node(child, parent.thought)
+                    for child, parent in children
+                )
+            )
+            self.active_beam = [
+                child.thoughtId
+                for (child, _), score in zip(children, scores)
+                if score >= self.score_threshold
+            ]
             logger.info(
                 f"Iteration {iteration} complete, new beam size: {len(self.active_beam)}"
             )

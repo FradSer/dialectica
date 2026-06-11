@@ -18,7 +18,7 @@ from typing import Optional
 
 from .agent_factory import create_agent
 from .coordinator import Coordinator
-from .gan_evaluator import AdversarialEvaluator
+from .gan_evaluator import DEFAULT_EVALUATION_CRITERIA, AdversarialEvaluator
 from .generation import LlmGenerator
 from .llm_config import get_model_config
 from .models import DiscriminatorVerdict
@@ -26,10 +26,8 @@ from .protocols import Evaluator, Generator, Selector, Synthesizer
 from .selection import BeamSearch
 from .synthesis import LlmSynthesizer
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# As a library, Dialectica does not configure global logging — the consuming
+# application owns that (just as it owns env setup).
 logger = logging.getLogger(__name__)
 
 
@@ -38,11 +36,19 @@ def build_default_components(
     max_gan_rounds: int = 3,
     score_threshold: float = 7.0,
     synthesizer_model: Optional[str] = None,
+    gan_score_threshold: Optional[float] = None,
+    criteria: Optional[str] = None,
 ) -> tuple[Generator, Evaluator, Selector, Synthesizer]:
     """Build the default (generator, evaluator, selector, synthesizer).
 
     The generator agent is shared with the evaluator so it is created once and
     reused for both generation and GAN refinement.
+
+    ``score_threshold`` gates beam admission; ``gan_score_threshold`` (default:
+    same value) is the separate "good enough, stop refining" bar for the GAN
+    loop — raise it to keep refining thoughts that would already enter the
+    beam. ``criteria`` is the discriminator's evaluation rubric; it steers
+    answer content, not just selection.
     """
     generator_agent = create_agent(
         role="Generator",
@@ -66,7 +72,10 @@ def build_default_components(
         generator=generator_agent,
         discriminator=discriminator_agent,
         max_rounds=max_gan_rounds,
-        score_threshold=score_threshold,
+        score_threshold=(
+            gan_score_threshold if gan_score_threshold is not None else score_threshold
+        ),
+        criteria=criteria if criteria is not None else DEFAULT_EVALUATION_CRITERIA,
     )
     selector = BeamSearch(width=beam_width)
     synthesizer = LlmSynthesizer(synthesizer_agent)
@@ -80,6 +89,8 @@ def create_coordinator(
     max_gan_rounds: int = 3,
     score_threshold: float = 7.0,
     synthesizer_model: Optional[str] = None,
+    gan_score_threshold: Optional[float] = None,
+    criteria: Optional[str] = None,
 ) -> Coordinator:
     """Create a Coordinator wired with the default ToT + GAN components.
 
@@ -88,8 +99,12 @@ def create_coordinator(
         max_depth: Maximum depth of the thought tree (default: 4)
         beam_width: Number of top candidates the beam keeps (default: 3)
         max_gan_rounds: Maximum adversarial refinement rounds (default: 3)
-        score_threshold: Minimum score for a thought to continue (default: 7.0)
+        score_threshold: Minimum score for a thought to enter the beam (default: 7.0)
         synthesizer_model: Optional specific model for synthesis
+        gan_score_threshold: "Good enough, stop refining" bar for the GAN loop
+            (default: same as score_threshold)
+        criteria: Discriminator evaluation rubric — steers answer content
+            (default: DEFAULT_EVALUATION_CRITERIA, feasibility-anchored)
 
     Returns:
         Configured Coordinator instance
@@ -106,6 +121,8 @@ def create_coordinator(
         max_gan_rounds=max_gan_rounds,
         score_threshold=score_threshold,
         synthesizer_model=synthesizer_model,
+        gan_score_threshold=gan_score_threshold,
+        criteria=criteria,
     )
     return Coordinator(
         problem=problem,
