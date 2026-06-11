@@ -42,6 +42,13 @@ Feature: GAN adversarial evaluation
     When the evaluator judges "a thought"
     Then the discriminator was instructed with "JUDGE ONLY ON COST"
 
+  Scenario: A transiently unparseable verdict is re-asked, not scored zero
+    Given an adversarial evaluator with max rounds 3 and score threshold 7.0
+    And the discriminator returns malformed output once and then score 8.0
+    When the evaluator judges "a thought"
+    Then the result score is 8.0
+    And the loop ran 1 round
+
   Scenario: Persistently unparseable verdicts abort instead of burning budget
     Given an adversarial evaluator with max rounds 5 and score threshold 7.0
     And the discriminator always returns malformed output

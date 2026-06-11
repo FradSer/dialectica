@@ -29,7 +29,7 @@ Pluggable workflow — every stage is a `typing.Protocol` in `protocols.py`, swa
 - `coordinator.py` runs the 3 phases: Initialize → Explore (beam-search loop) → Synthesize. Sibling expansions/evaluations run concurrently via `asyncio.gather`.
 - `agent.py` is the composition root (`create_engine`, `build_default_components`) — wiring only. Knobs: `score_threshold` (beam admission) vs `gan_score_threshold` (stop-refining bar), and `criteria` (discriminator rubric — steers answer content; default `DEFAULT_EVALUATION_CRITERIA`, feasibility-anchored).
 - `agent_factory.py` builds ADK `LlmAgent`s from `ROLE_TEMPLATES` (Generator/Discriminator/Synthesizer). `agent_runtime.run_agent()` is the only place that actually calls the LLM; it retries transient failures with exponential backoff (`_call_agent_once` is the raw transport — retry tests patch that, everything else patches `run_agent`).
-- Defaults: `LlmGenerator`, `AdversarialEvaluator` (GAN refine loop; aborts after 3 consecutive unparseable verdicts) / `SinglePassEvaluator`, `BeamSearch` / `GreedySearch`, `LlmSynthesizer`.
+- Defaults: `LlmGenerator`, `AdversarialEvaluator` (GAN refine loop) / `SinglePassEvaluator`, `BeamSearch` / `GreedySearch`, `LlmSynthesizer`. Unparseable verdicts are re-asked up to 3 times (some backends, e.g. the qwen proxy, transiently return empty structured output ~7-10% of the time); 3 consecutive post-retry failures trip a circuit breaker that aborts the run.
 
 All public stage methods are `async`. The library never calls `logging.basicConfig` — the consuming app owns logging setup.
 

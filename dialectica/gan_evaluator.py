@@ -86,10 +86,29 @@ async def score_thought(
     thought: str,
     context: dict[str, Any],
     criteria: str = DEFAULT_EVALUATION_CRITERIA,
+    max_attempts: int = 3,
 ) -> EvaluationResult:
-    """Run one discriminator scoring pass on ``thought``."""
+    """Run one discriminator scoring pass on ``thought``.
+
+    Some backends transiently return empty/malformed structured output (the
+    qwen proxy fails ~7-10% of verdicts). An unparseable verdict is re-asked
+    up to ``max_attempts`` times before it is allowed to score 0 — so only
+    failures that survive retry reach the systematic-failure circuit breaker.
+    """
     instruction = build_discriminator_instruction(thought, context, criteria)
-    return parse_verdict(await agent_runtime.run_agent(discriminator, instruction))
+    result = parse_verdict(await agent_runtime.run_agent(discriminator, instruction))
+    for attempt in range(2, max_attempts + 1):
+        if not result.parse_failed:
+            return result
+        logger.warning(
+            "Unparseable verdict, re-asking discriminator (attempt %d/%d)",
+            attempt,
+            max_attempts,
+        )
+        result = parse_verdict(
+            await agent_runtime.run_agent(discriminator, instruction)
+        )
+    return result
 
 
 def _bump_parse_failures(count: int, result: EvaluationResult) -> int:

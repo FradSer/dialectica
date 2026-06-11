@@ -67,6 +67,20 @@ def llm_spec_malformed():
 
 
 @given(
+    parsers.parse(
+        "the discriminator returns malformed output once and then score {score:g}"
+    ),
+    target_fixture="llm_spec",
+)
+def llm_spec_malformed_once(score: float):
+    return {
+        "malformed_first": True,
+        "verdicts": [{"score": score}],
+        "refined": "A refined, stronger thought.",
+    }
+
+
+@given(
     parsers.parse("the discriminator returns score {score:g} with termination"),
     target_fixture="llm_spec",
 )
@@ -91,7 +105,19 @@ def _build_fake(llm_spec):
             return llm_spec["refined"]
 
         return fake
-    return make_call_agent(llm_spec["verdicts"], refined=llm_spec["refined"])
+
+    inner = make_call_agent(llm_spec["verdicts"], refined=llm_spec["refined"])
+    if not llm_spec.get("malformed_first"):
+        return inner
+
+    state = {"first": True}
+
+    async def malformed_first(agent, instruction: str) -> str:
+        if "Discriminator" in agent.name and state.pop("first", False):
+            return "this is not a JSON verdict"
+        return await inner(agent, instruction)
+
+    return malformed_first
 
 
 @when(parsers.parse('the evaluator judges "{thought}"'), target_fixture="result")
