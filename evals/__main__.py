@@ -37,9 +37,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--suite",
-        choices=("advice", "swe"),
+        choices=("advice", "swe", "lcb"),
         default="advice",
-        help="advice: judged open-ended problems; swe: test-verified code problems.",
+        help="advice: judged open-ended problems; swe: test-verified code "
+        "problems; lcb: LiveCodeBench-hard competition problems (rescue only, "
+        "downloads from HuggingFace on first use).",
     )
     parser.add_argument(
         "--full",
@@ -98,7 +100,20 @@ async def main() -> None:
 
     baseline = SingleCallBaseline(create_baseline_agent())
 
-    if args.suite == "swe":
+    if args.suite == "lcb":
+        from .lcb import build_lcb_statement, load_problems, verify_stdin_solution
+
+        problems = load_problems()[: args.limit]
+        report = await run_rescue_eval(
+            problems,
+            engine_factory=make_engine_factory(CODE_CRITERIA),
+            baseline=baseline,
+            screen_attempts=args.screen_attempts,
+            verifier=lambda problem, code: verify_stdin_solution(code, problem.cases),
+            statement_builder=build_lcb_statement,
+        )
+        print(render_rescue_markdown(report))
+    elif args.suite == "swe":
         problems = SWE_PROBLEMS[: args.limit]
         if args.full:
             report = await run_code_eval(

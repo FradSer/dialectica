@@ -192,27 +192,38 @@ class RescueReport(BaseModel):
 
 
 async def run_rescue_eval(
-    problems: list[CodeProblem],
+    problems: list,
     *,
     engine_factory: Callable[[str], Coordinator],
     baseline: SingleCallBaseline,
     screen_attempts: int = 2,
+    verifier: Callable | None = None,
+    statement_builder: Callable | None = None,
 ) -> RescueReport:
     """Screen with the baseline, then run the engine only on its failures.
 
     A problem counts as baseline-solved if any of ``screen_attempts``
     single-call attempts passes the tests; the engine is measured purely on
     its rescue rate over the remaining failures.
+
+    ``verifier(problem, code) -> VerifyResult`` and
+    ``statement_builder(problem) -> str`` default to the assert-style SWE
+    suite; other suites (e.g. LiveCodeBench stdin problems) plug in theirs.
     """
+    if verifier is None:
+        verifier = lambda problem, code: verify_solution(problem, code)  # noqa: E731
+    if statement_builder is None:
+        statement_builder = build_statement
+
     solved: list[str] = []
-    failures: list[CodeProblem] = []
+    failures: list = []
     for problem in problems:
-        statement = build_statement(problem)
+        statement = statement_builder(problem)
         passed = False
         for _ in range(screen_attempts):
             answer = await baseline.answer(statement)
             verdict = await asyncio.to_thread(
-                verify_solution, problem, extract_python_code(answer)
+                verifier, problem, extract_python_code(answer)
             )
             if verdict.passed:
                 passed = True
@@ -226,10 +237,10 @@ async def run_rescue_eval(
     for problem in failures:
         with count_agent_calls() as counter:
             start = time.perf_counter()
-            engine_run = await engine_factory(build_statement(problem)).run()
+            engine_run = await engine_factory(statement_builder(problem)).run()
             seconds = time.perf_counter() - start
         code = extract_python_code(engine_run["final_answer"])
-        verdict = await asyncio.to_thread(verify_solution, problem, code)
+        verdict = await asyncio.to_thread(verifier, problem, code)
         attempted.append(
             RescueProblemResult(
                 problem_id=problem.id,
