@@ -273,6 +273,154 @@ assert do_algebra(['+', '*', '-', '//'], [2, 3, 4, 5, 2]) == 12
 """,
     ),
     CodeProblem(
+        id="match-parens",
+        entry_point="match_parens",
+        prompt='''def match_parens(lst: list[str]) -> str:
+    """You are given a list of two strings, both strings consist of open
+    parentheses '(' or close parentheses ')' only. Your job is to check if it
+    is possible to concatenate the two strings in some order, that the
+    resulting string will be good. A string S is considered to be good if and
+    only if all parentheses in S are balanced.
+
+    Return 'Yes' if there's a way to make a good string, and return 'No'
+    otherwise.
+
+    Examples:
+    match_parens(['()(', ')']) == 'Yes'
+    match_parens([')', ')']) == 'No'
+    """
+''',
+        tests="""assert match_parens(['()(', ')']) == 'Yes'
+assert match_parens([')', ')']) == 'No'
+assert match_parens(['(', ')']) == 'Yes'
+assert match_parens([')(', '()']) == 'No'
+assert match_parens(['(', '(']) == 'No'
+assert match_parens(['(())', '()']) == 'Yes'
+""",
+    ),
+    CodeProblem(
+        id="order-by-points",
+        entry_point="order_by_points",
+        prompt='''def order_by_points(nums: list[int]) -> list[int]:
+    """Sort the given list of integers in ascending order according to the
+    sum of their digits. For a negative number, its first digit is negative
+    (e.g. for -123 the digits sum is (-1) + 2 + 3 = 4). If there are several
+    items with a similar sum of digits, order them based on their index in
+    the original list (stable).
+
+    For example:
+    >>> order_by_points([1, 11, -1, -11, -12])
+    [-1, -11, 1, -12, 11]
+    >>> order_by_points([])
+    []
+    """
+''',
+        tests="""assert order_by_points([1, 11, -1, -11, -12]) == [-1, -11, 1, -12, 11]
+assert order_by_points([]) == []
+assert order_by_points([0, 6, 3, -2, 5]) == [-2, 0, 3, 5, 6]
+assert order_by_points([-21, -12, 10]) == [-21, -12, 10]
+assert order_by_points([100, 9]) == [100, 9]
+""",
+    ),
+    CodeProblem(
+        id="decode-cyclic",
+        entry_point="decode_cyclic",
+        prompt='''def encode_cyclic(s: str) -> str:
+    """Returns encoded string by cycling groups of three characters."""
+    groups = [s[(3 * i):min((3 * i + 3), len(s))] for i in range((len(s) + 2) // 3)]
+    groups = [(group[1:] + group[0]) if len(group) == 3 else group for group in groups]
+    return "".join(groups)
+
+
+def decode_cyclic(s: str) -> str:
+    """Takes as input string encoded with encode_cyclic function. Returns the
+    decoded string.
+    """
+''',
+        tests="""def _encode(s):
+    groups = [s[(3 * i):min((3 * i + 3), len(s))] for i in range((len(s) + 2) // 3)]
+    groups = [(g[1:] + g[0]) if len(g) == 3 else g for g in groups]
+    return "".join(groups)
+
+assert decode_cyclic(_encode('abc')) == 'abc'
+assert decode_cyclic(_encode('abcdefgh')) == 'abcdefgh'
+assert decode_cyclic(_encode('a')) == 'a'
+assert decode_cyclic(_encode('hello world from dialectica')) == 'hello world from dialectica'
+assert decode_cyclic(_encode('')) == ''
+""",
+    ),
+    CodeProblem(
+        id="count-nums",
+        entry_point="count_nums",
+        prompt='''def count_nums(arr: list[int]) -> int:
+    """Write a function count_nums which takes an array of integers and
+    returns the number of elements which has a sum of digits > 0. If a number
+    is negative, then its first signed digit will be negative: e.g. -123 has
+    signed digits -1, 2, and 3.
+    >>> count_nums([]) == 0
+    >>> count_nums([-1, 11, -11]) == 1
+    >>> count_nums([1, 1, 2]) == 3
+    """
+''',
+        tests="""assert count_nums([]) == 0
+assert count_nums([-1, 11, -11]) == 1
+assert count_nums([1, 1, 2]) == 3
+assert count_nums([-123]) == 1
+assert count_nums([-12, -33, 0]) == 1
+""",
+    ),
+    CodeProblem(
+        id="is-nested",
+        entry_point="is_nested",
+        prompt='''def is_nested(string: str) -> bool:
+    """Create a function that takes a string as input which contains only
+    square brackets. The function should return True if and only if there is
+    a valid subsequence of brackets where at least one bracket in the
+    subsequence is nested.
+
+    is_nested('[[]]') -> True
+    is_nested('[]]]]]]][[[[[]') -> False
+    is_nested('[][]') -> False
+    is_nested('[]') -> False
+    is_nested('[[][]]') -> True
+    is_nested('[[]][[') -> True
+    """
+''',
+        tests="""assert is_nested('[[]]') is True
+assert is_nested('[]]]]]]][[[[[]') is False
+assert is_nested('[][]') is False
+assert is_nested('[]') is False
+assert is_nested('[[][]]') is True
+assert is_nested('[[]][[') is True
+assert is_nested('[[][[]]]') is True
+assert is_nested('') is False
+""",
+    ),
+    CodeProblem(
+        id="compare-one",
+        entry_point="compare_one",
+        prompt='''def compare_one(a, b):
+    """Create a function that takes integers, floats, or strings representing
+    real numbers, and returns the larger variable in its given variable type.
+    Return None if the values are equal.
+    Note: If a real number is represented as a string, the floating point
+    might be . or ,
+
+    compare_one(1, 2.5) -> 2.5
+    compare_one(1, "2,3") -> "2,3"
+    compare_one("5,1", "6") -> "6"
+    compare_one("1", 1) -> None
+    """
+''',
+        tests="""assert compare_one(1, 2.5) == 2.5
+assert compare_one(1, "2,3") == "2,3"
+assert compare_one("5,1", "6") == "6"
+assert compare_one("1", 1) is None
+assert compare_one(1, 2) == 2
+assert compare_one("2,0", "2.0") is None
+""",
+    ),
+    CodeProblem(
         id="max-fill",
         entry_point="max_fill",
         prompt='''def max_fill(grid: list[list[int]], capacity: int) -> int:
