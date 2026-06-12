@@ -29,3 +29,10 @@ Feature: SWE code eval
     When the code eval runs on 2 problems
     Then the engine pass rate is 2 of 2
     And the baseline pass rate is 0 of 2
+
+  Scenario: Rescue mode runs the engine only on baseline failures
+    Given a mocked LLM where the baseline only solves the addition problem
+    When the rescue eval runs on the addition and subtraction problems
+    Then the baseline screen solves 1 problem
+    And the engine attempts 1 problem
+    And the rescue count is 1

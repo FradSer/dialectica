@@ -7,7 +7,12 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from dialectica.agent import create_coordinator
 from evals.baseline import SingleCallBaseline, create_baseline_agent
-from evals.code_eval import extract_python_code, run_code_eval, verify_solution
+from evals.code_eval import (
+    extract_python_code,
+    run_code_eval,
+    run_rescue_eval,
+    verify_solution,
+)
 from evals.code_problems import CodeProblem
 
 scenarios("features/code_eval.feature")
@@ -123,3 +128,69 @@ def engine_pass_rate(code_report, passed: int, total: int):
 @then(parsers.parse("the baseline pass rate is {passed:d} of {total:d}"))
 def baseline_pass_rate(code_report, passed: int, total: int):
     assert code_report.baseline_passed == passed
+
+
+SUB_TWO = CodeProblem(
+    id="sub_two",
+    prompt='def sub_two(x: int, y: int) -> int:\n    """Return x minus y."""\n',
+    entry_point="sub_two",
+    tests="assert sub_two(3, 2) == 1\nassert sub_two(1, 1) == 0\n",
+)
+
+SUB_CORRECT = "def sub_two(x: int, y: int) -> int:\n    return x - y\n"
+
+
+@given(
+    "a mocked LLM where the baseline only solves the addition problem",
+    target_fixture="rescue_llm",
+)
+def rescue_llm():
+    async def fake(agent, instruction: str) -> str:
+        if agent.name == "Baseline":
+            return f"```python\n{CORRECT}```"  # only correct for add_two
+        if agent.name == "Synthesizer":
+            return f"```python\n{SUB_CORRECT}```"
+        if "Discriminator" in agent.name:
+            return '{"score": 8.0, "reasoning": "ok"}'
+        return "1. Implement directly\n2. Use builtins"
+
+    return fake
+
+
+@when(
+    "the rescue eval runs on the addition and subtraction problems",
+    target_fixture="rescue_report",
+)
+def run_rescue(rescue_llm):
+    def engine_factory(statement: str):
+        return create_coordinator(
+            problem=statement, max_depth=2, beam_width=2, max_gan_rounds=1
+        )
+
+    baseline = SingleCallBaseline(create_baseline_agent())
+    with patch("dialectica.agent_runtime.run_agent", rescue_llm):
+        return asyncio.run(
+            run_rescue_eval(
+                [ADD_TWO, SUB_TWO],
+                engine_factory=engine_factory,
+                baseline=baseline,
+                screen_attempts=2,
+            )
+        )
+
+
+@then(parsers.parse("the baseline screen solves {n:d} problem"))
+def baseline_screen_solves(rescue_report, n: int):
+    assert rescue_report.baseline_solved == [ADD_TWO.id][:n]
+
+
+@then(parsers.parse("the engine attempts {n:d} problem"))
+def engine_attempts(rescue_report, n: int):
+    assert len(rescue_report.attempted) == n
+    assert rescue_report.attempted[0].problem_id == SUB_TWO.id
+    assert rescue_report.attempted[0].engine_calls > 1
+
+
+@then(parsers.parse("the rescue count is {n:d}"))
+def rescue_count(rescue_report, n: int):
+    assert rescue_report.rescued == n
