@@ -38,6 +38,41 @@ def run_engine(coordinator, fake_llm):
         return asyncio.run(coordinator.run())
 
 
+@given(
+    "the generator returns nothing on its first call then recovers",
+    target_fixture="fake_llm",
+)
+def flaky_generator():
+    state = {"first_expand": True}
+
+    async def fake(agent, instruction: str) -> str:
+        is_expand = (
+            "Generator" in agent.name and "Refine the following" not in instruction
+        )
+        if is_expand:
+            if state.pop("first_expand", False):
+                return ""  # degraded model: empty strategy list on first try
+            return "1. First strategy\n2. Second strategy"
+        if "Discriminator" in agent.name:
+            return '{"score": 8.0, "reasoning": "ok"}'
+        if agent.name == "Synthesizer":
+            return "FINAL SYNTHESIZED ANSWER"
+        return "refined"
+
+    return fake
+
+
+@when("the engine runs after the flaky generator", target_fixture="result")
+def run_after_flaky(coordinator, fake_llm):
+    with patch("dialectica.agent_runtime.run_agent", fake_llm):
+        return asyncio.run(coordinator.run())
+
+
+@then(parsers.parse("the tree contains more than {count:d} thought"))
+def tree_size_more_than(result, count: int):
+    assert result["stats"]["total_thoughts"] > count
+
+
 class ConcurrencyProbe:
     """Wraps a fake LLM and records how many calls overlap in time."""
 

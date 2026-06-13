@@ -18,6 +18,13 @@ Feature: Tree-of-Thoughts engine
     Then the beam is empty
     And the final answer is "FINAL SYNTHESIZED ANSWER"
 
+  Scenario: Empty initial strategy generation is retried, not abandoned
+    Given the default pipeline with max depth 2 and beam width 2
+    And the generator returns nothing on its first call then recovers
+    When the engine runs after the flaky generator
+    Then the tree contains more than 1 thought
+    And the final answer is "FINAL SYNTHESIZED ANSWER"
+
   Scenario: Sibling thoughts are evaluated concurrently
     Given the default pipeline with max depth 2 and beam width 2
     And every thought is scored 8.0

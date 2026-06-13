@@ -87,7 +87,7 @@ class Coordinator:
         )
 
         logger.info("Generating initial strategies")
-        strategies = await self.generator.expand(root, self.problem)
+        strategies = await self._expand_root_strategies(root)
 
         strategy_ids = []
         for i, strategy in enumerate(strategies):
@@ -129,6 +129,27 @@ class Coordinator:
             len(strategy_ids),
             len(self.active_beam),
         )
+
+    async def _expand_root_strategies(
+        self, root: ThoughtData, max_attempts: int = 3
+    ) -> list[str]:
+        """Generate initial strategies, retrying on an empty result.
+
+        The root expansion seeds the entire search, so an empty result (a weak
+        model returning blank/unparseable output on a hard prompt) would
+        collapse the whole run to a single no-op call. Retry before giving up.
+        """
+        for attempt in range(1, max_attempts + 1):
+            strategies = await self.generator.expand(root, self.problem)
+            if strategies:
+                return strategies
+            logger.warning(
+                "Initial strategy generation returned nothing (attempt %d/%d)",
+                attempt,
+                max_attempts,
+            )
+        logger.error("No initial strategies after %d attempts", max_attempts)
+        return []
 
     async def _explore(self):
         """Phase 2: beam search — select, expand, score, repeat.
