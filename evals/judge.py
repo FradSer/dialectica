@@ -6,6 +6,7 @@ unswapping, the comparison is a tie — so a position-biased judge cannot
 manufacture a winner. Configure the model with ``JUDGE_MODEL_CONFIG``.
 """
 
+import json
 import logging
 
 from google.adk.agents import LlmAgent
@@ -41,15 +42,14 @@ Return your verdict as a single JSON object."""
 
 
 class JudgeVerdict(BaseModel):
-    """The judge LLM's structured verdict for one A/B comparison.
-
-    Used as an ADK ``output_schema``; kept Gemini-structured-output compatible
-    (no ``extra='forbid'``, no enum/range constraints) — normalization happens
-    in code instead.
-    """
+    """The judge LLM's verdict for one A/B comparison (prompt-driven JSON)."""
 
     winner: str = Field(default="tie", description='"A", "B", or "tie".')
     reasoning: str = Field(default="", description="Brief justification.")
+    parse_failed: bool = Field(
+        default=False,
+        description="True if the verdict was empty/unparseable (re-ask, do not tie).",
+    )
 
 
 class PairwiseResult(BaseModel):
@@ -62,12 +62,17 @@ class PairwiseResult(BaseModel):
 
 
 def create_judge_agent() -> LlmAgent:
-    """Create the blind judge agent with structured verdict output."""
+    """Create the blind judge agent (prompt-driven JSON, no enforced schema).
+
+    Enforced JSON mode makes some proxy backends (e.g. the qwen proxy) return
+    empty/truncated output, which a defaulted schema reads as a silent tie and
+    biases every comparison toward ties. ``parse_judge_verdict`` parses the
+    prompt-driven JSON and flags empties so the caller re-asks instead.
+    """
     return LlmAgent(
         name="Judge",
         instruction=JUDGE_SYSTEM_PROMPT,
         model=get_model_config("Judge"),
-        output_schema=JudgeVerdict,
     )
 
 
@@ -78,16 +83,27 @@ def build_judge_instruction(problem: str, answer_a: str, answer_b: str) -> str:
 
 
 def parse_judge_verdict(response: str) -> JudgeVerdict:
-    """Parse the judge's JSON verdict; malformed output becomes a tie."""
-    body = strip_code_fence(response)
-    try:
-        return JudgeVerdict.model_validate_json(body)
-    except ValidationError:
+    """Parse the judge's JSON verdict.
+
+    An empty body, non-JSON, or JSON with no real ``winner`` is a *failed*
+    measurement (``parse_failed=True``), NOT a tie — silently coding empties as
+    ties biases every comparison toward ties. The caller re-asks on failure.
+    """
+    body = strip_code_fence(response or "").strip()
+    if not body:
+        return JudgeVerdict(reasoning="Empty judge output.", parse_failed=True)
+    for candidate in (body, repair_json_escapes(body)):
         try:
-            return JudgeVerdict.model_validate_json(repair_json_escapes(body))
-        except ValidationError as e:
-            logger.warning("Judge returned unparseable verdict: %s", e)
-            return JudgeVerdict(winner="tie", reasoning="Unparseable judge output.")
+            data = json.loads(candidate)
+        except ValueError:
+            continue
+        if isinstance(data, dict) and str(data.get("winner", "")).strip():
+            try:
+                return JudgeVerdict.model_validate(data)
+            except ValidationError:
+                continue
+    logger.warning("Judge returned empty/unparseable verdict: %r", body[:120])
+    return JudgeVerdict(reasoning="Unparseable judge output.", parse_failed=True)
 
 
 def _position_of(verdict: JudgeVerdict) -> str:
@@ -115,9 +131,26 @@ class BlindJudge:
         return PairwiseResult(winner=winner, verdicts=[first, second])
 
     async def _judge_once(
-        self, problem: str, answer_a: str, answer_b: str
+        self, problem: str, answer_a: str, answer_b: str, max_attempts: int = 3
     ) -> JudgeVerdict:
+        """Judge one order, re-asking on an empty/unparseable verdict.
+
+        Mirrors ``gan_evaluator.score_thought``: some proxies transiently return
+        empty output, and a swallowed empty would silently become a tie.
+        """
         instruction = build_judge_instruction(problem, answer_a, answer_b)
-        return parse_judge_verdict(
+        verdict = parse_judge_verdict(
             await agent_runtime.run_agent(self.agent, instruction)
         )
+        for attempt in range(2, max_attempts + 1):
+            if not verdict.parse_failed:
+                return verdict
+            logger.warning(
+                "Empty/unparseable judge verdict, re-asking (attempt %d/%d)",
+                attempt,
+                max_attempts,
+            )
+            verdict = parse_judge_verdict(
+                await agent_runtime.run_agent(self.agent, instruction)
+            )
+        return verdict
