@@ -19,6 +19,11 @@ Feature: Eval harness
     When the judge compares an engine answer and a baseline answer
     Then the comparison winner is "tie"
 
+  Scenario: An empty verdict is re-asked, not silently counted as a tie
+    Given a blind judge whose model returns an empty verdict once, then prefers the engine
+    When the judge compares an engine answer and a baseline answer
+    Then the comparison winner is "engine"
+
   Scenario: The harness reports answers, costs and verdicts per problem
     Given an eval harness with a mocked LLM that favors the engine
     When the harness evaluates 1 problem

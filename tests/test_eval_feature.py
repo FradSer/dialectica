@@ -84,6 +84,27 @@ def judge_llm_malformed():
     return make_judge_fake("malformed")
 
 
+@given(
+    "a blind judge whose model returns an empty verdict once, then prefers the engine",
+    target_fixture="judge_llm",
+)
+def judge_llm_empty_then_engine():
+    """First call returns an empty JSON object (the qwen-proxy failure mode that
+    parses to a silent default tie); later calls give a real verdict. A robust
+    judge must re-ask and report the real winner, not swallow the empty as tie.
+    """
+    prefers = make_judge_fake("prefers_engine")
+    state = {"first": True}
+
+    async def fake(agent, instruction: str) -> str:
+        if state["first"]:
+            state["first"] = False
+            return "{}"
+        return await prefers(agent, instruction)
+
+    return fake
+
+
 @when(
     "the judge compares an engine answer and a baseline answer",
     target_fixture="comparison",
