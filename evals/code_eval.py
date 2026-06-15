@@ -344,9 +344,7 @@ class AblationReport(BaseModel):
     pass_at_1_passed: int
 
     @classmethod
-    def from_results(
-        cls, results: list[AblationProblemResult]
-    ) -> "AblationReport":
+    def from_results(cls, results: list[AblationProblemResult]) -> "AblationReport":
         return cls(
             results=results,
             engine_passed=sum(r.engine_passed for r in results),
@@ -384,9 +382,7 @@ async def run_ablation(
             engine_run = await engine_factory(statement).run()
             seconds = time.perf_counter() - start
         engine_code = extract_python_code(engine_run["final_answer"])
-        engine_passed = (
-            await asyncio.to_thread(verifier, problem, engine_code)
-        ).passed
+        engine_passed = (await asyncio.to_thread(verifier, problem, engine_code)).passed
         n = max(ec.count, 1)
 
         bo_statement = statement + criteria_hint
