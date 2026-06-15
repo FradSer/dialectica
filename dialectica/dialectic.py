@@ -121,7 +121,14 @@ class DialecticEngine:
         self.perspectives = max(1, perspectives)
 
     async def _score(self, solution: str) -> float:
-        instruction = build_discriminator_instruction(solution, {}, self.criteria)
+        # The discriminator must see the problem: the criteria judge
+        # completeness and "feasibility under stated constraints", and the
+        # constraints live in the problem. Scoring blind (an empty context)
+        # collapses the gate into "is this generic text nice?" and neuters the
+        # feasibility anchor. Same context key the ToT coordinator uses.
+        instruction = build_discriminator_instruction(
+            solution, {"problem": self.problem}, self.criteria
+        )
         return parse_verdict(
             await agent_runtime.run_agent(self.discriminator, instruction)
         ).score
