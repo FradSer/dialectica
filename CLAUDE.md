@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Dialectica is a pluggable adversarial reasoning engine: Tree-of-Thoughts search with GAN-style adversarial evaluation (thesis → antithesis → synthesis), built on Google ADK. Published on PyPI as `dialectica`. Python 3.11+.
+Dialectica is a reasoning-engine toolbox built on Google ADK, led by an execution-guided **repair** engine (`repair.py`): generate → run an objective verifier → repair against the concrete failure → retry. That repair loop is the one engine here that structurally beats a single strong-model call — it adds ground-truth verification a single forward pass lacks. It also ships a **dialectic** engine (thesis → antithesis → synthesis), a pure-LLM scaffold whose honest value is content-steering + an auditable trade-off trace (NOT result quality over a single call), and a legacy **Tree-of-Thoughts + GAN** pipeline kept as a baseline. Published on PyPI as `dialectica`. Python 3.11+.
 
 ## Commands
 
@@ -23,6 +23,14 @@ CI (`.github/workflows/test.yml`) runs `ruff format --check`, `ruff check`, and 
 
 ## Architecture
 
+**Three engines, honest hierarchy** (controlled evals in `evals/results/`, README "Results"):
+
+- `repair.py` — `IterativeRepairEngine` / `create_repair_engine`: **the core**. `generate → verifier → repair-on-failure` up to N attempts; the verifier is an injected `Callable[[answer], (passed, feedback)]`, so it's task-agnostic (unit tests, schema validator, linter, assertion-checked logic — `solution_format` optionally pins the output shape). The only engine that beats a single call on verifiable tasks, because the verifier feedback is information a single pass never sees. Returns `{final_answer, passed, attempts, history}`.
+- `dialectic.py` — `create_dialectic_engine`: thesis → antithesis → synthesis spiral. A pure-LLM scaffold; a prompt-controlled eval showed it ties/loses a prompt-matched single call (0-3-2 — it rearranges the model's own thinking, adding no information), so it's positioned for content-steering (`criteria`) + auditable reasoning, not raw quality. It does beat plain ToT (8-2-0).
+- `agent.py` — `create_engine` / `create_coordinator`: legacy Tree-of-Thoughts + GAN beam search; baseline only.
+
+The pluggable-stage detail below describes the **legacy ToT engine** (`coordinator.py`); the repair and dialectic engines are simpler and self-contained.
+
 Pluggable workflow — every stage is a `typing.Protocol` in `protocols.py`, swappable without touching the engine:
 
 - `Generator.expand` → propose thoughts · `Evaluator.evaluate` → score & refine · `Selector.select` → choose frontier · `Synthesizer.synthesize` → final answer
@@ -36,6 +44,8 @@ All public stage methods are `async`. The library never calls `logging.basicConf
 Top-level `evals/` is the eval harness (dev tool, not shipped in the wheel): each benchmark problem (`problems.py`) is solved by the engine and by a single-call baseline (`baseline.py`), then a blind judge (`judge.py`) compares both answers twice with swapped positions — disagreement is a tie. `harness.py` counts LLM calls through the `run_agent` seam and renders the report. Model overrides: `BASELINE_MODEL_CONFIG` / `JUDGE_MODEL_CONFIG`.
 
 Eval findings (2026-06, three 3-run × 5-problem matrices, see README "Results"): with the original "Innovation" discriminator criterion (V1) the engine won technical problems 7-1-1 but lost organizational ones 0-4-2 ("over-complex"), reproducing across Gemini and Qwen. Replacing "Innovation" with "Feasibility under stated constraints" (V2 + second seed V3) pooled to 20-8-2 (technical 15-2-1, organizational 5-6-1) vs V1's 7-5-3. Key insight: because the GAN loop refines thoughts against the critique, discriminator criteria steer answer content, not just selection. Engine cost ≈ 20-30× baseline calls; concurrency cut wall-clock 2-3× at unchanged call counts. Reports land in `evals/results/` (gitignored).
+
+Prompt-controlled finding (2026-06-15, qwen3.6-35b-a3b via CLIPROXYAPI, blind position-swap) — **why repair is the core**: strengthening the dialectic (synthesis "dominate a single expert pass" + thesis baseline-strength) beat a *naively*-prompted single call (4-1-0) and plain ToT (pooled 8-2-0), but against a **prompt-matched** strong baseline it went **0-3-2 (loses) at equal length** — the gain was the prompt, not the structure. Lesson: pure-LLM scaffolds (ToT, GAN, dialectic) only rearrange the model's own thinking on one context, so they tie a single call; a scaffold beats one pass only by adding information a single pass lacks — tool-grounding (`repair.py`), scale, or independence. On verifiable tasks the band where repair beats a single call is *fails-but-fixable*, and it shrinks as the model strengthens (this model solved HumanEval 17-18/18 and curated LCB-hard at pass@1, leaving little gap to demonstrate).
 
 SWE-suite findings (2026-06, ground truth): against a 1-attempt baseline the engine looked +1 (11/12 vs 10/12 on gpt-oss:20b; 10/12 vs 9/12 on gemma4:e4b), but rescue mode with a pass@2 screen dissolved it — the apparent lift was resampling luck, and the single real gap (max-fill on e4b) was NOT rescued (full mode even regressed min-path on e4b). After extending to 18 problems with the literature's hardest HumanEval items, cloud gemma-4 (31b-it and 26b-a4b-it via AI Studio) solved 18/18 at pass@2 — HumanEval-class is saturated for this family; real code-value evidence needs LiveCodeBench/competition difficulty. Methodology rules: compare scaffolds against pass@k at matched cost; the advice suite still needs a best-of-2-plus-judge control. Backend quirk: enforced JSON mode breaks gemma-4-26b-a4b-it (empty/truncated verdicts) — use `structured_output=False` / `--no-structured-output`.
 
