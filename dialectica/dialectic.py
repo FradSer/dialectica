@@ -66,7 +66,7 @@ X vs Y — <one sentence on why this opposition is the crux>
 If the problem has a single correct or determinate answer with no real trade-off (a factual, computational, or well-defined technical task), reply with exactly:
 NONE"""
 
-THESIS_PROMPT = """Give your single best solution to this problem.
+THESIS_PROMPT = """Give your single best solution to this problem — the complete answer an expert would deliver: correct, comprehensive, specific, and actionable, structured with clear sections where it helps.
 
 **Problem:**
 {problem}
@@ -74,7 +74,7 @@ THESIS_PROMPT = """Give your single best solution to this problem.
 **What counts as a strong solution (hold yourself to this):**
 {criteria}
 
-Be concrete and actionable. Provide the solution directly."""
+Commit to a clear position and cover the problem in full — this answer must stand on its own as a strong, complete solution. Provide it directly."""
 
 ANTITHESIS_PROMPT = """A solution (the thesis) has been proposed for a problem whose core tension is:
 
@@ -109,6 +109,11 @@ SYNTHESIS_PROMPT = """You are resolving a dialectic: a thesis and the strongest 
 {antithesis}
 
 Produce a SYNTHESIS that transcends the rivalry: take what is right in the thesis AND in each rival, resolve the tension between their underlying principles, and deliver a solution stronger than any of them alone. Do not pick a winner or staple them together — integrate the conflicting truths into a higher solution that none of them held.
+
+Your synthesis must DOMINATE what a single expert writes on a first pass — that is the bar it is measured against:
+- Be at least as complete and concrete as the better individual solution: carry forward its specific, actionable detail (numbers, steps, sequencing). Do NOT abstract the specifics away into generalities — that is the most common way a synthesis ends up merely tying a one-shot answer.
+- Make a clear, decisive recommendation, and state the precise conditions under which the opposite choice would win instead.
+- Name the failure mode of the naive one-sided answer, and show concretely how this solution avoids it.
 
 **What makes a synthesis better (judge yourself against this):**
 {criteria}
