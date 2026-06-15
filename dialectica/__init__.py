@@ -32,6 +32,7 @@ from .agent import (
 from .agent_factory import ROLE_TEMPLATES, create_agent
 from .coordinator import Coordinator
 from .dialectic import DialecticEngine, create_dialectic_engine
+from .repair import IterativeRepairEngine, create_repair_engine
 from .gan_evaluator import (
     DEFAULT_EVALUATION_CRITERIA,
     AdversarialEvaluator,
@@ -47,6 +48,9 @@ __all__ = [
     # The dialectic kernel — the recommended entry point
     "create_dialectic_engine",
     "DialecticEngine",
+    # Execution-guided repair — verifier-in-the-loop engine for verifiable tasks
+    "create_repair_engine",
+    "IterativeRepairEngine",
     # Legacy ToT + GAN engine (prior generation / baseline)
     "create_engine",
     "Engine",
