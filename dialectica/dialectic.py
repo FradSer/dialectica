@@ -39,10 +39,22 @@ from .gan_evaluator import (
     DEFAULT_EVALUATION_CRITERIA,
     score_thought,
 )
-from .generation import parse_list
 from .llm_config import get_model_config
 
 logger = logging.getLogger(__name__)
+
+# The proposer plays three single-answer roles in the dialectic (name the
+# tension, give one committed thesis, give one committed rival). The base
+# Generator persona tells it to spray "diverse thought branches" — the wrong
+# instinct here. This reframes it: commit to one whole position per task;
+# diversity comes from opposition between rounds, not variation within an answer.
+DIALECTIC_PROPOSER_CONTEXT = """You are operating inside a dialectic, not a breadth-first search. Each task asks for exactly one thing: a single tension judgment, one committed solution, or one committed counter-solution. Give precisely that — take a clear, whole position and own it; do not hedge to a noncommittal middle or pad the answer with loosely-related alternatives. Diversity here comes from genuine opposition between rounds, not from listing variations inside one answer."""
+
+# Full rival solutions are multi-paragraph and often carry their own internal
+# numbered steps, so they cannot be recovered as a flat numbered list (a list
+# parser shatters a rival on its own "1./2." markers). An explicit delimiter
+# between complete alternatives keeps each one whole.
+RIVAL_DELIMITER = "===NEXT==="
 
 TENSION_PROMPT = """Before solving, judge whether this problem has a genuine dialectical tension — a real trade-off or opposition where a one-sided answer goes wrong.
 
@@ -59,6 +71,9 @@ THESIS_PROMPT = """Give your single best solution to this problem.
 **Problem:**
 {problem}
 
+**What counts as a strong solution (hold yourself to this):**
+{criteria}
+
 Be concrete and actionable. Provide the solution directly."""
 
 ANTITHESIS_PROMPT = """A solution (the thesis) has been proposed for a problem whose core tension is:
@@ -74,8 +89,11 @@ Each must be a full, standalone rival solution that a smart advocate of the oppo
 
 **Thesis:**
 {thesis}
+
+**What counts as a strong solution (each rival must hold up to this too):**
+{criteria}
 {prior_block}
-Return a numbered list, one self-contained alternative solution per item."""
+Give each rival as a complete, self-contained solution. If you propose more than one, separate them with a line containing only {delimiter} — do not use a numbered list across rivals (each rival may have its own internal steps)."""
 
 SYNTHESIS_PROMPT = """You are resolving a dialectic: a thesis and the strongest rival solution(s) to it, around this core tension:
 
@@ -170,11 +188,16 @@ class DialecticEngine:
                 n=self.perspectives,
                 prior_block=prior_block,
                 tension=tension,
+                criteria=self.criteria,
+                delimiter=RIVAL_DELIMITER,
             ),
         )
         if self.perspectives == 1:
             return [response.strip()]
-        return parse_list(response)[: self.perspectives] or [response.strip()]
+        # Split on the explicit delimiter, never a list parser: each rival is a
+        # whole multi-line solution that may carry its own internal numbering.
+        parts = [p.strip() for p in response.split(RIVAL_DELIMITER) if p.strip()]
+        return parts[: self.perspectives] or [response.strip()]
 
     async def _synthesize(
         self, thesis: str, antitheses: list[str], tension: str
@@ -206,7 +229,8 @@ class DialecticEngine:
         logger.info("Core tension: %s", tension)
         thesis = (
             await agent_runtime.run_agent(
-                self.proposer, THESIS_PROMPT.format(problem=self.problem)
+                self.proposer,
+                THESIS_PROMPT.format(problem=self.problem, criteria=self.criteria),
             )
         ).strip()
 
@@ -306,6 +330,7 @@ def create_dialectic_engine(
     proposer = create_agent(
         role="Generator",
         role_name="Proposer",
+        additional_context=DIALECTIC_PROPOSER_CONTEXT,
         model_config=model_config or get_model_config("GENERATOR"),
     )
     synthesizer = create_agent(
