@@ -1,21 +1,26 @@
 """
-Dialectica — a dialectical reasoning engine.
+Dialectica — reasoning engines, led by execution-guided repair.
 
-The soul is the dialectic its name promises: **thesis → antithesis →
-synthesis**, run intelligently (name the problem's core tension, oppose it
-with a complete rival rather than a critique, synthesize beyond both, spiral
-until convergence). ``create_dialectic_engine`` is the recommended entry point.
+Controlled evals (see README) established the honest hierarchy:
 
-A legacy Tree-of-Thoughts + GAN beam-search pipeline is also shipped
-(``create_engine`` / ``create_coordinator``) as the prior-generation kernel and
-the baseline the dialectic is measured against; every stage is a swappable
-``Protocol`` (Generator / Evaluator / Selector / Synthesizer).
+- ``create_repair_engine`` — THE CORE. Generate -> run an objective verifier ->
+  repair against the concrete failure -> retry. The only engine here that
+  structurally beats a single strong-model call, because it adds what a single
+  forward pass lacks: ground-truth verification. Use it for any verifiable task
+  (unit tests, a schema validator, a linter, assertion-checked logic).
+- ``create_dialectic_engine`` — thesis -> antithesis -> synthesis. A pure-LLM
+  scaffold; it does NOT beat a prompt-matched single call on result quality (it
+  rearranges the model's own thinking, adding no information). Its genuine value
+  is content-steering via criteria and an auditable trade-off trace on
+  open-ended sub-decisions.
+- ``create_engine`` / ``create_coordinator`` — legacy Tree-of-Thoughts + GAN
+  beam search, kept as a baseline; every stage is a swappable ``Protocol``.
 
 Example:
-    from dialectica import create_dialectic_engine
+    from dialectica import create_repair_engine
 
-    engine = create_dialectic_engine("Your problem here")
-    result = await engine.run()
+    engine = create_repair_engine("Your task", verifier=my_checker)
+    result = await engine.run()  # {"final_answer", "passed", "attempts", ...}
 
 
 Configuration is read from ``os.environ`` — as a library, Dialectica does NOT
@@ -32,7 +37,6 @@ from .agent import (
 from .agent_factory import ROLE_TEMPLATES, create_agent
 from .coordinator import Coordinator
 from .dialectic import DialecticEngine, create_dialectic_engine
-from .repair import IterativeRepairEngine, create_repair_engine
 from .gan_evaluator import (
     DEFAULT_EVALUATION_CRITERIA,
     AdversarialEvaluator,
@@ -41,16 +45,19 @@ from .gan_evaluator import (
 from .generation import LlmGenerator
 from .models import DiscriminatorVerdict, EvaluationResult, ThoughtData
 from .protocols import Evaluator, Generator, Selector, Synthesizer
+from .repair import IterativeRepairEngine, create_repair_engine
 from .selection import BeamSearch, GreedySearch
 from .synthesis import LlmSynthesizer
 
 __all__ = [
-    # The dialectic kernel — the recommended entry point
-    "create_dialectic_engine",
-    "DialecticEngine",
-    # Execution-guided repair — verifier-in-the-loop engine for verifiable tasks
+    # Execution-guided repair — the core engine (verifier-in-the-loop; the one
+    # that structurally beats a single call on verifiable tasks)
     "create_repair_engine",
     "IterativeRepairEngine",
+    # Dialectic — open-ended steering + auditable trade-off trace (not a
+    # single-call quality booster)
+    "create_dialectic_engine",
+    "DialecticEngine",
     # Legacy ToT + GAN engine (prior generation / baseline)
     "create_engine",
     "Engine",

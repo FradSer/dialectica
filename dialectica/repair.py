@@ -1,15 +1,20 @@
-"""Execution-guided repair — the one engine that structurally beats a single call.
+"""Execution-guided repair — Dialectica's core engine, the one that structurally
+beats a single strong-model call.
 
-A single forward pass writes a solution once and cannot learn whether it was
-correct. On verifiable tasks (code with tests, or anything with an objective
-checker) this engine closes that loop: generate -> run the verifier -> feed the
-CONCRETE failure back -> regenerate, until the verifier passes or attempts run
+Controlled evals settled it: pure-LLM reasoning scaffolds (ToT, GAN, the
+dialectic) only rearrange the model's own thinking on the same context — they
+add no information, so they tie a prompt-matched single call. A scaffold beats
+one pass only by doing something one pass cannot: act on objective ground truth
+and react. This engine is that loop — generate -> run the verifier -> feed the
+CONCRETE failure back -> regenerate — until the verifier passes or attempts run
 out.
 
-The edge over one shot is ground-truth feedback the single pass never sees — NOT
-an LLM self-evaluation (same model, no ground truth), which the evals showed
-adds nothing on its own. The verifier is injected as a plain callable, so the
-engine stays task-agnostic: the consuming app supplies "run the tests".
+The verifier is injected as a plain ``Callable[[answer], (passed, feedback)]``,
+so the engine is task-agnostic: it works for ANY objective checker — unit tests,
+a schema validator, a linter, a SQL ``EXPLAIN``, assertion-checked business
+logic — not just code. The consuming app supplies "how to check it"; the edge
+over one shot is the ground-truth feedback the single pass never sees (not an
+LLM self-score on the same model, which the evals showed adds nothing).
 """
 
 import logging
@@ -27,11 +32,11 @@ logger = logging.getLogger(__name__)
 # trace) — empty when it passed.
 Verifier = Callable[[str], tuple[bool, str]]
 
-SOLVE_PROMPT = """Solve the following problem. Reason it through, then give the COMPLETE implementation in a single ```python code block.
+SOLVE_PROMPT = """Solve the following problem. Reason it through, then provide your COMPLETE solution.{format_hint}
 
 {problem}"""
 
-REPAIR_PROMPT = """Your previous solution did NOT pass the tests. Use the concrete failure below to fix it — keep what works; do not restart from scratch unless the whole approach is wrong.
+REPAIR_PROMPT = """Your previous solution did NOT pass verification. Use the concrete failure below to fix it — keep what works; do not restart from scratch unless the whole approach is wrong.
 
 **Problem:**
 {problem}
@@ -42,7 +47,7 @@ REPAIR_PROMPT = """Your previous solution did NOT pass the tests. Use the concre
 **Verifier feedback (ground truth — the actual failure):**
 {feedback}
 
-Diagnose exactly what failed, then give the COMPLETE corrected implementation in a single ```python code block."""
+Diagnose exactly what failed, then provide your COMPLETE corrected solution.{format_hint}"""
 
 
 class IterativeRepairEngine:
@@ -54,17 +59,25 @@ class IterativeRepairEngine:
         generator,
         verifier: Verifier,
         max_attempts: int = 3,
+        solution_format: str = "",
     ):
         self.problem = problem
         self.generator = generator
         self.verifier = verifier
         self.max_attempts = max(1, max_attempts)
+        # Optional domain output-format hint (e.g. "Return a single ```python
+        # code block." or "Return only the JSON object."); keeps the engine
+        # general while letting callers pin the format their verifier parses.
+        self._format_hint = f" {solution_format}" if solution_format else ""
 
     async def run(self) -> dict[str, Any]:
         """Solve with verifier-in-the-loop; return the final answer + trace."""
         answer = (
             await agent_runtime.run_agent(
-                self.generator, SOLVE_PROMPT.format(problem=self.problem)
+                self.generator,
+                SOLVE_PROMPT.format(
+                    problem=self.problem, format_hint=self._format_hint
+                ),
             )
         ).strip()
         passed, feedback = self.verifier(answer)
@@ -78,7 +91,10 @@ class IterativeRepairEngine:
                 await agent_runtime.run_agent(
                     self.generator,
                     REPAIR_PROMPT.format(
-                        problem=self.problem, previous=answer, feedback=feedback
+                        problem=self.problem,
+                        previous=answer,
+                        feedback=feedback,
+                        format_hint=self._format_hint,
                     ),
                 )
             ).strip()
@@ -99,15 +115,20 @@ def create_repair_engine(
     verifier: Verifier,
     max_attempts: int = 3,
     model_config: Optional[str] = None,
+    solution_format: str = "",
 ) -> IterativeRepairEngine:
     """Wire an IterativeRepairEngine with a default Generator agent.
 
     ``verifier(raw_answer) -> (passed, feedback)`` is the objective checker; the
-    engine is task-agnostic and only reacts to what it returns.
+    engine is task-agnostic and only reacts to what it returns. ``solution_format``
+    optionally pins the output shape the verifier expects (e.g. a ```python code
+    block, or "only the JSON object").
     """
     generator = create_agent(
         role="Generator",
         role_name="Solver",
         model_config=model_config or get_model_config("GENERATOR"),
     )
-    return IterativeRepairEngine(problem, generator, verifier, max_attempts)
+    return IterativeRepairEngine(
+        problem, generator, verifier, max_attempts, solution_format
+    )
