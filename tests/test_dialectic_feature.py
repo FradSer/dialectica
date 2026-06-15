@@ -27,6 +27,12 @@ def make_dialectic_llm(ctx: dict):
         name = agent.name
         if name == "Discriminator":
             ctx["discriminator_instructions"].append(instruction)
+            # Simulate the ~7-10% transient empty/garbage verdict some proxies
+            # return: fail once, before the index logic, so the retry lands on
+            # the real score.
+            if ctx.get("first_score_unparseable") and not state.get("failed_once"):
+                state["failed_once"] = True
+                return "not a verdict at all"
             i = state["score_calls"]
             state["score_calls"] += 1
             scores = ctx["synth_scores"]
@@ -92,6 +98,11 @@ def exhausted_after(ctx, n: int):
     ctx["exhausted_after"] = n
 
 
+@given("the first scoring verdict comes back unparseable")
+def first_score_unparseable(ctx):
+    ctx["first_score_unparseable"] = True
+
+
 @when("the dialectic runs", target_fixture="result")
 def run_dialectic(ctx):
     engine = create_dialectic_engine("test problem", max_rounds=ctx["max_rounds"])
@@ -147,4 +158,12 @@ def scoring_saw_problem(ctx):
     assert calls, "expected at least one discriminator scoring call"
     assert all("test problem" in instr for instr in calls), (
         "discriminator scored a solution without the problem in context"
+    )
+
+
+@then("the thesis kept its real score despite the transient failure")
+def thesis_kept_real_score(result, ctx):
+    thesis = next(h for h in result["history"] if h["role"] == "thesis")
+    assert thesis["score"] == ctx["thesis_score"], (
+        "a transient unparseable verdict was scored 0 instead of being re-asked"
     )

@@ -36,3 +36,10 @@ Feature: Dialectical kernel
     And each synthesis surpasses its thesis
     When the dialectic runs
     Then every scoring call saw the problem statement
+
+  Scenario: A transient unparseable verdict is re-asked, not silently scored zero
+    Given a dialectic engine
+    And the problem's core tension is "Speed vs Safety"
+    And the first scoring verdict comes back unparseable
+    When the dialectic runs
+    Then the thesis kept its real score despite the transient failure
