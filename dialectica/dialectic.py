@@ -37,8 +37,7 @@ from . import agent_runtime
 from .agent_factory import create_agent
 from .gan_evaluator import (
     DEFAULT_EVALUATION_CRITERIA,
-    build_discriminator_instruction,
-    parse_verdict,
+    score_thought,
 )
 from .generation import parse_list
 from .llm_config import get_model_config
@@ -121,17 +120,20 @@ class DialecticEngine:
         self.perspectives = max(1, perspectives)
 
     async def _score(self, solution: str) -> float:
-        # The discriminator must see the problem: the criteria judge
-        # completeness and "feasibility under stated constraints", and the
-        # constraints live in the problem. Scoring blind (an empty context)
-        # collapses the gate into "is this generic text nice?" and neuters the
-        # feasibility anchor. Same context key the ToT coordinator uses.
-        instruction = build_discriminator_instruction(
-            solution, {"problem": self.problem}, self.criteria
+        # Reuse the resilient scoring seam, not a bare parse_verdict. Two
+        # reasons live here:
+        #  - Resilience: some proxies transiently return empty/unparseable
+        #    verdicts (~7-10% on the qwen proxy). score_thought re-asks instead
+        #    of silently scoring 0 — and a 0 always reads as "did not surpass",
+        #    which would falsely collapse the spiral on a mere proxy hiccup.
+        #  - Context: the discriminator must see the problem; the criteria grade
+        #    completeness and "feasibility under stated constraints", and the
+        #    constraints live in the problem. Same context key the ToT
+        #    coordinator uses.
+        result = await score_thought(
+            self.discriminator, solution, {"problem": self.problem}, self.criteria
         )
-        return parse_verdict(
-            await agent_runtime.run_agent(self.discriminator, instruction)
-        ).score
+        return result.score
 
     async def _identify_tension(self) -> str:
         """Name the problem's core contradiction before opposing — the cognitive
