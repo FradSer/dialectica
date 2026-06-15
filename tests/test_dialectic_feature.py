@@ -22,6 +22,7 @@ def make_dialectic_llm(ctx: dict):
     """Async run_agent stand-in dispatching by role and prompt template."""
     state = {"score_calls": 0, "antithesis_calls": 0}
     ctx.setdefault("discriminator_instructions", [])
+    ctx.setdefault("antithesis_instructions", [])
 
     async def fake(agent, instruction: str) -> str:
         name = agent.name
@@ -43,16 +44,21 @@ def make_dialectic_llm(ctx: dict):
         if name == "Synthesizer":
             return "SYNTHESIS"
         # Proposer handles tension / thesis / antithesis, told apart by prompt.
+        ctx["proposer_system"] = agent.instruction
         if "genuine dialectical tension" in instruction:
             return ctx["tension"]
         if "single best solution" in instruction:
+            ctx["thesis_instruction"] = instruction
             return "THESIS"
+        ctx["antithesis_instructions"].append(instruction)
         state["antithesis_calls"] += 1
         if (
             ctx["exhausted_after"] is not None
             and state["antithesis_calls"] > ctx["exhausted_after"]
         ):
             return "EXHAUSTED"
+        if ctx.get("multi_rival_response"):
+            return ctx["multi_rival_response"]
         return "A complete rival solution built on the opposite principle."
 
     return fake
@@ -61,6 +67,7 @@ def make_dialectic_llm(ctx: dict):
 def _default_ctx(max_rounds: int = 3) -> dict:
     return {
         "max_rounds": max_rounds,
+        "perspectives": 1,
         "tension": "X vs Y — the crux",
         "exhausted_after": None,
         "thesis_score": 8.0,
@@ -103,9 +110,34 @@ def first_score_unparseable(ctx):
     ctx["first_score_unparseable"] = True
 
 
+@given(parsers.parse("the adversary explores {n:d} perspectives"))
+def set_perspectives(ctx, n: int):
+    ctx["perspectives"] = n
+
+
+@given("each rival contains its own internal steps")
+def multi_rival_with_steps(ctx):
+    # Two whole rival solutions, each carrying its own numbered sub-steps, kept
+    # apart by the explicit delimiter. A numbered-list parser would shatter
+    # these on the "1./2." markers; an explicit delimiter keeps each whole.
+    ctx["multi_rival_response"] = (
+        "Rival one: distribute the work.\n"
+        "1. split into teams\n"
+        "2. sync weekly\n"
+        "===NEXT===\n"
+        "Rival two: centralize control.\n"
+        "1. one owner\n"
+        "2. daily standup"
+    )
+
+
 @when("the dialectic runs", target_fixture="result")
 def run_dialectic(ctx):
-    engine = create_dialectic_engine("test problem", max_rounds=ctx["max_rounds"])
+    engine = create_dialectic_engine(
+        "test problem",
+        max_rounds=ctx["max_rounds"],
+        perspectives=ctx["perspectives"],
+    )
     with patch("dialectica.agent_runtime.run_agent", make_dialectic_llm(ctx)):
         return asyncio.run(engine.run())
 
@@ -167,3 +199,34 @@ def thesis_kept_real_score(result, ctx):
     assert thesis["score"] == ctx["thesis_score"], (
         "a transient unparseable verdict was scored 0 instead of being re-asked"
     )
+
+
+@then("the proposer was framed for committed dialectical positions")
+def proposer_framed_dialectic(ctx):
+    assert "operating inside a dialectic" in ctx["proposer_system"], (
+        "the proposer kept the generic breadth-first ToT persona"
+    )
+
+
+@then("the thesis was generated against the evaluation criteria")
+def thesis_has_criteria(ctx):
+    assert "Feasibility under stated constraints" in ctx["thesis_instruction"], (
+        "the thesis was proposed without the feasibility criteria"
+    )
+
+
+@then("every antithesis was generated against the evaluation criteria")
+def antithesis_has_criteria(ctx):
+    calls = ctx["antithesis_instructions"]
+    assert calls, "expected at least one antithesis call"
+    assert all("Feasibility under stated constraints" in instr for instr in calls), (
+        "a rival was proposed without the feasibility criteria"
+    )
+
+
+@then("both rival solutions were kept whole")
+def rivals_kept_whole(result):
+    antitheses = [h["text"] for h in result["history"] if h["role"] == "antithesis"]
+    assert len(antitheses) == 2, f"expected 2 whole rivals, got {len(antitheses)}"
+    assert "Rival one" in antitheses[0] and "split into teams" in antitheses[0]
+    assert "Rival two" in antitheses[1] and "one owner" in antitheses[1]

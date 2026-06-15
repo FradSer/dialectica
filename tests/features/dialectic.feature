@@ -43,3 +43,25 @@ Feature: Dialectical kernel
     And the first scoring verdict comes back unparseable
     When the dialectic runs
     Then the thesis kept its real score despite the transient failure
+
+  Scenario: The proposer is framed for a dialectic, not breadth-first search
+    Given a dialectic engine
+    And the problem's core tension is "Speed vs Safety"
+    When the dialectic runs
+    Then the proposer was framed for committed dialectical positions
+
+  Scenario: The thesis and every rival are anchored to the evaluation criteria
+    Given a dialectic engine
+    And the problem's core tension is "Speed vs Safety"
+    And each synthesis surpasses its thesis
+    When the dialectic runs
+    Then the thesis was generated against the evaluation criteria
+    And every antithesis was generated against the evaluation criteria
+
+  Scenario: Multiple perspectives are split into whole rival solutions
+    Given a dialectic engine with max rounds 1
+    And the problem's core tension is "Centralize vs Distribute"
+    And the adversary explores 2 perspectives
+    And each rival contains its own internal steps
+    When the dialectic runs
+    Then both rival solutions were kept whole
