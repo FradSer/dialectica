@@ -32,8 +32,8 @@ logger = logging.getLogger(__name__)
 
 
 def build_default_components(
-    beam_width: int = 3,
-    max_gan_rounds: int = 3,
+    beam_width: int = 2,
+    max_gan_rounds: int = 2,
     score_threshold: float = 7.0,
     synthesizer_model: Optional[str] = None,
     gan_score_threshold: Optional[float] = None,
@@ -88,9 +88,9 @@ def build_default_components(
 
 def create_coordinator(
     problem: str,
-    max_depth: int = 4,
-    beam_width: int = 3,
-    max_gan_rounds: int = 3,
+    max_depth: int = 2,
+    beam_width: int = 2,
+    max_gan_rounds: int = 2,
     score_threshold: float = 7.0,
     synthesizer_model: Optional[str] = None,
     gan_score_threshold: Optional[float] = None,
