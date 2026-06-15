@@ -29,3 +29,10 @@ Feature: Dialectical kernel
     Then it is dialecticized
     And the dialectic ran 1 round
     And convergence was by exhaustion, not by reaching max rounds
+
+  Scenario: Scoring judges the solution against the problem, not in a vacuum
+    Given a dialectic engine
+    And the problem's core tension is "Speed vs Safety"
+    And each synthesis surpasses its thesis
+    When the dialectic runs
+    Then every scoring call saw the problem statement

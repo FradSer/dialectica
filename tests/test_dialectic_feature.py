@@ -21,10 +21,12 @@ scenarios("features/dialectic.feature")
 def make_dialectic_llm(ctx: dict):
     """Async run_agent stand-in dispatching by role and prompt template."""
     state = {"score_calls": 0, "antithesis_calls": 0}
+    ctx.setdefault("discriminator_instructions", [])
 
     async def fake(agent, instruction: str) -> str:
         name = agent.name
         if name == "Discriminator":
+            ctx["discriminator_instructions"].append(instruction)
             i = state["score_calls"]
             state["score_calls"] += 1
             scores = ctx["synth_scores"]
@@ -137,3 +139,12 @@ def ran_rounds(result, n: int):
 @then("convergence was by exhaustion, not by reaching max rounds")
 def by_exhaustion(result, ctx):
     assert result["rounds"] < ctx["max_rounds"]
+
+
+@then("every scoring call saw the problem statement")
+def scoring_saw_problem(ctx):
+    calls = ctx["discriminator_instructions"]
+    assert calls, "expected at least one discriminator scoring call"
+    assert all("test problem" in instr for instr in calls), (
+        "discriminator scored a solution without the problem in context"
+    )
