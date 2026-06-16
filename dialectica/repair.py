@@ -90,7 +90,6 @@ class IterativeRepairEngine:
         logger.info("Attempt 1: passed=%s", passed)
 
         failed: list[tuple[str, str]] = []
-        seen: set[str] = {answer}
         attempt = 1
         while not passed and attempt < self.max_attempts:
             failed.append((answer, feedback))
@@ -105,19 +104,6 @@ class IterativeRepairEngine:
                     ),
                 )
             ).strip()
-            # No-progress stop: a repeated solution yields a repeated verdict, so
-            # re-verifying it would burn a call for nothing.
-            if answer in seen:
-                logger.info(
-                    "Repair attempt %d reproduced a prior solution; stopping early.",
-                    attempt,
-                )
-                history.append(
-                    {"attempt": attempt, "passed": False, "note": "no-progress"}
-                )
-                passed = False
-                break
-            seen.add(answer)
             passed, feedback = self.verifier(answer)
             history.append({"attempt": attempt, "passed": passed})
             logger.info("Repair attempt %d: passed=%s", attempt, passed)
