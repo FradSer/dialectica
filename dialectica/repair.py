@@ -36,18 +36,15 @@ SOLVE_PROMPT = """Solve the following problem. Reason it through, then provide y
 
 {problem}"""
 
-REPAIR_PROMPT = """Your previous solution did NOT pass verification. Use the concrete failure below to fix it — keep what works; do not restart from scratch unless the whole approach is wrong.
+REPAIR_PROMPT = """Your solution did NOT pass verification. Below is every previous attempt and the EXACT failure each produced — use the full history so you do not repeat a fix that already failed, and do not restart from scratch unless the whole approach is wrong.
 
 **Problem:**
 {problem}
 
-**Your previous solution:**
-{previous}
+**Previous attempts and their verifier failures (ground truth):**
+{history_block}
 
-**Verifier feedback (ground truth — the actual failure):**
-{feedback}
-
-Diagnose exactly what failed, then provide your COMPLETE corrected solution.{format_hint}"""
+Diagnose what specifically failed — and, if earlier fixes did not work, why — then provide your COMPLETE corrected solution.{format_hint}"""
 
 
 class IterativeRepairEngine:
@@ -70,6 +67,14 @@ class IterativeRepairEngine:
         # general while letting callers pin the format their verifier parses.
         self._format_hint = f" {solution_format}" if solution_format else ""
 
+    @staticmethod
+    def _history_block(failed: list[tuple[str, str]]) -> str:
+        """Render every prior failed attempt + its verifier failure (bounded)."""
+        return "\n\n".join(
+            f"--- Attempt {i} ---\n{ans[:1500]}\n[Verifier failure]: {fb[:500]}"
+            for i, (ans, fb) in enumerate(failed, 1)
+        )
+
     async def run(self) -> dict[str, Any]:
         """Solve with verifier-in-the-loop; return the final answer + trace."""
         answer = (
@@ -84,20 +89,35 @@ class IterativeRepairEngine:
         history: list[dict[str, Any]] = [{"attempt": 1, "passed": passed}]
         logger.info("Attempt 1: passed=%s", passed)
 
+        failed: list[tuple[str, str]] = []
+        seen: set[str] = {answer}
         attempt = 1
         while not passed and attempt < self.max_attempts:
+            failed.append((answer, feedback))
             attempt += 1
             answer = (
                 await agent_runtime.run_agent(
                     self.generator,
                     REPAIR_PROMPT.format(
                         problem=self.problem,
-                        previous=answer,
-                        feedback=feedback,
+                        history_block=self._history_block(failed),
                         format_hint=self._format_hint,
                     ),
                 )
             ).strip()
+            # No-progress stop: a repeated solution yields a repeated verdict, so
+            # re-verifying it would burn a call for nothing.
+            if answer in seen:
+                logger.info(
+                    "Repair attempt %d reproduced a prior solution; stopping early.",
+                    attempt,
+                )
+                history.append(
+                    {"attempt": attempt, "passed": False, "note": "no-progress"}
+                )
+                passed = False
+                break
+            seen.add(answer)
             passed, feedback = self.verifier(answer)
             history.append({"attempt": attempt, "passed": passed})
             logger.info("Repair attempt %d: passed=%s", attempt, passed)
