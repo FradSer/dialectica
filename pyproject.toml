@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dialectica"
-version = "0.4.0"
-description = "An adversarial reasoning engine: a pluggable tree-search workflow where thoughts are generated, adversarially evaluated, and synthesized (thesis -> antithesis -> synthesis)."
+version = "0.5.0"
+description = "A reasoning-engine toolbox led by an execution-guided repair engine (generate -> verify -> repair); also ships a dialectic engine and a legacy Tree-of-Thoughts + GAN baseline."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]

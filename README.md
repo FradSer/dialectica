@@ -4,7 +4,9 @@
 
 English | [简体中文](https://github.com/FradSer/dialectica/blob/main/README.zh-CN.md)
 
-**Dialectica** is a pluggable adversarial reasoning engine. It searches a tree of "thoughts" where each thought is generated, adversarially evaluated and iteratively refined, then synthesized into an answer — *thesis → antithesis → synthesis* (Generator → Discriminator → Synthesizer). Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch)'s propose→evaluate→keep-best loop and Claude Code's composable workflows, every stage is a swappable component; the default wiring is Tree-of-Thoughts + a GAN-style evaluation loop on Google ADK 2.1.
+**Dialectica** is a reasoning-engine toolbox on Google ADK, **led by an execution-guided repair engine**: generate → run an objective verifier → repair against the concrete failure → retry. That loop is the one engine here that *structurally* beats a single strong-model call — because it adds ground-truth verification a single forward pass cannot. It also ships a **dialectic** engine (*thesis → antithesis → synthesis*) for transparent, criteria-steered open-ended reasoning, and a legacy **Tree-of-Thoughts + GAN** pipeline as a baseline. Every stage is a swappable component. Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) and Claude Code's composable workflows.
+
+> **Honest scope (measured — see [Evaluation](#evaluation)).** On self-contained tasks, pure-LLM scaffolds (ToT, dialectic) do **not** beat a prompt-matched single call on result quality — they only rearrange the model's own thinking, adding no information (controlled test: dialectic 0-3-2 vs a prompt-matched call). The genuine, measured wins are narrower and real: **repair beats a single call and is cheaper than matched-cost best-of-K** (it short-circuits on success — e.g. 5 vs 12 calls at equal pass-rate), and the dialectic's value is an **auditable** reasoning trace, not better answers. For breadth/scale, use a workflow and call these engines per node. Reproduce the numbers with `uv run python -m evals.repair_ablation`.
 
 ## Install
 
@@ -17,21 +19,48 @@ uv add dialectica
 
 ```python
 import os, asyncio
-from dialectica import create_engine
+from dialectica import create_repair_engine
 
 os.environ["GOOGLE_API_KEY"] = "..."          # the app owns env setup
 
+# A verifier returns (passed, feedback) for ANY objective check — unit tests,
+# a JSON schema, a linter, assertion-checked logic. The engine repairs against
+# the feedback until it passes or runs out of attempts.
+def verify(answer: str) -> tuple[bool, str]:
+    ok = "def solve" in answer                 # your real check goes here
+    return ok, "" if ok else "no solve() function defined"
+
 async def main():
-    result = await create_engine("Your problem here").run()
-    print(result["final_answer"])
+    result = await create_repair_engine(
+        "Write a solve() function that ...", verifier=verify
+    ).run()
+    print(result["passed"], result["attempts"], result["final_answer"])
 
 asyncio.run(main())
 ```
 
-The library reads configuration from `os.environ` and does **not** load `.env`
+Prefer `create_repair_engine` for verifiable tasks (it's the core). For
+open-ended reasoning with an auditable trace, use `create_dialectic_engine`;
+the legacy `create_engine` (Tree-of-Thoughts + GAN) is kept as a baseline. The
+library reads configuration from `os.environ` and does **not** load `.env`
 itself. To work on Dialectica instead, see [Development](#development).
 
 ## Key Features
+
+### 🛠️ Execution-guided repair — the core (`create_repair_engine`)
+The one engine that *structurally* beats a single call, because it acts on
+ground truth: **generate → run an injected verifier → repair against the
+concrete failure → retry**, until it passes or attempts run out.
+
+- **Task-agnostic verifier** — any `Callable[[answer], (passed, feedback)]`: unit tests, a schema validator, a linter, assertion-checked logic. `solution_format` pins the output shape your verifier parses.
+- **Uses the full failure history** — every prior attempt + its exact failure is fed back, so the loop doesn't oscillate between two wrong fixes.
+- **Cost-disciplined** — short-circuits the moment the verifier passes (cheaper than best-of-K at equal reliability), and stops early if an attempt repeats a prior solution (no-progress).
+- **Returns** `{final_answer, passed, attempts, history}`.
+
+Measure it honestly against pass@1 and matched-cost best-of-K with
+`uv run python -m evals.repair_ablation`.
+
+The two engines below are pure-LLM scaffolds: useful for transparency/steering, but (measured) **not** a result-quality win over a single call — see [Honest scope](#dialectica-) and [Evaluation](#evaluation).
 
 ### 🧩 Pluggable engine (thesis → antithesis → synthesis)
 The `Engine` owns only the search *control flow*; every decision is delegated to
@@ -312,6 +341,8 @@ uv run pytest -m e2e   # live API E2E (slower, requires GOOGLE_API_KEY)
 ```
 
 ## Evaluation
+
+> **Headline finding (2026-06, measured, no preset conclusion).** Judged against a *matched-cost* baseline, **no pure-LLM scaffold here beats a single call on result quality**: the dialectic went **0-3-2** against a prompt-matched strong baseline (it ties/loses — the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly ties matched-cost best-of-K (across HumanEval, an original edge-case set, LeetCode-medium, LCB-hard, and a purpose-built uncontaminated benchmark, **feedback-only wins = 0** every time — even a weak model one-shots medium verifiable tasks, so the "fails-but-fixable" band is near-empty). Repair's real, measured edge is **cost at equal reliability** (it short-circuits: e.g. 5 vs 12 calls for the same pass-rate). Reproduce with `uv run python -m evals.repair_ablation` against the uncontaminated `evals/novel_problems.py`.
 
 Does the engine actually beat a single strong-model call? The repo ships an
 eval harness (`evals/`, a dev tool — not part of the published package) that
