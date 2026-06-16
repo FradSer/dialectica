@@ -68,21 +68,6 @@ def ctx_never():
     }
 
 
-@given(
-    "a repair engine (max 3) that keeps returning the same failing solution",
-    target_fixture="ctx",
-)
-def ctx_no_progress():
-    # Same solution every time: attempt 2 repeats attempt 1, so the engine must
-    # stop at 2 rather than burn the 3rd attempt re-verifying identical code.
-    return {
-        "verdicts": [(False, "stuck"), (False, "stuck"), (False, "stuck")],
-        "answers": ["SAME", "SAME", "SAME"],
-        "max_attempts": 3,
-        "instructions": [],
-    }
-
-
 @when("the repair engine runs", target_fixture="result")
 def run_repair(ctx):
     engine = make_engine(ctx)

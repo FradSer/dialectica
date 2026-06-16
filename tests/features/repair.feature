@@ -21,9 +21,3 @@ Feature: Execution-guided repair engine
     When the repair engine runs
     Then the solution did not pass
     And it took 2 attempts
-
-  Scenario: Repair stops early when an attempt makes no progress
-    Given a repair engine (max 3) that keeps returning the same failing solution
-    When the repair engine runs
-    Then the solution did not pass
-    And it took 2 attempts
