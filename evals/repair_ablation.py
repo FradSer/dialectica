@@ -173,11 +173,20 @@ def main() -> None:
     parser.add_argument("--k", type=int, default=3, help="attempts / samples per arm")
     parser.add_argument("--limit", type=int, default=None, help="first N problems only")
     parser.add_argument("--json", type=str, default=None, help="write JSON report here")
+    parser.add_argument(
+        "--problems",
+        choices=["novel", "hard"],
+        default="novel",
+        help="benchmark set: novel (medium) or hard",
+    )
     args = parser.parse_args()
 
-    from evals.novel_problems import NOVEL_PROBLEMS
+    if args.problems == "hard":
+        from evals.hard_problems import HARD_PROBLEMS as all_problems
+    else:
+        from evals.novel_problems import NOVEL_PROBLEMS as all_problems
 
-    problems = NOVEL_PROBLEMS[: args.limit] if args.limit else NOVEL_PROBLEMS
+    problems = all_problems[: args.limit] if args.limit else all_problems
     report = asyncio.run(run_repair_ablation(problems, k=args.k))
     print(render_markdown(report))
     if args.json:
