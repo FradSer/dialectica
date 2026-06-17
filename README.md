@@ -250,9 +250,9 @@ engine = create_engine(
 )
 ```
 
-`criteria` deserves attention: the eval matrix showed the discriminator's
+`criteria` deserves attention: the earlier eval matrix showed the discriminator's
 rubric steers answer *content*, not just selection (see
-[Results](#results-2026-06)). The default rubric is feasibility-anchored;
+[Evaluation](#evaluation)). The default rubric is feasibility-anchored;
 pass your own to retarget the engine, e.g. a security-review rubric.
 
 Sibling thoughts are expanded and evaluated **concurrently**, and the runtime
@@ -359,7 +359,7 @@ uv run pytest -m e2e   # live API E2E (slower, requires GOOGLE_API_KEY)
 
 ## Evaluation
 
-> **Headline findings (2026-06, measured, no preset conclusion).**
+> **Headline findings (2026-06-17, measured, no preset conclusion).** These supersede the earlier advice-suite matrices further down (2026-06-10/11), which compared against a weaker baseline.
 >
 > 1. **Where an engine genuinely wins — capability, not quality.** On tasks that require *acting* (the agentic hidden-oracle benchmark), a small model with the **agentic engine** scored **8/8** vs a single call's **0/8**: it probes the hidden function, infers the rule, and implements it — a single call can't know an arbitrary rule without probing. This is the genuine value class. Reproduce: `uv run python -m evals.agentic_eval`.
 > 2. **Where scaffolds do NOT win — self-contained result quality.** Judged against a *matched-cost* baseline, **no pure-LLM scaffold beats a single call**: the dialectic went **0-3-2** vs a prompt-matched strong baseline at every model size (the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly **ties matched-cost best-of-K** (across HumanEval, an original edge-case set, LeetCode-medium, LCB-hard, and a purpose-built uncontaminated benchmark — and even the smallest model one-shots them, so the "fails-but-fixable" band is near-empty). Repair's real edge is **cost** (best-of-N reliability at ~1/3 the calls). Reproduce: `uv run python -m evals.repair_ablation`.
@@ -386,7 +386,9 @@ Model overrides via env: `BASELINE_MODEL_CONFIG` and `JUDGE_MODEL_CONFIG`
 (same `provider:model_name` format; e.g. point the baseline at
 `google:gemini-3.1-pro-preview` to compare against a stronger single call).
 
-### Results (2026-06)
+### Earlier advice-suite matrices (2026-06-10/11) — superseded
+
+> **Superseded by the headline findings above.** These matrices compared the engine against a *single-answer* baseline judged by `gemini-3.5-flash` — **not** a *prompt-matched* baseline at matched cost. When the baseline was later given the same quality bar (headline finding #2, 2026-06-17), the engine's apparent wins below (e.g. 20-8-2) collapsed to **0-3-2**. Read the numbers here as "engine vs a *naively-prompted* single answer," a useful study of how the discriminator **criteria steer content** — not as evidence the engine beats a fair baseline.
 
 Three full matrix runs on the 5 default benchmark problems, all judged blind
 by `gemini-3.5-flash` with position-swap bias control (engine config:
@@ -447,7 +449,7 @@ Caveats: a flash judge and small samples — directional, not definitive
 (answers + judge reasoning) land in `evals/results/` when you run the
 harness.
 
-### SWE suite results (2026-06, ground truth)
+### SWE suite results (2026-06-12, ground truth)
 
 The `swe` suite (12 HumanEval-style problems, pass/fail decided by running
 unit tests — no judge) was run on three local ollama models. Full mode
