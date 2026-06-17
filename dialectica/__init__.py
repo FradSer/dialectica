@@ -35,6 +35,7 @@ from .agent import (
     run_tot_workflow,
 )
 from .agent_factory import ROLE_TEMPLATES, create_agent
+from .agentic import AgenticEngine, create_agentic_engine
 from .coordinator import Coordinator
 from .dialectic import DialecticEngine, create_dialectic_engine
 from .gan_evaluator import (
@@ -50,8 +51,11 @@ from .selection import BeamSearch, GreedySearch
 from .synthesis import LlmSynthesizer
 
 __all__ = [
-    # Execution-guided repair — the core engine (verifier-in-the-loop; the one
-    # that structurally beats a single call on verifiable tasks)
+    # Agentic engine — tool-using loop; adds capability (act/observe/iterate)
+    # a single forward pass structurally lacks
+    "create_agentic_engine",
+    "AgenticEngine",
+    # Execution-guided repair — verifier-in-the-loop; cost-efficient reliability
     "create_repair_engine",
     "IterativeRepairEngine",
     # Dialectic — open-ended steering + auditable trade-off trace (not a
