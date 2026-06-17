@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-Dialectica is a reasoning-engine toolbox built on Google ADK, led by an execution-guided **repair** engine (`repair.py`): generate → run an objective verifier → repair against the concrete failure → retry. That repair loop is the one engine here that structurally beats a single strong-model call — it adds ground-truth verification a single forward pass lacks. It also ships a **dialectic** engine (thesis → antithesis → synthesis), a pure-LLM scaffold whose honest value is content-steering + an auditable trade-off trace (NOT result quality over a single call), and a legacy **Tree-of-Thoughts + GAN** pipeline kept as a baseline. Published on PyPI as `dialectica`. Python 3.11+.
+Dialectica is a reasoning-engine toolbox built on Google ADK. The genuine win is the **agentic** engine (`agentic.py`): a tool-using loop (act → observe → iterate) that lets a model do what a single forward pass cannot — measured 8/8 vs a single call's 0/8 for a small model on tasks requiring interaction. It also ships **execution-guided repair** (`repair.py`, verifier-in-the-loop: best-of-N reliability at ~1/3 the cost on verifiable tasks), a **dialectic** engine (thesis → antithesis → synthesis; auditable + criteria-steered, NOT better quality than a single call), and a legacy **Tree-of-Thoughts + GAN** baseline. Hard-won finding: no pure-LLM scaffold beats a prompt-matched single call on *self-contained* tasks — engines win only by adding capability (tools) or ground-truth verification. Published on PyPI as `dialectica`. Python 3.11+.
 
 ## Commands
 
@@ -23,10 +23,11 @@ CI (`.github/workflows/test.yml`) runs `ruff format --check`, `ruff check`, and 
 
 ## Architecture
 
-**Three engines, honest hierarchy** (controlled evals in `evals/results/`, README "Results"):
+**Four engines, honest hierarchy** (controlled evals in `evals/results/`, README "Evaluation"):
 
-- `repair.py` — `IterativeRepairEngine` / `create_repair_engine`: **the core**. `generate → verifier → repair-on-failure` up to N attempts; the verifier is an injected `Callable[[answer], (passed, feedback)]`, so it's task-agnostic (unit tests, schema validator, linter, assertion-checked logic — `solution_format` optionally pins the output shape). The only engine that beats a single call on verifiable tasks, because the verifier feedback is information a single pass never sees. Returns `{final_answer, passed, attempts, history}`.
-- `dialectic.py` — `create_dialectic_engine`: thesis → antithesis → synthesis spiral. A pure-LLM scaffold; a prompt-controlled eval showed it ties/loses a prompt-matched single call (0-3-2 — it rearranges the model's own thinking, adding no information), so it's positioned for content-steering (`criteria`) + auditable reasoning, not raw quality. It does beat plain ToT (8-2-0).
+- `agentic.py` — `AgenticEngine` / `create_agentic_engine`: **the genuine win**. A tool-using ADK loop; inject tools (read a file, run tests, query a service) and the agent acts → observes → iterates until the task is objectively done. The one engine that beats a single call, because it adds CAPABILITY a single forward pass lacks (not quality): small model **8/8 vs single-call 0/8** on the hidden-oracle benchmark (`evals/agentic_eval.py`). Tools are caller-injected, so it stays task-agnostic.
+- `repair.py` — `create_repair_engine`: verifier-in-the-loop (`generate → verifier → repair-on-failure`). On verifiable tasks it *ties* matched-cost best-of-K on pass-rate but reaches it far cheaper (short-circuits: ~1/3 the calls). Verifier is an injected `Callable[[answer], (passed, feedback)]`; `solution_format` pins output shape. Returns `{final_answer, passed, attempts, history}`. Reproduce with `evals/repair_ablation.py`.
+- `dialectic.py` — `create_dialectic_engine`: thesis → antithesis → synthesis spiral. Pure-LLM scaffold; a prompt-controlled eval showed it ties/loses a prompt-matched single call (**0-3-2** at every model size — it rearranges the model's own thinking, adding no information), so it's positioned for content-steering (`criteria`) + auditable reasoning, not raw quality. Beats plain ToT (8-2-0).
 - `agent.py` — `create_engine` / `create_coordinator`: legacy Tree-of-Thoughts + GAN beam search; baseline only.
 
 The pluggable-stage detail below describes the **legacy ToT engine** (`coordinator.py`); the repair and dialectic engines are simpler and self-contained.

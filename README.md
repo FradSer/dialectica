@@ -4,9 +4,16 @@
 
 English | [简体中文](https://github.com/FradSer/dialectica/blob/main/README.zh-CN.md)
 
-**Dialectica** is a reasoning-engine toolbox on Google ADK, **led by an execution-guided repair engine**: generate → run an objective verifier → repair against the concrete failure → retry. That loop is the one engine here that *structurally* beats a single strong-model call — because it adds ground-truth verification a single forward pass cannot. It also ships a **dialectic** engine (*thesis → antithesis → synthesis*) for transparent, criteria-steered open-ended reasoning, and a legacy **Tree-of-Thoughts + GAN** pipeline as a baseline. Every stage is a swappable component. Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) and Claude Code's composable workflows.
+**Dialectica** is a reasoning-engine toolbox on Google ADK. It was built and measured the hard way — running the engines against well-controlled baselines and keeping only what the data justifies. The honest hierarchy:
 
-> **Honest scope (measured — see [Evaluation](#evaluation)).** On self-contained tasks, pure-LLM scaffolds (ToT, dialectic) do **not** beat a prompt-matched single call on result quality — they only rearrange the model's own thinking, adding no information (controlled test: dialectic 0-3-2 vs a prompt-matched call). The genuine, measured wins are narrower and real: **repair beats a single call and is cheaper than matched-cost best-of-K** (it short-circuits on success — e.g. 5 vs 12 calls at equal pass-rate), and the dialectic's value is an **auditable** reasoning trace, not better answers. For breadth/scale, use a workflow and call these engines per node. Reproduce the numbers with `uv run python -m evals.repair_ablation`.
+- **Agentic engine** (`create_agentic_engine`) — the one engine that genuinely lets a model do what a single call *cannot*: a tool-using loop (act → observe → iterate). It wins by adding **capability**, not quality — measured **8/8 vs a single call's 0/8** for a *small* model on tasks that require gathering information through tools.
+- **Execution-guided repair** (`create_repair_engine`) — generate → run a verifier → repair against the failure → retry. On verifiable tasks it reaches best-of-N reliability at a **fraction of the cost** (it short-circuits on success).
+- **Dialectic** (`create_dialectic_engine`) — *thesis → antithesis → synthesis*: an **auditable**, criteria-steered reasoning trace (transparency, not better answers).
+- **Tree-of-Thoughts + GAN** (`create_engine`) — the prior-generation pluggable pipeline, kept as a baseline.
+
+Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) and Claude Code's composable workflows.
+
+> **Honest scope (measured, no preset conclusion — see [Evaluation](#evaluation)).** The hard finding first: on **self-contained** tasks, *no* pure-LLM scaffold (ToT, dialectic) beats a prompt-matched single call on result quality, at every model size tested (dialectic **0-3-2** vs a prompt-matched call) — they rearrange the model's own thinking without adding information. An engine wins only by adding what a single forward pass lacks: **acting on the world** (agentic: small model **8/8 vs 0/8**) or **ground-truth verification** (repair: best-of-N reliability at **~1/3 the calls**). Reproduce with `uv run python -m evals.agentic_eval` and `uv run python -m evals.repair_ablation`.
 
 ## Install
 
@@ -47,14 +54,24 @@ itself. To work on Dialectica instead, see [Development](#development).
 
 ## Key Features
 
-### 🛠️ Execution-guided repair — the core (`create_repair_engine`)
-The one engine that *structurally* beats a single call, because it acts on
-ground truth: **generate → run an injected verifier → repair against the
-concrete failure → retry**, until it passes or attempts run out.
+### 🤖 Agentic engine — adds capability (`create_agentic_engine`)
+The one engine that lets a model do what a single forward pass *cannot*: a
+tool-using loop. Inject your tools (read a file, run tests, query a service);
+the agent plans, calls a tool, reads the result, and iterates until the task is
+objectively done — ADK drives the loop.
+
+- **Wins by capability, not quality** — measured **8/8 vs a single call's 0/8** for a small model on tasks that require gathering information through tools (`evals/agentic_eval.py`). This is the genuine value class; reasoning scaffolds on self-contained prompts tie a single call (see [Evaluation](#evaluation)).
+- **Task-agnostic** — tools are injected callables; ADK derives their schemas. The engine stays general.
+- **Returns** `{final_answer}`; side effects happen through your tools, so you check the objective outcome afterward.
+
+### 🛠️ Execution-guided repair — verifier-in-the-loop (`create_repair_engine`)
+For verifiable tasks: **generate → run an injected verifier → repair against the
+concrete failure → retry**, until it passes or attempts run out. It does not beat
+matched-cost resampling on *quality*, but reaches that reliability far cheaper.
 
 - **Task-agnostic verifier** — any `Callable[[answer], (passed, feedback)]`: unit tests, a schema validator, a linter, assertion-checked logic. `solution_format` pins the output shape your verifier parses.
 - **Uses the full failure history** — every prior attempt + its exact failure is fed back, so the loop doesn't oscillate between two wrong fixes.
-- **Cost-disciplined** — short-circuits the moment the verifier passes (cheaper than best-of-K at equal reliability), and stops early if an attempt repeats a prior solution (no-progress).
+- **Cost-disciplined** — short-circuits the moment the verifier passes, reaching best-of-N reliability at a fraction of the calls (e.g. 20 vs 60 at equal pass-rate).
 - **Returns** `{final_answer, passed, attempts, history}`.
 
 Measure it honestly against pass@1 and matched-cost best-of-K with
@@ -342,7 +359,10 @@ uv run pytest -m e2e   # live API E2E (slower, requires GOOGLE_API_KEY)
 
 ## Evaluation
 
-> **Headline finding (2026-06, measured, no preset conclusion).** Judged against a *matched-cost* baseline, **no pure-LLM scaffold here beats a single call on result quality**: the dialectic went **0-3-2** against a prompt-matched strong baseline (it ties/loses — the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly ties matched-cost best-of-K (across HumanEval, an original edge-case set, LeetCode-medium, LCB-hard, and a purpose-built uncontaminated benchmark, **feedback-only wins = 0** every time — even a weak model one-shots medium verifiable tasks, so the "fails-but-fixable" band is near-empty). Repair's real, measured edge is **cost at equal reliability** (it short-circuits: e.g. 5 vs 12 calls for the same pass-rate). Reproduce with `uv run python -m evals.repair_ablation` against the uncontaminated `evals/novel_problems.py`.
+> **Headline findings (2026-06, measured, no preset conclusion).**
+>
+> 1. **Where an engine genuinely wins — capability, not quality.** On tasks that require *acting* (the agentic hidden-oracle benchmark), a small model with the **agentic engine** scored **8/8** vs a single call's **0/8**: it probes the hidden function, infers the rule, and implements it — a single call can't know an arbitrary rule without probing. This is the genuine value class. Reproduce: `uv run python -m evals.agentic_eval`.
+> 2. **Where scaffolds do NOT win — self-contained result quality.** Judged against a *matched-cost* baseline, **no pure-LLM scaffold beats a single call**: the dialectic went **0-3-2** vs a prompt-matched strong baseline at every model size (the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly **ties matched-cost best-of-K** (across HumanEval, an original edge-case set, LeetCode-medium, LCB-hard, and a purpose-built uncontaminated benchmark — and even the smallest model one-shots them, so the "fails-but-fixable" band is near-empty). Repair's real edge is **cost** (best-of-N reliability at ~1/3 the calls). Reproduce: `uv run python -m evals.repair_ablation`.
 
 Does the engine actually beat a single strong-model call? The repo ships an
 eval harness (`evals/`, a dev tool — not part of the published package) that

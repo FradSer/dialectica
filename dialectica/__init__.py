@@ -1,26 +1,28 @@
 """
-Dialectica — reasoning engines, led by execution-guided repair.
+Dialectica — reasoning engines, kept honest by controlled evals (see README).
 
-Controlled evals (see README) established the honest hierarchy:
+The hierarchy the data justifies:
 
-- ``create_repair_engine`` — THE CORE. Generate -> run an objective verifier ->
-  repair against the concrete failure -> retry. The only engine here that
-  structurally beats a single strong-model call, because it adds what a single
-  forward pass lacks: ground-truth verification. Use it for any verifiable task
-  (unit tests, a schema validator, a linter, assertion-checked logic).
+- ``create_agentic_engine`` — THE GENUINE WIN. A tool-using loop (act -> observe
+  -> iterate): inject tools and the agent works until the task is objectively
+  done. The one engine that lets a model do what a single forward pass CANNOT —
+  it adds capability, not quality (measured 8/8 vs a single call's 0/8 for a
+  small model on tasks requiring interaction).
+- ``create_repair_engine`` — verifier-in-the-loop for verifiable tasks. Ties
+  matched-cost best-of-K on pass-rate but reaches it far cheaper (short-circuits
+  on success). Verifier is an injected ``Callable[[answer], (passed, feedback)]``.
 - ``create_dialectic_engine`` — thesis -> antithesis -> synthesis. A pure-LLM
-  scaffold; it does NOT beat a prompt-matched single call on result quality (it
-  rearranges the model's own thinking, adding no information). Its genuine value
-  is content-steering via criteria and an auditable trade-off trace on
-  open-ended sub-decisions.
+  scaffold; it does NOT beat a prompt-matched single call on result quality
+  (adds no information). Its value is content-steering via criteria + an
+  auditable trade-off trace.
 - ``create_engine`` / ``create_coordinator`` — legacy Tree-of-Thoughts + GAN
   beam search, kept as a baseline; every stage is a swappable ``Protocol``.
 
 Example:
-    from dialectica import create_repair_engine
+    from dialectica import create_agentic_engine
 
-    engine = create_repair_engine("Your task", verifier=my_checker)
-    result = await engine.run()  # {"final_answer", "passed", "attempts", ...}
+    engine = create_agentic_engine("Your task", tools=[read_file, run_tests])
+    result = await engine.run()  # {"final_answer"}; tools do the acting
 
 
 Configuration is read from ``os.environ`` — as a library, Dialectica does NOT
