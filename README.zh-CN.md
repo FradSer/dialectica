@@ -4,7 +4,16 @@
 
 [English](README.md) | 简体中文
 
-**Dialectica（辩证）** 是一个可插拔的对抗式推理引擎。它在「思维树」上搜索：每个思维经过生成、对抗评估与迭代改进，再综合成答案——*正题 → 反题 → 合题*（Generator → Discriminator → Synthesizer）。设计参考了 [karpathy/autoresearch](https://github.com/karpathy/autoresearch) 的「提议→评估→保留最优」循环与 Claude Code 的可组合 workflows；每个阶段都是可替换组件，默认装配为思维树 + GAN 风格对抗评估循环，基于 Google ADK 2.1。
+**Dialectica（辩证）** 是一个基于 Google ADK 的推理引擎工具箱。它是用数据「逼」出来的——把各引擎放在受控基线下实测，只保留数据站得住的部分。诚实的层级：
+
+- **Agentic 引擎**（`create_agentic_engine`）——唯一真正让模型做到「单次调用做不到的事」的引擎：工具使用循环（行动 → 观察 → 迭代）。它靠**增加能力**取胜，而非质量——实测**小模型 8/8 对单次调用 0/8**，在需要通过工具获取信息的任务上。
+- **执行制导修复**（`create_repair_engine`）——生成 → 跑验证器 → 据失败修复 → 重试。在可验证任务上，以**几分之一的成本**达到 best-of-N 的可靠性（成功即短路）。
+- **辩证引擎**（`create_dialectic_engine`）——*正题 → 反题 → 合题*：一条**可审计**、受 criteria 引导的推理轨迹（透明，而非更好的答案）。
+- **思维树 + GAN**（`create_engine`）——上一代可插拔流水线，保留作基线。
+
+设计参考 [karpathy/autoresearch](https://github.com/karpathy/autoresearch) 与 Claude Code 的可组合 workflows。
+
+> **诚实边界（实测，无预设结论——见 [评测](#评测)）。** 先说硬结论：在**自包含**任务上，*没有*任何纯 LLM scaffold（ToT、辩证）能在结果质量上胜过同 prompt 的单次调用，各模型规模皆然（辩证 **0-3-2** 对同 prompt 基线）——它们只是重排模型已有的思考，不注入新信息。引擎取胜的唯一途径是补上单次前向传播缺失的东西：**对世界采取行动**（agentic：小模型 **8/8 对 0/8**）或**真值验证**（repair：best-of-N 可靠性、**约 1/3 的调用数**）。复现：`uv run python -m evals.agentic_eval` 与 `uv run python -m evals.repair_ablation`。
 
 ## 安装
 
@@ -17,20 +26,43 @@ uv add dialectica
 
 ```python
 import os, asyncio
-from dialectica import create_engine
+from dialectica import create_repair_engine
 
 os.environ["GOOGLE_API_KEY"] = "..."          # 由应用方负责环境配置
 
+# 验证器对任意客观检查返回 (passed, feedback)——单元测试、JSON schema、
+# linter、断言校验的业务逻辑。引擎据反馈反复修复，直到通过或用尽次数。
+def verify(answer: str) -> tuple[bool, str]:
+    ok = "def solve" in answer                 # 换成你真正的检查
+    return ok, "" if ok else "未定义 solve() 函数"
+
 async def main():
-    result = await create_engine("你的问题").run()
-    print(result["final_answer"])
+    result = await create_repair_engine(
+        "写一个 solve() 函数……", verifier=verify
+    ).run()
+    print(result["passed"], result["attempts"], result["final_answer"])
 
 asyncio.run(main())
 ```
 
-库从 `os.environ` 读取配置，**不会**自己加载 `.env`。如果是想开发 Dialectica 本身，见 [本地开发](#本地开发)。
+需要多步、用工具的任务，用 `create_agentic_engine`（注入工具，引擎驱动「行动→观察→迭代」循环）；可验证任务用 `create_repair_engine`；需要可审计推理轨迹的开放式问题用 `create_dialectic_engine`；旧版 `create_engine`（思维树 + GAN）保留作基线。库从 `os.environ` 读取配置，**不会**自己加载 `.env`。如果是想开发 Dialectica 本身，见 [本地开发](#本地开发)。
 
 ## 核心特性
+
+### 🤖 Agentic 引擎——增加能力（`create_agentic_engine`）
+唯一让模型做到「单次前向传播做不到的事」的引擎：工具使用循环。注入你的工具（读文件、跑测试、查服务），智能体规划、调用工具、读取结果、迭代，直到任务客观完成——由 ADK 驱动循环。
+
+- **靠能力取胜，而非质量**——实测**小模型 8/8 对单次调用 0/8**，在需要通过工具获取信息的任务上（`evals/agentic_eval.py`）。这是真正的价值类别；自包含 prompt 上的推理 scaffold 只能与单次调用打平（见 [评测](#评测)）。
+- **任务无关**——工具是注入的可调用对象，ADK 自动推导其 schema，引擎保持通用。
+- **返回** `{final_answer}`；副作用通过你的工具发生，故事后由你检查客观结果。
+
+### 🛠️ 执行制导修复——验证器在环（`create_repair_engine`）
+面向可验证任务：**生成 → 跑注入的验证器 → 据具体失败修复 → 重试**，直到通过或用尽次数。它在**质量**上打不过同成本的重采样，但以低得多的成本达到同等可靠性。
+
+- **任务无关的验证器**——任意 `Callable[[answer], (passed, feedback)]`：单元测试、schema 校验、linter、断言校验的逻辑。`solution_format` 固定验证器解析的输出形态。
+- **用完整失败历史**——每次先前尝试及其确切失败都回喂，避免在两个错误解之间反复横跳。
+- **成本自律**——验证器一通过即短路，以几分之一的调用数达到 best-of-N 的可靠性（如同等通过率下 20 对 60 次调用）。
+- **返回** `{final_answer, passed, attempts, history}`。
 
 ### 🧩 可插拔引擎（正题 → 反题 → 合题）
 `Engine` 只负责搜索的**控制流**，每个决策都委托给注入的组件——任何阶段都可替换而不动引擎：
@@ -307,6 +339,11 @@ uv run pytest -m e2e   # 真实 API E2E（较慢，需要 GOOGLE_API_KEY）
 ```
 
 ## 评测
+
+> **核心发现（2026-06，实测，无预设结论）。**
+>
+> 1. **引擎真正取胜之处——能力，而非质量。** 在需要*行动*的任务上（agentic 隐藏函数发现基准），小模型 + **agentic 引擎**得 **8/8**，单次调用 **0/8**：它探测隐藏函数、推断规则、再实现——单次调用没探测就无从知道任意规则。这是真正的价值类别。复现：`uv run python -m evals.agentic_eval`。
+> 2. **scaffold 不取胜之处——自包含任务的结果质量。** 对*同成本*基线，**没有任何纯 LLM scaffold 能胜过单次调用**：辩证对同 prompt 强基线在各模型规模上都是 **0-3-2**（早先的 4-1-0「胜」是 prompt + 长度，不是结构）。**repair** 胜过*单次*调用，但与同成本 best-of-K **恰好打平**（在 HumanEval、自建边界题集、LeetCode-medium、LCB-hard、专门构造的未污染基准上皆然——连最小的模型都一次做对，「会失败但可修」的区间几乎为空）。repair 的真实优势是**成本**（best-of-N 的可靠性、约 1/3 的调用数）。复现：`uv run python -m evals.repair_ablation`。
 
 引擎真的比单次强模型调用更好吗？仓库自带评测工具（`evals/`，开发工具，
 不随包发布）用数据回答这个问题：每道基准题分别由**引擎**和**单次调用基线**
