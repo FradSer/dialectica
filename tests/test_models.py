@@ -30,6 +30,19 @@ def test_discriminator_verdict_fills_defaults_for_missing_fields():
     assert verdict.should_terminate is False
 
 
+def test_discriminator_verdict_coerces_object_valued_flaws():
+    # Models often return flaws/suggestions as objects, not strings. Left
+    # uncoerced this fails list[str] validation and (3x in a row) aborts the
+    # run; the verdict must pull out the text instead of crashing.
+    verdict = DiscriminatorVerdict.model_validate_json(
+        '{"score": 6, '
+        '"flaws": [{"category": "Feasibility", "text": "too costly"}, "plain"], '
+        '"suggestions": [{"suggestion": "cut scope"}]}'
+    )
+    assert verdict.flaws == ["too costly", "plain"]
+    assert verdict.suggestions == ["cut scope"]
+
+
 def test_discriminator_verdict_schema_is_gemini_friendly():
     # extra='forbid' / numeric constraints break Gemini structured output;
     # the verdict schema must avoid both.
