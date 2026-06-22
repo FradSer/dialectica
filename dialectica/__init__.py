@@ -51,6 +51,18 @@ from .protocols import Evaluator, Generator, Selector, Synthesizer
 from .repair import IterativeRepairEngine, create_repair_engine
 from .selection import BeamSearch, GreedySearch
 from .synthesis import LlmSynthesizer
+from .workflow import (
+    Budget,
+    BudgetExhausted,
+    Workflow,
+    agent,
+    args,
+    budget,
+    log,
+    parallel,
+    phase,
+    pipeline,
+)
 
 __all__ = [
     # Agentic engine — tool-using loop; adds capability (act/observe/iterate)
@@ -72,6 +84,19 @@ __all__ = [
     # Backward-compatible aliases
     "create_coordinator",
     "Coordinator",
+    # Workflow primitives — a composable multi-agent runtime for meta-tasks
+    # (research/review/planning/design). Orchestration layer, NOT a
+    # self-contained-quality engine (see README Evaluation).
+    "Workflow",
+    "Budget",
+    "BudgetExhausted",
+    "agent",
+    "parallel",
+    "pipeline",
+    "phase",
+    "log",
+    "budget",
+    "args",
     # Stage protocols (the pluggable interfaces)
     "Generator",
     "Evaluator",

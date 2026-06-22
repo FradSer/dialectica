@@ -9,11 +9,11 @@
 - **Agentic 引擎**（`create_agentic_engine`）——唯一真正让模型做到「单次调用做不到的事」的引擎：工具使用循环（行动 → 观察 → 迭代）。它靠**增加能力**取胜，而非质量——实测**小模型 8/8 对单次调用 0/8**，在需要通过工具获取信息的任务上。
 - **执行制导修复**（`create_repair_engine`）——生成 → 跑验证器 → 据失败修复 → 重试。在可验证任务上，以**几分之一的成本**达到 best-of-N 的可靠性（成功即短路）。
 - **辩证引擎**（`create_dialectic_engine`）——*正题 → 反题 → 合题*：一条**可审计**、受 criteria 引导的推理轨迹（透明，而非更好的答案）。
-- **思维树 + GAN**（`create_engine`）——上一代可插拔流水线，保留作基线。
+- **思维树 + GAN**（`create_engine`）——上一代可插拔流水线，保留作基线。实测在同成本下被**压制**（输给 best-of-N 与扁平 self-refine——见 [评测](#评测) 第 3 条）；仅作研究与向后兼容保留，不推荐用于质量。
 
 设计参考 [karpathy/autoresearch](https://github.com/karpathy/autoresearch) 与 Claude Code 的可组合 workflows。
 
-> **诚实边界（实测，无预设结论——见 [评测](#评测)）。** 先说硬结论：在**自包含**任务上，*没有*任何纯 LLM scaffold（ToT、辩证）能在结果质量上胜过同 prompt 的单次调用，各模型规模皆然（辩证 **0-3-2** 对同 prompt 基线）——它们只是重排模型已有的思考，不注入新信息。引擎取胜的唯一途径是补上单次前向传播缺失的东西：**对世界采取行动**（agentic：小模型 **8/8 对 0/8**）或**真值验证**（repair：best-of-N 可靠性、**约 1/3 的调用数**）。复现：`uv run python -m evals.agentic_eval` 与 `uv run python -m evals.repair_ablation`。
+> **诚实边界（实测，无预设结论——见 [评测](#评测)）。** 先说硬结论：在**自包含**任务上，*没有*任何纯 LLM scaffold（ToT、辩证）能在结果质量上胜过同 prompt 的单次调用，各模型规模皆然（辩证 **0-3-2** 对同 prompt 基线；ToT+GAN 对单次调用 **0-4-1**，且在同成本下被扁平 best-of-N 与 self-refine **压制**）——它们只是重排模型已有的思考，不注入新信息，而树结构还会*削弱*扁平循环本就提供的精炼。即使在 **Game-of-24**——ToT 的经典搜索基准——该任务对所有云可得模型也已**饱和**（最难那批谜题，单次调用在 qwen-flash / gemini-lite / doubao-lite / glm-5.2 上均为 5/5），ToT 的恢复区间为空。引擎取胜的唯一途径是补上单次前向传播缺失的东西：**对世界采取行动**（agentic：小模型 **8/8 对 0/8**）或**真值验证**（repair：best-of-N 可靠性、**约 1/3 的调用数**）。复现：`uv run python -m evals.agentic_eval` 与 `uv run python -m evals.repair_ablation`。
 
 ## 安装
 
@@ -63,6 +63,34 @@ asyncio.run(main())
 - **用完整失败历史**——每次先前尝试及其确切失败都回喂，避免在两个错误解之间反复横跳。
 - **成本自律**——验证器一通过即短路，以几分之一的调用数达到 best-of-N 的可靠性（如同等通过率下 20 对 60 次调用）。
 - **返回** `{final_answer, passed, attempts, history}`。
+
+### 🔗 Workflow 原语——可组合的多 agent 运行时（`Workflow`）
+Claude Code `Workflow` 工具的 Python 复刻，建立在仓库唯一的 LLM 调用接缝上。用普通 async Python 表达任意多 agent 工作流——原语包括 `agent()`（一次 LLM 调用，可选 Pydantic schema）、`parallel()`（屏障）、`pipeline()`（无屏障逐项过 stage）、`phase()`、`log()`，以及一个调用 `Budget`。
+
+```python
+from dialectica import Workflow, agent, parallel, phase
+from pydantic import BaseModel
+
+class Verdict(BaseModel):
+    summary: str
+    confidence: str
+
+async def research(question: str):
+    phase("Gather")
+    findings = await parallel(
+        lambda: agent(f"广角研究: {question}"),
+        lambda: agent(f"质疑式研究: {question}"),
+    )
+    phase("Synthesize")
+    return await agent(
+        f"综合: {' | '.join(f for f in findings if f)}",
+        schema=Verdict,
+    )
+
+result = await Workflow(lambda: research("...")).run()
+```
+
+**诚实边界。** 这是一个面向**元任务**的**编排层**——研究、审查、规划、设计：这类任务没有 ground truth，扇出 / 对抗审判 / 综合的形状确实有用。它**不是**自包含结果质量引擎：现有引擎在开放式咨询任务上实测为 0-4-1 / 0-2-3 / 0-1-4（对 单次 / best-of-N / self-refine，见 `evals/quality_ablation.py`），因此不要指望把一个 workflow 组合起来就能在自包含质量上胜过同 prompt 单次调用。`pipeline(items, find, adversarially_verify, synthesize)` 是研究/审查类工作流的正确形状；当你有验证器或工具时，`repair.py` 或 `agentic.py` 才是对的工具。
 
 ### 🧩 可插拔引擎（正题 → 反题 → 合题）
 `Engine` 只负责搜索的**控制流**，每个决策都委托给注入的组件——任何阶段都可替换而不动引擎：
@@ -344,6 +372,8 @@ uv run pytest -m e2e   # 真实 API E2E（较慢，需要 GOOGLE_API_KEY）
 >
 > 1. **引擎真正取胜之处——能力，而非质量。** 在需要*行动*的任务上（agentic 隐藏函数发现基准），小模型 + **agentic 引擎**得 **8/8**，单次调用 **0/8**：它探测隐藏函数、推断规则、再实现——单次调用没探测就无从知道任意规则。这是真正的价值类别。复现：`uv run python -m evals.agentic_eval`。
 > 2. **scaffold 不取胜之处——自包含任务的结果质量。** 对*同成本*基线，**没有任何纯 LLM scaffold 能胜过单次调用**：辩证对同 prompt 强基线在各模型规模上都是 **0-3-2**（早先的 4-1-0「胜」是 prompt + 长度，不是结构）。**repair** 胜过*单次*调用，但与同成本 best-of-K **恰好打平**（在 HumanEval、自建边界题集、LeetCode-medium、LCB-hard、专门构造的未污染基准上皆然——连最小的模型都一次做对，「会失败但可修」的区间几乎为空）。repair 的真实优势是**成本**（best-of-N 的可靠性、约 1/3 的调用数）。复现：`uv run python -m evals.repair_ablation`。
+> 3. **树结构是被*压制*的，而非仅仅无用（2026-06-22）。** 两项测试补上最后的疑点。在 **Game-of-24**——ToT *自己的*经典可验证搜索基准——上，*忠实*的 ToT（部分状态节点、前瞻价值、BFS、胜出叶即答案）得 **14/15，以约 34× 成本输给单次调用的 15/15**：现代模型对 2023 年论文里 GPT-4 96% 失败的任务一次做对（ToT 主场上的天花板）。而此前缺失的对照——**best-of-N + selector** 与 **K 轮 self-refine**——在同成本盲评下：ToT+GAN 引擎为 **0-4-1 / 0-2-3 / 0-1-4**（对 单次 / best-of-N / self-refine）——它**从未赢下一场**。质量排序为 **self-refine ≥ best-of-N ≥ 单次 ≥ 树式 scaffold**：对抗/精炼*机制*有用（扁平 self-refine 是最佳方法），但*树/beam/对抗最佳路径结构*反而削弱了它。复现：`uv run python -m evals.game24` 与 `uv run python -m evals.quality_ablation`。
+> 4. **ToT 的价值窗口在*整个*可用模型范围上已关闭（2026-06-22）。** ToT 只在「基模型单独失败、但搜索能恢复」的「会失败但可修」区间内有用。把*最难*的 Game-of-24 谜题（需分数的经典：`3 3 8 8`、`1 5 5 5`、`3 3 7 7`、`1 3 4 6`、`4 4 7 7`）拿到**四个模型层级**——`qwen3.6-flash`、`gemini-3.1-flash-lite`、`doubao-seed-2-0-lite`、`glm-5.2`（最弱的云可得模型）——上测，单次调用**每个模型、每道题都是 5/5**。没有任何可达的弱模型会失败，因此 ToT 的搜索没有可恢复的差距。同样的饱和也出现在 repair 的可验证基准上，这里也一样：Game-of-24 对任何你调得到的模型都不再是「需要搜索」的基准。ToT「抬高边界质量」的论点在理论上成立，但边界已经越过了这个任务。
 
 引擎真的比单次强模型调用更好吗？仓库自带评测工具（`evals/`，开发工具，
 不随包发布）用数据回答这个问题：每道基准题分别由**引擎**和**单次调用基线**

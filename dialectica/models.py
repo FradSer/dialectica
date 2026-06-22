@@ -1,6 +1,37 @@
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def _coerce_str_list(value: Any) -> Any:
+    """Coerce list items to strings so object-valued flaws/suggestions parse.
+
+    Models frequently return flaws/suggestions as objects (e.g.
+    ``{"category": "Feasibility", "text": "..."}``) instead of plain strings.
+    Left as-is that fails ``list[str]`` validation, and three such failures in
+    a row trip the discriminator circuit breaker and abort the whole run. Pull
+    out the human-readable text (or flatten the object) instead of crashing.
+    """
+    if not isinstance(value, list):
+        return value
+    coerced: list[str] = []
+    for item in value:
+        if isinstance(item, str):
+            coerced.append(item)
+        elif isinstance(item, dict):
+            text = (
+                item.get("text")
+                or item.get("description")
+                or item.get("flaw")
+                or item.get("issue")
+                or item.get("suggestion")
+            )
+            coerced.append(
+                str(text) if text else "; ".join(f"{k}: {v}" for k, v in item.items())
+            )
+        else:
+            coerced.append(str(item))
+    return coerced
 
 
 class ThoughtData(BaseModel):
@@ -51,6 +82,10 @@ class DiscriminatorVerdict(BaseModel):
         default=False, description="Whether this path should stop."
     )
     reasoning: str = Field(default="", description="Brief justification for the score.")
+
+    _coerce_lists = field_validator("flaws", "suggestions", mode="before")(
+        _coerce_str_list
+    )
 
 
 class EvaluationResult(BaseModel):

@@ -9,11 +9,11 @@ English | [简体中文](https://github.com/FradSer/dialectica/blob/main/README.
 - **Agentic engine** (`create_agentic_engine`) — the one engine that genuinely lets a model do what a single call *cannot*: a tool-using loop (act → observe → iterate). It wins by adding **capability**, not quality — measured **8/8 vs a single call's 0/8** for a *small* model on tasks that require gathering information through tools.
 - **Execution-guided repair** (`create_repair_engine`) — generate → run a verifier → repair against the failure → retry. On verifiable tasks it reaches best-of-N reliability at a **fraction of the cost** (it short-circuits on success).
 - **Dialectic** (`create_dialectic_engine`) — *thesis → antithesis → synthesis*: an **auditable**, criteria-steered reasoning trace (transparency, not better answers).
-- **Tree-of-Thoughts + GAN** (`create_engine`) — the prior-generation pluggable pipeline, kept as a baseline.
+- **Tree-of-Thoughts + GAN** (`create_engine`) — the prior-generation pluggable pipeline, kept as a baseline. Measured **dominated** at matched compute (loses to both best-of-N and flat self-refine — see [Evaluation](#evaluation) finding #3); kept for study and back-compat, not recommended for quality.
 
 Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) and Claude Code's composable workflows.
 
-> **Honest scope (measured, no preset conclusion — see [Evaluation](#evaluation)).** The hard finding first: on **self-contained** tasks, *no* pure-LLM scaffold (ToT, dialectic) beats a prompt-matched single call on result quality, at every model size tested (dialectic **0-3-2** vs a prompt-matched call) — they rearrange the model's own thinking without adding information. An engine wins only by adding what a single forward pass lacks: **acting on the world** (agentic: small model **8/8 vs 0/8**) or **ground-truth verification** (repair: best-of-N reliability at **~1/3 the calls**). Reproduce with `uv run python -m evals.agentic_eval` and `uv run python -m evals.repair_ablation`.
+> **Honest scope (measured, no preset conclusion — see [Evaluation](#evaluation)).** The hard finding first: on **self-contained** tasks, *no* pure-LLM scaffold (ToT, dialectic) beats a prompt-matched single call on result quality, at every model size tested (dialectic **0-3-2** vs a prompt-matched call; ToT+GAN **0-4-1** vs a single call, and **dominated** by flat best-of-N and self-refine at matched compute) — they rearrange the model's own thinking without adding information, and the tree structure degrades the refinement a flat loop already delivers. Even on **Game-of-24** — ToT's canonical search benchmark — the task is saturated for every cloud-accessible model (single call 5/5 on the hardest puzzles across qwen-flash / gemini-lite / doubao-lite / glm-5.2), so ToT's recovery window is empty. An engine wins only by adding what a single forward pass lacks: **acting on the world** (agentic: small model **8/8 vs 0/8**) or **ground-truth verification** (repair: best-of-N reliability at **~1/3 the calls**). Reproduce with `uv run python -m evals.agentic_eval` and `uv run python -m evals.repair_ablation`.
 
 ## Install
 
@@ -76,6 +76,46 @@ matched-cost resampling on *quality*, but reaches that reliability far cheaper.
 
 Measure it honestly against pass@1 and matched-cost best-of-K with
 `uv run python -m evals.repair_ablation`.
+
+### 🔗 Workflow primitives — composable multi-agent runtime (`Workflow`)
+A Python re-implementation of Claude Code's `Workflow` tool surface, built on the
+repo's single LLM seam. Express arbitrary multi-agent workflows as plain async
+Python — the primitives are `agent()` (one LLM call, optional Pydantic schema),
+`parallel()` (barrier), `pipeline()` (no-barrier per-item stages), `phase()`,
+`log()`, and a call `Budget`.
+
+```python
+from dialectica import Workflow, agent, parallel, phase
+from pydantic import BaseModel
+
+class Verdict(BaseModel):
+    summary: str
+    confidence: str
+
+async def research(question: str):
+    phase("Gather")
+    findings = await parallel(
+        lambda: agent(f"Research angle broad: {question}"),
+        lambda: agent(f"Research angle skeptical: {question}"),
+    )
+    phase("Synthesize")
+    return await agent(
+        f"Synthesize: {' | '.join(f for f in findings if f)}",
+        schema=Verdict,
+    )
+
+result = await Workflow(lambda: research("...")).run()
+```
+
+**Honest scope.** This is an **orchestration layer for meta-tasks** — research,
+review, planning, design: tasks with no ground truth where a fan-out / adversarial-judge /
+synthesis shape genuinely helps. It is **not** a self-contained result-quality engine:
+the existing engines measured 0-4-1 / 0-2-3 / 0-1-4 vs single / best-of-N / self-refine
+on open-ended advice (`evals/quality_ablation.py`), so do not expect composing a
+workflow to beat a prompt-matched single call on self-contained quality. A
+`pipeline(items, find, adversarially_verify, synthesize)` is the right shape for
+a review/research workflow; `repair.py` or `agentic.py` are the right tools when
+you have a verifier or tools.
 
 The two engines below are pure-LLM scaffolds: useful for transparency/steering, but (measured) **not** a result-quality win over a single call — see [Honest scope](#dialectica-) and [Evaluation](#evaluation).
 
@@ -363,6 +403,8 @@ uv run pytest -m e2e   # live API E2E (slower, requires GOOGLE_API_KEY)
 >
 > 1. **Where an engine genuinely wins — capability, not quality.** On tasks that require *acting* (the agentic hidden-oracle benchmark), a small model with the **agentic engine** scored **8/8** vs a single call's **0/8**: it probes the hidden function, infers the rule, and implements it — a single call can't know an arbitrary rule without probing. This is the genuine value class. Reproduce: `uv run python -m evals.agentic_eval`.
 > 2. **Where scaffolds do NOT win — self-contained result quality.** Judged against a *matched-cost* baseline, **no pure-LLM scaffold beats a single call**: the dialectic went **0-3-2** vs a prompt-matched strong baseline at every model size (the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly **ties matched-cost best-of-K** (across HumanEval, an original edge-case set, LeetCode-medium, LCB-hard, and a purpose-built uncontaminated benchmark — and even the smallest model one-shots them, so the "fails-but-fixable" band is near-empty). Repair's real edge is **cost** (best-of-N reliability at ~1/3 the calls). Reproduce: `uv run python -m evals.repair_ablation`.
+> 3. **The tree structure is *dominated*, not just unhelpful (2026-06-22).** Two tests close the remaining doubts. On **Game-of-24** — ToT's *own* canonical benchmark, verifiable, search-requiring — a *faithful* ToT (partial-state nodes, lookahead value, BFS, winning-leaf output) scores **14/15 and LOSES to a single call's 15/15 at ~34× the cost**: modern models one-shot the task the 2023 paper's GPT-4 failed 96% of the time (ceiling on ToT's home turf). And the previously-missing controls — **best-of-N + selector** and **K-round self-refine** — at matched compute under a blind judge: the ToT+GAN engine goes **0-4-1 / 0-2-3 / 0-1-4** (vs single / best-of-N / self-refine) — it *never wins a matchup*. The quality order is **self-refine ≥ best-of-N ≥ single ≥ tree-scaffold**: the opposition/refinement *mechanism* helps (flat self-refine is the best method), but the *tree/beam/adversarial-best-path structure* degrades it. Reproduce: `uv run python -m evals.game24` and `uv run python -m evals.quality_ablation`.
+> 4. **ToT's value window is closed across the *entire* available model range (2026-06-22).** ToT only helps where the base model fails alone but search can recover — a "fails-but-fixable" band. Probing the *hardest* Game-of-24 puzzles (the fraction-requiring classics: `3 3 8 8`, `1 5 5 5`, `3 3 7 7`, `1 3 4 6`, `4 4 7 7`) against **four model tiers** — `qwen3.6-flash`, `gemini-3.1-flash-lite`, `doubao-seed-2-0-lite`, `glm-5.2` (the weakest cloud models available) — a single call scored **5/5 on every model, every puzzle**. There is no accessible weak model that fails these tasks, so there is no gap for ToT's search to recover. The same saturation hit the repair engine's verifiable benchmarks, and it hits here too: Game-of-24 is no longer a search-requiring benchmark for any model you can call. ToT's "boundary-quality recovery" thesis is sound in theory but the boundary has moved past this task.
 
 Does the engine actually beat a single strong-model call? The repo ships an
 eval harness (`evals/`, a dev tool — not part of the published package) that
