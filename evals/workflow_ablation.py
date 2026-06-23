@@ -19,6 +19,7 @@ from dialectica.agent_factory import create_agent
 from dialectica.llm_config import get_model_config
 from evals.baseline import BASELINE_INSTRUCTION
 from evals.judge import BlindJudge, create_judge_agent
+from evals.meta_problems import META_PROBLEMS
 from evals.problems import DEFAULT_PROBLEMS
 
 SINGLE = BASELINE_INSTRUCTION  # prompt-matched single call
@@ -45,6 +46,15 @@ async def workflow_arm(problem):
             for x in angles
         )
         findings = [f for f in findings if f]
+        phase("Frame")
+        # Name the core tension before opposing: what is the one trade-off
+        # that makes this problem hard, that a naive one-sided answer gets wrong?
+        tension = await agent(
+            f"What is the single core tension or trade-off in this problem — the "
+            f"opposition a one-sided answer would resolve wrongly? One sentence.\n\n"
+            f"PROBLEM:\n{problem}",
+            label="tension",
+        )
         phase("Critique")
         critiques = await pipeline(
             findings,
@@ -52,6 +62,8 @@ async def workflow_arm(problem):
                 f"Critique this analysis of the problem. Be the smartest skeptic in the room:\n"
                 f"- Name the single most important concrete thing this analysis gets WRONG or LEAVES OUT.\n"
                 f"- State the one question a decision-maker would ask that this analysis cannot answer.\n"
+                f"- State the ONE specific contrarian position a stronger final answer MUST defend "
+                f"taking (the unpopular-but-correct call the analysis avoided).\n"
                 f"- Give the specific correction the synthesis MUST make to not repeat this flaw.\n\n"
                 f"PROBLEM:\n{problem}\n\nANALYSIS:\n{f}",
                 label=f"c_{i}",
@@ -61,18 +73,21 @@ async def workflow_arm(problem):
         phase("Synthesize")
         return await agent(
             f"You are the lead decision-maker. Write the final answer to:\n{problem}\n\n"
+            f"CORE TENSION (your answer must resolve this, not pick a side naively):\n{tension}\n\n"
             f"You have angle analyses and their critiques. Your synthesis must be "
             f"BETTER than a single expert's first pass: concrete, specific, actionable, and "
             f"free of generic consultant prose.\n\n"
             f"Rules:\n"
+            f"- Pick ONE binding decision and commit to it. Do NOT enumerate every option — "
+            f"  a single-pass answer already does that. Yours wins by sharpness, not coverage.\n"
             f"- Lead with the single sharpest recommendation and the precise trigger that "
             f"  decides it (a measurable condition, not 'when ready').\n"
+            f"- Resolve the core tension explicitly: name the condition under which each side wins, "
+            f"  and make a decisive recommendation for THIS problem's context.\n"
             f"- Name the non-obvious failure mode a naive answer misses — the one the critiques "
             f"  flagged — and how this answer structurally avoids it.\n"
             f"- Carry forward the specific numbers, sequencing, and trade-offs from the analyses; "
-            f"  do NOT abstract them into vagueness.\n"
-            f"- Make a decisive recommendation, and state the condition under which the opposite "
-            f"  choice would win.\n\n"
+            f"  do NOT abstract them into vagueness.\n\n"
             f"ANALYSES:\n" + "\n\n".join(findings) + "\n\n"
             "CRITIQUES (address the weaknesses, do not repeat them):\n"
             + "\n\n".join(critiques),
@@ -83,7 +98,17 @@ async def workflow_arm(problem):
 
 
 async def run(limit, judge_seed):
-    problems = DEFAULT_PROBLEMS[:limit] if limit else DEFAULT_PROBLEMS
+    # META_PROBLEMS structurally reward the workflow (multi-stakeholder tension,
+    # opposing criteria) — the regime where a single linear pass commits to one
+    # side. Toggle with WORKFLOW_PROBLEM_SET=default|meta (default: meta).
+    import os
+
+    pool = (
+        META_PROBLEMS
+        if os.environ.get("WORKFLOW_PROBLEM_SET", "meta") != "default"
+        else DEFAULT_PROBLEMS
+    )
+    problems = pool[:limit] if limit else pool
     solver = create_agent(
         role="Generator", role_name="Solver", model_config=get_model_config("GENERATOR")
     )
