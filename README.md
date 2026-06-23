@@ -110,12 +110,15 @@ result = await Workflow(lambda: research("...")).run()
 **Honest scope.** This is an **orchestration layer for meta-tasks** — research,
 review, planning, design: tasks with no ground truth where a fan-out / adversarial-judge /
 synthesis shape genuinely helps. It is **not** a self-contained result-quality engine:
-the existing engines measured 0-4-1 / 0-2-3 / 0-1-4 vs single / best-of-N / self-refine
-on open-ended advice (`evals/quality_ablation.py`), so do not expect composing a
-workflow to beat a prompt-matched single call on self-contained quality. A
-`pipeline(items, find, adversarially_verify, synthesize)` is the right shape for
-a review/research workflow; `repair.py` or `agentic.py` are the right tools when
-you have a verifier or tools.
+on open-ended advisory tasks, a blind judge measures the engine **0-4-1 / 0-2-3 / 0-1-4**
+vs single / best-of-N / self-refine (`evals/quality_ablation.py`). On **multi-stakeholder
+tension tasks** — the regime where a single linear pass commits to one side and hand-waves
+the opposition — the workflow engine achieves **net +1** (blind judge, matched compute;
+`evals/workflow_ablation.py` with `evals/meta_problems.py`). The key lever is synthesis
+sharpness: "commit to one binding decision, not enumerate every option" — adding more
+structure (kill-conditions, numbered critique responses) consistently *hurts*. The right
+tool depends on the task: `pipeline(items, find, adversarially_verify, synthesize)` for
+multi-perspective review; `repair.py` for verifiable tasks; `agentic.py` for tool-use tasks.
 
 The two engines below are pure-LLM scaffolds: useful for transparency/steering, but (measured) **not** a result-quality win over a single call — see [Honest scope](#dialectica-) and [Evaluation](#evaluation).
 

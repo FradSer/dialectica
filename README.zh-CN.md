@@ -90,7 +90,7 @@ async def research(question: str):
 result = await Workflow(lambda: research("...")).run()
 ```
 
-**诚实边界。** 这是一个面向**元任务**的**编排层**——研究、审查、规划、设计：这类任务没有 ground truth，扇出 / 对抗审判 / 综合的形状确实有用。它**不是**自包含结果质量引擎：现有引擎在开放式咨询任务上实测为 0-4-1 / 0-2-3 / 0-1-4（对 单次 / best-of-N / self-refine，见 `evals/quality_ablation.py`），因此不要指望把一个 workflow 组合起来就能在自包含质量上胜过同 prompt 单次调用。`pipeline(items, find, adversarially_verify, synthesize)` 是研究/审查类工作流的正确形状；当你有验证器或工具时，`repair.py` 或 `agentic.py` 才是对的工具。
+**诚实边界。** 这是一个面向**元任务**的**编排层**——研究、审查、规划、设计：这类任务没有 ground truth，扇出 / 对抗审判 / 综合的形状确实有用。它**不是**自包含结果质量引擎：在开放式咨询任务上，盲评判官测得 **0-4-1 / 0-2-3 / 0-1-4**（对 单次 / best-of-N / self-refine，见 `evals/quality_ablation.py`）。但在**多利益相关者对抗任务**——即单次前向传播只能站一个立场、把冲突糊弄过去的 regime——工作流引擎实测**净 +1**（盲评，同成本；`evals/workflow_ablation.py` + `evals/meta_problems.py`）。关键杠杆是 synthesis 的锐度：「承诺一个绑定决策，而非把所有选项都列举一遍」——增加更多结构（kill-condition、编号 critique 逐条回应）反而一致地**降低**分数。根据任务选对工具：多视角审查用 `pipeline(items, find, adversarially_verify, synthesize)`；可验证任务用 `repair.py`；用工具的任务用 `agentic.py`。
 
 ### 🧩 可插拔引擎（正题 → 反题 → 合题）
 `Engine` 只负责搜索的**控制流**，每个决策都委托给注入的组件——任何阶段都可替换而不动引擎：
