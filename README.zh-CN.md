@@ -1,6 +1,6 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-adk%202.1+-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20对抗-red.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20对抗-red.svg)]()
 
 [English](README.md) | 简体中文
 
@@ -322,34 +322,52 @@ engine = create_engine(
 dialectica/
 ├── __init__.py           # 公共 API 导出
 ├── agent.py              # 组合根：create_engine() 装配默认实现
-├── coordinator.py        # 搜索引擎 —— 编排可插拔的各阶段
-├── protocols.py          # 阶段接口：Generator/Evaluator/Selector/Synthesizer
-├── generation.py         # LlmGenerator（默认 Generator）+ 列表解析
-├── gan_evaluator.py      # AdversarialEvaluator / SinglePassEvaluator（Evaluator）
-├── selection.py          # BeamSearch / GreedySearch（Selector）
-├── synthesis.py          # LlmSynthesizer（默认 Synthesizer）
-├── agent_runtime.py      # 唯一的 LLM 调用入口（run_agent）
-├── agent_factory.py      # 动态代理创建（角色模板）
+├── agent_factory.py      # 从角色模板动态创建 ADK Agent
+├── agent_runtime.py      # 唯一的 LLM 调用入口（run_agent），含重试与并发控制
+├── agentic.py            # AgenticEngine —— 工具使用 ADK 循环
+├── coordinator.py        # ToT 束搜索引擎（初始化 → 探索 → 综合）
+├── dialectic.py          # DialecticEngine —— 正题/反题/合题螺旋
+├── gan_evaluator.py      # AdversarialEvaluator（GAN 循环）/ SinglePassEvaluator
+├── generation.py         # LlmGenerator + 列表解析
+├── llm_config.py         # 模型配置工厂（解析 provider:model_name）
 ├── models.py             # ThoughtData, DiscriminatorVerdict, EvaluationResult
-├── llm_config.py         # 模型配置工厂
-└── validation.py         # 思维验证工具
-tests/
-├── conftest.py           # 加载 .env 供 e2e 跳过判断
-├── helpers.py            # 确定性的 mock LLM 替身
-├── test_models.py        # schema / verdict 单元测试
-├── test_generation.py    # 列表解析 + 生成器提示路由
-├── test_gan_evaluator.py # GAN 循环 + 单遍评估器（mock LLM）
-├── test_coordinator.py   # 引擎控制流（注入 fake 阶段）
-├── test_default_pipeline.py  # 默认组合集成（mock LLM）
-├── test_eval_harness.py  # 评测工具单元测试（裁决规范化、计数、报告）
-├── test_e2e_live.py      # 真实 Gemini E2E（标记 `e2e`）
-└── test_eval_live.py     # 真实 Gemini 评测工具 E2E（标记 `e2e`）
-evals/                     # 评测工具（开发工具，不随包发布）
-├── problems.py            # 基准问题集
-├── baseline.py            # 单次调用基线（对照组）
-├── judge.py               # 盲评裁判（换位双评消除位置偏差）
-├── harness.py             # 编排、调用计数、报告渲染
-└── __main__.py            # CLI：uv run python -m evals
+├── protocols.py          # 阶段接口：Generator/Evaluator/Selector/Synthesizer
+├── repair.py             # IterativeRepairEngine —— 生成/验证/修复循环
+├── selection.py          # BeamSearch / GreedySearch
+├── synthesis.py          # LlmSynthesizer
+├── validation.py         # 思维验证工具
+└── workflow.py           # Workflow + agent/parallel/pipeline/phase/log 原语
+tests/                       # 24 个测试文件，12 个 BDD feature 文件
+├── conftest.py              # 加载 .env 供 e2e 跳过判断
+├── helpers.py               # 确定性的 mock LLM 替身
+├── features/                # Gherkin 场景（pytest-bdd）
+│   ├── adversarial_evaluation.feature
+│   ├── agentic.feature
+│   ├── code_eval.feature
+│   ├── dialectic.feature
+│   ├── engine.feature
+│   ├── eval_harness.feature
+│   ├── game24.feature
+│   ├── lcb_eval.feature
+│   ├── quality_ablation.feature
+│   ├── repair.feature
+│   ├── resilience.feature
+│   └── workflow.feature
+└── test_*.py                # 步骤定义与单元测试
+evals/                       # 评测工具（开发工具，不随包发布）
+├── __main__.py              # CLI：uv run python -m evals
+├── harness.py               # 编排、调用计数、报告渲染
+├── judge.py                 # 盲评裁判（换位双评消除位置偏差）
+├── baseline.py              # 单次调用基线（对照组）
+├── problems.py              # 基准问题集
+├── agentic_eval.py          # Agentic 引擎评测
+├── repair_ablation.py       # Repair 引擎消融实验
+├── quality_ablation.py      # ToT vs 单次 vs best-of-N vs self-refine
+├── game24.py                # Game-of-24 基准
+├── code_eval.py             # 代码评测工具
+├── lcb.py                   # LiveCodeBench 评测
+├── meta_problems.py         # 元问题集
+└── workflow_ablation.py     # Workflow 引擎消融实验
 ```
 
 ## 测试

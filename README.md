@@ -1,8 +1,8 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.1-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20Adversarial-purple.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20Adversarial-purple.svg)]()
 
-English | [简体中文](https://github.com/FradSer/dialectica/blob/main/README.zh-CN.md)
+English | [简体中文](README.zh-CN.md)
 
 **Dialectica** is a reasoning-engine toolbox on Google ADK. It was built and measured the hard way — running the engines against well-controlled baselines and keeping only what the data justifies. The honest hierarchy:
 
@@ -351,34 +351,52 @@ engine = create_engine(
 dialectica/
 ├── __init__.py           # Public API exports
 ├── agent.py              # Composition root: create_engine() wires defaults
-├── coordinator.py        # Search engine — orchestrates the pluggable stages
-├── protocols.py          # Stage interfaces: Generator/Evaluator/Selector/Synthesizer
-├── generation.py         # LlmGenerator (default Generator) + list parsing
-├── gan_evaluator.py      # AdversarialEvaluator / SinglePassEvaluator (Evaluator)
-├── selection.py          # BeamSearch / GreedySearch (Selector)
-├── synthesis.py          # LlmSynthesizer (default Synthesizer)
-├── agent_runtime.py      # Single LLM-call seam (run_agent)
-├── agent_factory.py      # Dynamic agent creation (role templates)
+├── agent_factory.py      # Dynamic ADK agent creation from role templates
+├── agent_runtime.py      # Single LLM-call seam (run_agent), retry, concurrency
+├── agentic.py            # AgenticEngine — tool-using ADK loop
+├── coordinator.py        # ToT beam-search engine (Initialize → Explore → Synthesize)
+├── dialectic.py          # DialecticEngine — thesis/antithesis/synthesis spiral
+├── gan_evaluator.py      # AdversarialEvaluator (GAN loop) / SinglePassEvaluator
+├── generation.py         # LlmGenerator + list parsing
+├── llm_config.py         # Model config factory (provider:model_name parsing)
 ├── models.py             # ThoughtData, DiscriminatorVerdict, EvaluationResult
-├── llm_config.py         # Model configuration factory
-└── validation.py         # Thought validation utilities
-tests/
-├── conftest.py           # Loads .env for the e2e skip guard
-├── helpers.py            # Deterministic mock LLM stand-ins
-├── test_models.py        # Schema / verdict unit tests
-├── test_generation.py    # List parsing + generator prompt routing
-├── test_gan_evaluator.py # GAN loop + single-pass evaluator (mocked LLM)
-├── test_coordinator.py   # Engine control flow (injected fake stages)
-├── test_default_pipeline.py  # Default composition integration (mocked LLM)
-├── test_eval_harness.py  # Eval harness units (judge normalization, counting, report)
-├── test_e2e_live.py      # Real Gemini E2E (marked `e2e`)
-└── test_eval_live.py     # Real Gemini eval-harness E2E (marked `e2e`)
-evals/                     # Eval harness (dev tool, not shipped in the wheel)
-├── problems.py            # Benchmark problems
-├── baseline.py            # Single-call baseline (the control arm)
-├── judge.py               # Blind pairwise judge with position-swap bias control
-├── harness.py             # Orchestration, call counting, report rendering
-└── __main__.py            # CLI: uv run python -m evals
+├── protocols.py          # Stage interfaces: Generator/Evaluator/Selector/Synthesizer
+├── repair.py             # IterativeRepairEngine — generate/verify/repair loop
+├── selection.py          # BeamSearch / GreedySearch
+├── synthesis.py          # LlmSynthesizer
+├── validation.py         # Thought validation utilities
+└── workflow.py           # Workflow + agent/parallel/pipeline/phase/log primitives
+tests/                       # 24 test files, 12 BDD feature files
+├── conftest.py              # Loads .env for the e2e skip guard
+├── helpers.py               # Deterministic mock LLM stand-ins
+├── features/                # Gherkin scenarios (pytest-bdd)
+│   ├── adversarial_evaluation.feature
+│   ├── agentic.feature
+│   ├── code_eval.feature
+│   ├── dialectic.feature
+│   ├── engine.feature
+│   ├── eval_harness.feature
+│   ├── game24.feature
+│   ├── lcb_eval.feature
+│   ├── quality_ablation.feature
+│   ├── repair.feature
+│   ├── resilience.feature
+│   └── workflow.feature
+└── test_*.py                # Step definitions and unit tests
+evals/                       # Eval harness (dev tool, not shipped in the wheel)
+├── __main__.py              # CLI: uv run python -m evals
+├── harness.py               # Orchestration, call counting, report rendering
+├── judge.py                 # Blind pairwise judge with position-swap bias control
+├── baseline.py              # Single-call baseline (the control arm)
+├── problems.py              # Benchmark problems
+├── agentic_eval.py          # Agentic engine evaluation
+├── repair_ablation.py       # Repair engine ablation study
+├── quality_ablation.py      # ToT vs single vs best-of-N vs self-refine
+├── game24.py                # Game-of-24 benchmark
+├── code_eval.py             # Code evaluation harness
+├── lcb.py                   # LiveCodeBench evaluation
+├── meta_problems.py         # Meta-problem suite
+└── workflow_ablation.py     # Workflow engine ablation
 ```
 
 ## Testing
