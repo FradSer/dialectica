@@ -21,3 +21,32 @@ Feature: Execution-guided repair engine
     When the repair engine runs
     Then the solution did not pass
     And it took 2 attempts
+
+  Scenario: A roster switches model after a verifier failure
+    Given a repair engine whose generator is a roster of models "A" and "B"
+    And model "A" produces a solution that fails the verifier
+    And model "B" produces a solution that passes the verifier
+    When the repair engine runs
+    Then the solution passed
+    And it took 2 attempts
+    And attempt 1 was produced by model "A"
+    And attempt 2 was produced by model "B"
+
+  Scenario: Single-model repair is unchanged when no roster is given
+    Given a repair engine whose first solution fails then is fixed
+    When the repair engine runs
+    Then the solution passed
+    And it took 2 attempts
+    And every attempt was produced by the same single model
+
+  Scenario: The roster cycles back when failures exceed the roster size
+    Given a repair engine whose generator is a roster of models "A" and "B"
+    And max 3 attempts where no model ever passes the verifier
+    When the repair engine runs
+    Then the solution did not pass
+    And it took 3 attempts
+    And the attempts were produced by models "A", "B", "A" in order
+
+  Scenario: Passing model_config and models together is rejected
+    When a repair engine is created with both model_config and models set
+    Then construction fails with a conflicting-config error
