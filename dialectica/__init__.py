@@ -8,6 +8,10 @@ The hierarchy the data justifies:
   done. The one engine that lets a model do what a single forward pass CANNOT —
   it adds capability, not quality (measured 8/8 vs a single call's 0/8 for a
   small model on tasks requiring interaction).
+- ``create_ensemble_engine`` — AB-MCTS-lite adaptive search over a heterogeneous
+  roster. A *capability-adding* engine: the injected scorer (ground-truth / value
+  signal) is information a single forward pass lacks, so the ensemble can
+  structurally win where a single call cannot.
 - ``create_repair_engine`` — verifier-in-the-loop for verifiable tasks. Ties
   matched-cost best-of-K on pass-rate but reaches it far cheaper (short-circuits
   on success). Verifier is an injected ``Callable[[answer], (passed, feedback)]``.
@@ -40,6 +44,7 @@ from .agent_factory import ROLE_TEMPLATES, create_agent
 from .agentic import AgenticEngine, create_agentic_engine
 from .coordinator import Coordinator
 from .dialectic import DialecticEngine, create_dialectic_engine
+from .ensemble import EnsembleSearchEngine, create_ensemble_engine
 from .gan_evaluator import (
     DEFAULT_EVALUATION_CRITERIA,
     AdversarialEvaluator,
@@ -69,6 +74,10 @@ __all__ = [
     # a single forward pass structurally lacks
     "create_agentic_engine",
     "AgenticEngine",
+    # Ensemble search — AB-MCTS-lite over a heterogeneous roster; scorer-in-the-
+    # loop (float rank = ground truth a single pass lacks)
+    "create_ensemble_engine",
+    "EnsembleSearchEngine",
     # Execution-guided repair — verifier-in-the-loop; cost-efficient reliability
     "create_repair_engine",
     "IterativeRepairEngine",
@@ -119,4 +128,4 @@ __all__ = [
     "ROLE_TEMPLATES",
 ]
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
