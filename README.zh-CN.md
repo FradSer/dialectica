@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20对抗-red.svg)]()
 
-[English](README.md) | 简体中文
+[English](README.md) | **简体中文**
 
 **Dialectica（辩证）** 是一个基于 Google ADK 的推理引擎工具箱。它是用数据「逼」出来的——把各引擎放在受控基线下实测，只保留数据站得住的部分。诚实的层级：
 
@@ -337,7 +337,7 @@ dialectica/
 ├── synthesis.py          # LlmSynthesizer
 ├── validation.py         # 思维验证工具
 └── workflow.py           # Workflow + agent/parallel/pipeline/phase/log 原语
-tests/                       # 24 个测试文件，12 个 BDD feature 文件
+tests/                       # 22 个测试文件，12 个 BDD feature 文件
 ├── conftest.py              # 加载 .env 供 e2e 跳过判断
 ├── helpers.py               # 确定性的 mock LLM 替身
 ├── features/                # Gherkin 场景（pytest-bdd）
@@ -359,14 +359,20 @@ evals/                       # 评测工具（开发工具，不随包发布）
 ├── harness.py               # 编排、调用计数、报告渲染
 ├── judge.py                 # 盲评裁判（换位双评消除位置偏差）
 ├── baseline.py              # 单次调用基线（对照组）
-├── problems.py              # 基准问题集
-├── agentic_eval.py          # Agentic 引擎评测
+├── problems.py              # 基准问题集（DEFAULT_PROBLEMS）
+├── hard_problems.py         # Game-of-24 最难的题（需要分数运算）
+├── hard_solutions.py        # hard_problems 的已验证解
+├── novel_problems.py        # 未污染的边界情况代码题
+├── novel_solutions.py       # novel_problems 的已验证解
+├── code_problems.py         # HumanEval 风格的 SWE 问题（ground truth）
+├── agentic_eval.py          # Agentic 引擎评测（隐藏预言机）
 ├── repair_ablation.py       # Repair 引擎消融实验
 ├── quality_ablation.py      # ToT vs 单次 vs best-of-N vs self-refine
 ├── game24.py                # Game-of-24 基准
+├── game24_princeton.py      # Princeton Game-of-24 数据集
 ├── code_eval.py             # 代码评测工具
 ├── lcb.py                   # LiveCodeBench 评测
-├── meta_problems.py         # 元问题集
+├── meta_problems.py         # 多利益相关者元问题集
 └── workflow_ablation.py     # Workflow 引擎消融实验
 ```
 

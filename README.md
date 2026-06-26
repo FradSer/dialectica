@@ -2,7 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20Adversarial-purple.svg)]()
 
-English | [简体中文](README.zh-CN.md)
+**English** | [简体中文](README.zh-CN.md)
 
 **Dialectica** is a reasoning-engine toolbox on Google ADK. It was built and measured the hard way — running the engines against well-controlled baselines and keeping only what the data justifies. The honest hierarchy:
 
@@ -369,7 +369,7 @@ dialectica/
 ├── synthesis.py          # LlmSynthesizer
 ├── validation.py         # Thought validation utilities
 └── workflow.py           # Workflow + agent/parallel/pipeline/phase/log primitives
-tests/                       # 24 test files, 12 BDD feature files
+tests/                       # 22 test files, 12 BDD feature files
 ├── conftest.py              # Loads .env for the e2e skip guard
 ├── helpers.py               # Deterministic mock LLM stand-ins
 ├── features/                # Gherkin scenarios (pytest-bdd)
@@ -391,14 +391,20 @@ evals/                       # Eval harness (dev tool, not shipped in the wheel)
 ├── harness.py               # Orchestration, call counting, report rendering
 ├── judge.py                 # Blind pairwise judge with position-swap bias control
 ├── baseline.py              # Single-call baseline (the control arm)
-├── problems.py              # Benchmark problems
-├── agentic_eval.py          # Agentic engine evaluation
+├── problems.py              # Benchmark problems (DEFAULT_PROBLEMS)
+├── hard_problems.py         # Hardest Game-of-24 puzzles (fraction-requiring)
+├── hard_solutions.py        # Verified solutions for hard_problems
+├── novel_problems.py        # Uncontaminated edge-case code problems
+├── novel_solutions.py       # Verified solutions for novel_problems
+├── code_problems.py         # HumanEval-style SWE problems (ground truth)
+├── agentic_eval.py          # Agentic engine evaluation (hidden-oracle)
 ├── repair_ablation.py       # Repair engine ablation study
 ├── quality_ablation.py      # ToT vs single vs best-of-N vs self-refine
 ├── game24.py                # Game-of-24 benchmark
+├── game24_princeton.py      # Princeton Game-of-24 dataset
 ├── code_eval.py             # Code evaluation harness
 ├── lcb.py                   # LiveCodeBench evaluation
-├── meta_problems.py         # Meta-problem suite
+├── meta_problems.py         # Multi-stakeholder meta-problem suite
 └── workflow_ablation.py     # Workflow engine ablation
 ```
 
