@@ -11,9 +11,9 @@
 - **Dialectic** (`create_dialectic_engine`) — *thesis → antithesis → synthesis*: an **auditable**, criteria-steered reasoning trace (transparency, not better answers).
 - **Tree-of-Thoughts + GAN** (`create_engine`) — the prior-generation pluggable pipeline, kept as a baseline. Measured **dominated** at matched compute (loses to both best-of-N and flat self-refine — see [Evaluation](#evaluation) finding #3); kept for study and back-compat, not recommended for quality.
 
-Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) and Claude Code's composable workflows.
-
 > **Honest scope (measured, no preset conclusion — see [Evaluation](#evaluation)).** The hard finding first: on **self-contained** tasks, *no* pure-LLM scaffold (ToT, dialectic) beats a prompt-matched single call on result quality, at every model size tested (dialectic **0-3-2** vs a prompt-matched call; ToT+GAN **0-4-1** vs a single call, and **dominated** by flat best-of-N and self-refine at matched compute) — they rearrange the model's own thinking without adding information, and the tree structure degrades the refinement a flat loop already delivers. Even on **Game-of-24** — ToT's canonical search benchmark — the task is saturated for every cloud-accessible model (single call 5/5 on the hardest puzzles across qwen-flash / gemini-lite / doubao-lite / glm-5.2), so ToT's recovery window is empty. An engine wins only by adding what a single forward pass lacks: **acting on the world** (agentic: small model **8/8 vs 0/8**) or **ground-truth verification** (repair: best-of-N reliability at **~1/3 the calls**). Reproduce with `uv run python -m evals.agentic_eval` and `uv run python -m evals.repair_ablation`.
+
+Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch) and Claude Code's composable workflows.
 
 ## Install
 
@@ -46,13 +46,15 @@ async def main():
 asyncio.run(main())
 ```
 
-Prefer `create_repair_engine` for verifiable tasks (it's the core). For
-open-ended reasoning with an auditable trace, use `create_dialectic_engine`;
-the legacy `create_engine` (Tree-of-Thoughts + GAN) is kept as a baseline. The
-library reads configuration from `os.environ` and does **not** load `.env`
-itself. To work on Dialectica instead, see [Development](#development).
+Pick the engine by task: multi-step, tool-using tasks → `create_agentic_engine`
+(inject tools; the engine drives an act → observe → iterate loop); verifiable
+tasks → `create_repair_engine` (the core); open-ended reasoning with an
+auditable trace → `create_dialectic_engine`; the legacy `create_engine`
+(Tree-of-Thoughts + GAN) is kept as a baseline. The library reads configuration
+from `os.environ` and does **not** load `.env` itself. To work on Dialectica
+instead, see [Development](#development).
 
-## Key Features
+## Engines & primitives
 
 ### 🤖 Agentic engine — adds capability (`create_agentic_engine`)
 The one engine that lets a model do what a single forward pass *cannot*: a
@@ -120,309 +122,21 @@ structure (kill-conditions, numbered critique responses) consistently *hurts*. T
 tool depends on the task: `pipeline(items, find, adversarially_verify, synthesize)` for
 multi-perspective review; `repair.py` for verifiable tasks; `agentic.py` for tool-use tasks.
 
-The two engines below are pure-LLM scaffolds: useful for transparency/steering, but (measured) **not** a result-quality win over a single call — see [Honest scope](#dialectica-) and [Evaluation](#evaluation).
+### 🧩 Dialectic engine (`create_dialectic_engine`)
+*Thesis → antithesis → synthesis*: a self-contained spiral that produces an
+**auditable** reasoning trace, steered by `criteria`. It's a pure-LLM scaffold —
+useful for transparency and content-steering, but (measured) **not** a
+result-quality win over a single call. See the [Honest scope](#dialectica-) box
+and [Evaluation](#evaluation).
 
-### 🧩 Pluggable engine (thesis → antithesis → synthesis)
-The `Engine` owns only the search *control flow*; every decision is delegated to
-an injected component, so any stage can be swapped without touching the engine:
-
-| Stage | Role | Default |
-|-------|------|---------|
-| `Generator` | propose thoughts (**thesis**) | `LlmGenerator` |
-| `Evaluator` | critique & refine (**antithesis**) | `AdversarialEvaluator` |
-| `Selector` | choose the frontier | `BeamSearch` |
-| `Synthesizer` | combine into an answer (**synthesis**) | `LlmSynthesizer` |
-
-Retarget it at code review, research, or decision-making just by changing the
-generator's prompts or swapping a stage — see [Pluggable Architecture](#pluggable-architecture).
-
-### 🔄 GAN-style adversarial evaluation (keep-best)
-Each thought undergoes **iterative adversarial refinement** rather than a single pass:
-1. **Discriminator** scores it with a structured verdict (score, flaws, suggestions)
-2. **Generator** refines it from that critique
-3. **Discriminator** re-scores
-4. Loop until the quality threshold, a terminate signal, or `max_gan_rounds`
-
-Refinement is **not assumed monotonic** — the loop keeps the *best-scoring* round
-(à la autoresearch's "keep only what beats the current best"), and the node stores
-that refined text so synthesis works on the improved version, not the original.
-
-### 🌳 Tree search with merit-based beam
-- **Strategies are scored before the beam** — the frontier reflects merit, not generation order
-- **Beam search** keeps the top-k most promising paths (`BeamSearch`, or `GreedySearch`)
-- **Pruning**: paths below threshold are dropped; exploration stops when the beam empties
-- **Multi-node synthesis**: the final answer integrates the top scoring thoughts across branches
-
-### 📊 Structured evaluation results
-The `Discriminator` returns a `DiscriminatorVerdict` via ADK `output_schema` (no
-fragile text parsing). The engine wraps it as an `EvaluationResult`:
-`score`, `flaws`, `suggestions`, `should_terminate`, `reasoning`,
-`adversarial_rounds`, `refined_thought`, and the full per-round `history`.
-
-## Architecture
-
-```
-User Problem
-    ↓
-Engine — Phase 1: Initialize
-    ↓
-Generator expands root → initial strategies
-    ↓ (each strategy scored by the Evaluator before it can enter the beam)
-Engine — Phase 2: Explore (beam search)
-    ↓
-For each node in the Selector's frontier:
-    ├── Generator expands it into children
-    └── for each child, Evaluator runs the GAN loop:
-        ├── Discriminator scores (structured verdict)
-        ├── Generator refines from the critique
-        ├── re-score, keep the best round
-        └── persist the refined thought + score on the node
-    → children ≥ threshold form the next beam
-    ↓
-Engine — Phase 3: Synthesize
-    ↓
-Synthesizer integrates the top thoughts
-    ↓
-Final Answer (+ thought_tree, best_path, stats)
-```
-
-## Workflow Phases
-
-### Phase 1: Initialization
-- Creates the root node from the user problem
-- `Generator.expand(root)` produces the initial strategies (validated via `ThoughtData`)
-- **Each strategy is adversarially scored**, then the ones clearing the threshold seed the beam (falling back to the Selector's top-k if none clear it)
-
-### Phase 2: Exploration (beam search)
-Iterates up to `max_depth` times:
-1. **Select**: `Selector.select(...)` picks the frontier from the active beam
-2. **Generate**: `Generator.expand(parent)` creates child thoughts
-3. **Evaluate**: `Evaluator.evaluate(...)` runs the GAN loop, keeping the best round and persisting the refined thought
-4. **Filter**: children scoring ≥ `score_threshold` form the next beam
-
-Exploration stops when the beam empties or `max_depth` is reached.
-
-### Phase 3: Synthesis
-- `Synthesizer.synthesize(...)` takes the top-scoring evaluated thoughts
-- Produces a coherent, comprehensive final answer
-
-## Relation to the Tree of Thoughts paper
-
-How the default wiring maps onto [Yao et al. 2023](https://arxiv.org/abs/2305.10601):
-
-| ToT paper concept | Dialectica |
-|-------------------|------------|
-| Thought decomposition | Generic two-level prompts: root → strategies, node → next steps (`generation.py` templates) — not per-task like the paper's |
-| Thought generator `G(p, s, k)` — **propose** | `LlmGenerator`: one call proposes k distinct candidates (capped by `max_items`) |
-| Thought generator — **sample** (k i.i.d. CoT samples) | Not built in; pluggable via a custom `Generator` |
-| State evaluator `V(p, S)` — **value** (independent scalar) | The Discriminator's 0-10 structured verdict |
-| State evaluator — **vote** (comparative) | Not built in; pluggable via a custom `Evaluator`/`Selector` |
-| ToT-BFS with breadth limit `b` | `BeamSearch(width=b)`; `GreedySearch` is `b=1` |
-| DFS pruning threshold `v_th` | `score_threshold` (children below it are pruned) |
-| DFS + **backtracking** | Not implemented — when the beam empties, exploration stops instead of revisiting parents |
-| Evaluator **lookahead** simulation | Not implemented (prompt-level gap) |
-
-Deliberate extensions beyond the paper: the evaluator *refines* thoughts (the
-GAN keep-best loop — the paper's evaluator never mutates state), and a final
-`Synthesizer` integrates top thoughts across branches (the paper outputs the
-best path).
-
-## Development
-
-To work on Dialectica itself (not needed just to *use* it — see [Install](#install)):
-
-```bash
-git clone https://github.com/FradSer/dialectica
-cd dialectica
-uv sync
-cp .env.example dialectica/.env   # add GOOGLE_API_KEY for the live e2e test
-```
-
-Then run the suite — see [Testing](#testing).
-
-## Configuration
-
-### Environment Variables
-
-**Model Configuration:**
-```bash
-# Default model for all agents
-DEFAULT_MODEL_CONFIG=google:gemini-3.5-flash
-
-# Role-specific overrides (optional)
-GENERATOR_MODEL_CONFIG=google:gemini-3.1-pro-preview
-DISCRIMINATOR_MODEL_CONFIG=google:gemini-3.1-pro-preview
-SYNTHESIZER_MODEL_CONFIG=google:gemini-3.1-pro-preview
-```
-
-**Supported Providers:**
-- `google:gemini-3.5-flash` (Google AI Studio)
-- `openrouter:anthropic/claude-3.5-sonnet` (OpenRouter)
-- `openai:gpt-4o` (OpenAI)
-
-**API Credentials:**
-```bash
-# Google AI Studio
-GOOGLE_API_KEY=your-key-here
-
-# Or Vertex AI
-GOOGLE_GENAI_USE_VERTEXAI=true
-GOOGLE_CLOUD_PROJECT=your-project
-GOOGLE_CLOUD_LOCATION=us-central1
-
-# OpenRouter
-OPENROUTER_API_KEY=sk-or-...
-
-# OpenAI
-OPENAI_API_KEY=sk-...
-OPENAI_API_BASE=https://api.openai.com/v1
-```
-
-### Engine Parameters
-
-```python
-engine = create_engine(
-    problem="Your problem statement",
-    max_depth=4,               # Max tree depth
-    beam_width=3,              # Active paths per iteration
-    max_gan_rounds=3,          # Max adversarial refinement rounds
-    score_threshold=7.0,       # Min score to enter the beam
-    gan_score_threshold=None,  # "Stop refining" bar (default: score_threshold)
-    criteria=None,             # Discriminator rubric (default: feasibility-anchored)
-    synthesizer_model=None,    # Optional model override
-)
-```
-
-`criteria` deserves attention: the earlier eval matrix showed the discriminator's
-rubric steers answer *content*, not just selection (see
-[Evaluation](#evaluation)). The default rubric is feasibility-anchored;
-pass your own to retarget the engine, e.g. a security-review rubric.
-
-Sibling thoughts are expanded and evaluated **concurrently**, and the runtime
-retries transient LLM failures with exponential backoff — a single network
-error no longer destroys a long run.
-
-## Usage Examples
-
-### Basic Usage
-
-```python
-from dialectica import create_engine
-
-# Create the engine
-engine = create_engine(
-    "Design a sustainable urban transport system"
-)
-
-# Run workflow
-result = await engine.run()
-
-# Access results
-print(result["final_answer"])
-print(f"Generated {len(result['thought_tree'])} thoughts")
-print(f"Best path: {result['best_path']}")
-```
-
-### Inspecting the result
-
-`run()` returns the answer plus the full search trace:
-
-```python
-result = await engine.run()
-result["final_answer"]   # synthesized answer
-result["best_path"]      # node ids from root to the highest-scoring thought
-result["thought_tree"]   # every node, with scores and per-round GAN history
-result["stats"]          # total_thoughts, max_depth_reached, duration_seconds
-```
-
-### Custom Configuration
-
-```python
-engine = create_engine(
-    problem="Optimize supply chain logistics",
-    max_depth=5,
-    beam_width=5,
-    max_gan_rounds=4,
-    score_threshold=8.0,
-    synthesizer_model="google:gemini-3.1-pro-preview",
-)
-```
-
-## Project Structure
-
-```
-dialectica/
-├── __init__.py           # Public API exports
-├── agent.py              # Composition root: create_engine() wires defaults
-├── agent_factory.py      # Dynamic ADK agent creation from role templates
-├── agent_runtime.py      # Single LLM-call seam (run_agent), retry, concurrency
-├── agentic.py            # AgenticEngine — tool-using ADK loop
-├── coordinator.py        # ToT beam-search engine (Initialize → Explore → Synthesize)
-├── dialectic.py          # DialecticEngine — thesis/antithesis/synthesis spiral
-├── gan_evaluator.py      # AdversarialEvaluator (GAN loop) / SinglePassEvaluator
-├── generation.py         # LlmGenerator + list parsing
-├── llm_config.py         # Model config factory (provider:model_name parsing)
-├── models.py             # ThoughtData, DiscriminatorVerdict, EvaluationResult
-├── protocols.py          # Stage interfaces: Generator/Evaluator/Selector/Synthesizer
-├── repair.py             # IterativeRepairEngine — generate/verify/repair loop
-├── selection.py          # BeamSearch / GreedySearch
-├── synthesis.py          # LlmSynthesizer
-├── validation.py         # Thought validation utilities
-└── workflow.py           # Workflow + agent/parallel/pipeline/phase/log primitives
-tests/                       # 22 test files, 12 BDD feature files
-├── conftest.py              # Loads .env for the e2e skip guard
-├── helpers.py               # Deterministic mock LLM stand-ins
-├── features/                # Gherkin scenarios (pytest-bdd)
-│   ├── adversarial_evaluation.feature
-│   ├── agentic.feature
-│   ├── code_eval.feature
-│   ├── dialectic.feature
-│   ├── engine.feature
-│   ├── eval_harness.feature
-│   ├── game24.feature
-│   ├── lcb_eval.feature
-│   ├── quality_ablation.feature
-│   ├── repair.feature
-│   ├── resilience.feature
-│   └── workflow.feature
-└── test_*.py                # Step definitions and unit tests
-evals/                       # Eval harness (dev tool, not shipped in the wheel)
-├── __main__.py              # CLI: uv run python -m evals
-├── harness.py               # Orchestration, call counting, report rendering
-├── judge.py                 # Blind pairwise judge with position-swap bias control
-├── baseline.py              # Single-call baseline (the control arm)
-├── problems.py              # Benchmark problems (DEFAULT_PROBLEMS)
-├── hard_problems.py         # Hardest Game-of-24 puzzles (fraction-requiring)
-├── hard_solutions.py        # Verified solutions for hard_problems
-├── novel_problems.py        # Uncontaminated edge-case code problems
-├── novel_solutions.py       # Verified solutions for novel_problems
-├── code_problems.py         # HumanEval-style SWE problems (ground truth)
-├── agentic_eval.py          # Agentic engine evaluation (hidden-oracle)
-├── repair_ablation.py       # Repair engine ablation study
-├── quality_ablation.py      # ToT vs single vs best-of-N vs self-refine
-├── game24.py                # Game-of-24 benchmark
-├── game24_princeton.py      # Princeton Game-of-24 dataset
-├── code_eval.py             # Code evaluation harness
-├── lcb.py                   # LiveCodeBench evaluation
-├── meta_problems.py         # Multi-stakeholder meta-problem suite
-└── workflow_ablation.py     # Workflow engine ablation
-```
-
-## Testing
-
-The suite has two tiers:
-
-- **Mocked tests** (default) — fast, deterministic, no API key. They replace
-  the LLM call seam with stand-ins and exercise the real orchestration: beam
-  search, the GAN refinement loop, pruning, and synthesis.
-- **Live E2E** (`@pytest.mark.e2e`) — drives the full workflow against the real
-  Gemini API. Deselected by default and auto-skipped when `GOOGLE_API_KEY` is
-  unset (loaded from `dialectica/.env`).
-
-```bash
-uv run pytest          # mocked tests only (seconds, no key)
-uv run pytest -m e2e   # live API E2E (slower, requires GOOGLE_API_KEY)
-```
+### 🌳 Tree-of-Thoughts + GAN engine (`create_engine`)
+The prior-generation pluggable pipeline: a beam search where each thought is
+adversarially refined (GAN keep-best loop) and a final synthesizer integrates
+the top thoughts across branches. Kept as a baseline and a study object; its
+mechanism, the stage protocols, and how it maps onto the ToT paper live in
+[The Tree-of-Thoughts + GAN engine](#the-tree-of-thoughts--gan-engine-deep-dive).
+Like the dialectic, it's a pure-LLM scaffold — transparency and steering, not a
+quality win.
 
 ## Evaluation
 
@@ -564,34 +278,203 @@ LiveCodeBench/competition-level difficulty. (Side finding: enforced JSON
 mode breaks `gemma-4-26b-a4b-it` — empty/truncated verdicts — hence the
 `structured_output=False` fallback to prompt-driven JSON.)
 
-## Pluggable Architecture
+## Configuration
 
-The `Coordinator` owns only the search *control flow*. Every decision is
-delegated to an injected component, so any stage can be swapped without
-touching the engine — the engine is a general-purpose reasoning workflow, and
-ToT + GAN is just the default wiring.
+### Environment Variables
+
+**Model Configuration:**
+```bash
+# Default model for all agents
+DEFAULT_MODEL_CONFIG=google:gemini-3.5-flash
+
+# Role-specific overrides (optional)
+GENERATOR_MODEL_CONFIG=google:gemini-3.1-pro-preview
+DISCRIMINATOR_MODEL_CONFIG=google:gemini-3.1-pro-preview
+SYNTHESIZER_MODEL_CONFIG=google:gemini-3.1-pro-preview
+```
+
+**Supported Providers:**
+- `google:gemini-3.5-flash` (Google AI Studio)
+- `openrouter:anthropic/claude-3.5-sonnet` (OpenRouter)
+- `openai:gpt-4o` (OpenAI)
+
+**API Credentials:**
+```bash
+# Google AI Studio
+GOOGLE_API_KEY=your-key-here
+
+# Or Vertex AI
+GOOGLE_GENAI_USE_VERTEXAI=true
+GOOGLE_CLOUD_PROJECT=your-project
+GOOGLE_CLOUD_LOCATION=us-central1
+
+# OpenRouter
+OPENROUTER_API_KEY=sk-or-...
+
+# OpenAI
+OPENAI_API_KEY=sk-...
+OPENAI_API_BASE=https://api.openai.com/v1
+```
+
+### Engine Parameters
+
+```python
+engine = create_engine(
+    problem="Your problem statement",
+    max_depth=4,               # Max tree depth
+    beam_width=3,              # Active paths per iteration
+    max_gan_rounds=3,          # Max adversarial refinement rounds
+    score_threshold=7.0,       # Min score to enter the beam
+    gan_score_threshold=None,  # "Stop refining" bar (default: score_threshold)
+    criteria=None,             # Discriminator rubric (default: feasibility-anchored)
+    synthesizer_model=None,    # Optional model override
+)
+```
+
+`criteria` deserves attention: the earlier eval matrix showed the discriminator's
+rubric steers answer *content*, not just selection (see
+[Evaluation](#evaluation)). The default rubric is feasibility-anchored;
+pass your own to retarget the engine, e.g. a security-review rubric.
+
+Sibling thoughts are expanded and evaluated **concurrently**, and the runtime
+retries transient LLM failures with exponential backoff — a single network
+error no longer destroys a long run.
+
+## Usage Examples
+
+### Basic Usage
+
+```python
+from dialectica import create_engine
+
+# Create the engine
+engine = create_engine(
+    "Design a sustainable urban transport system"
+)
+
+# Run workflow
+result = await engine.run()
+
+# Access results
+print(result["final_answer"])
+print(f"Generated {len(result['thought_tree'])} thoughts")
+print(f"Best path: {result['best_path']}")
+```
+
+### Inspecting the result
+
+`run()` returns the answer plus the full search trace:
+
+```python
+result = await engine.run()
+result["final_answer"]   # synthesized answer
+result["best_path"]      # node ids from root to the highest-scoring thought
+result["thought_tree"]   # every node, with scores and per-round GAN history
+result["stats"]          # total_thoughts, max_depth_reached, duration_seconds
+```
+
+### Custom Configuration
+
+```python
+engine = create_engine(
+    problem="Optimize supply chain logistics",
+    max_depth=5,
+    beam_width=5,
+    max_gan_rounds=4,
+    score_threshold=8.0,
+    synthesizer_model="google:gemini-3.1-pro-preview",
+)
+```
+
+## The Tree-of-Thoughts + GAN engine (deep-dive)
+
+The legacy `create_engine` is a general-purpose reasoning workflow; ToT + GAN is
+just its default wiring. The `Coordinator` owns only the search *control flow* —
+every decision is delegated to an injected component, so any stage can be
+swapped without touching the engine. (Measured: dominated at matched compute —
+see [Evaluation](#evaluation) finding #3. This section is mechanism, kept for
+study and back-compat.)
+
+### Phases
+
+The engine runs three phases: **Initialize → Explore → Synthesize**.
+
+**Phase 1 — Initialization**
+- Creates the root node from the user problem
+- `Generator.expand(root)` produces the initial strategies (validated via `ThoughtData`)
+- **Each strategy is adversarially scored**, then the ones clearing the threshold seed the beam (falling back to the Selector's top-k if none clear it)
+
+**Phase 2 — Exploration (beam search)** — iterates up to `max_depth` times:
+1. **Select**: `Selector.select(...)` picks the frontier from the active beam
+2. **Generate**: `Generator.expand(parent)` creates child thoughts
+3. **Evaluate**: `Evaluator.evaluate(...)` runs the GAN loop, keeping the best round and persisting the refined thought
+4. **Filter**: children scoring ≥ `score_threshold` form the next beam
+
+Exploration stops when the beam empties or `max_depth` is reached.
+
+**Phase 3 — Synthesis**
+- `Synthesizer.synthesize(...)` takes the top-scoring evaluated thoughts
+- Produces a coherent, comprehensive final answer
+
+```mermaid
+graph TD
+    A[User input: problem] --> B[Engine: Initialize];
+    B --> C[Generator: expand root → initial strategies];
+    C --> D[Evaluator: score each strategy → admit those clearing threshold];
+    D --> E[Begin exploration loop];
+
+    subgraph Exploration loop
+        direction TB
+        E_Input[Selector: pick frontier] --> F[Generator: expand children per node];
+        F -->|per child| H[GAN adversarial loop];
+
+        subgraph GAN adversarial loop
+            direction TB
+            H1[Discriminator: structured score] --> H2{threshold / terminate / rounds exhausted?};
+            H2 -- no --> H3[Generator: refine from critique];
+            H3 --> H1;
+            H2 -- yes --> H4[keep best round + persist refined thought];
+        end
+
+        H4 --> J{score >= threshold?};
+        J -- yes --> K[add to next beam];
+        J -- no --> L[prune];
+    end
+
+    K --> M{beam non-empty and depth < max_depth?};
+    M -- yes --> E_Input;
+    M -- no --> N[Synthesizer: synthesize top thoughts];
+    N --> P[Final output + thought_tree / best_path / stats];
+```
+
+> **Warning: high token consumption.** GAN evaluation costs 2-6 LLM calls per
+> thought (strategies are scored too); a typical problem (50-200 thoughts) can
+> run 200-800 LLM calls. Watch your usage and cost.
+
+### Pluggable architecture
+
+Every decision is a `typing.Protocol`, so any stage swaps without subclassing:
 
 | Protocol | Responsibility | Default | Alternatives |
 |----------|----------------|---------|--------------|
-| `Generator` | expand a node into candidate thoughts | `LlmGenerator` | custom prompts/agent |
-| `Evaluator` | score (and optionally refine) a thought | `AdversarialEvaluator` (GAN loop) | `SinglePassEvaluator` (cheap) |
+| `Generator` | expand a node into candidate thoughts (**thesis**) | `LlmGenerator` | custom prompts/agent |
+| `Evaluator` | score (and optionally refine) a thought (**antithesis**) | `AdversarialEvaluator` (GAN loop) | `SinglePassEvaluator` (cheap) |
 | `Selector` | choose the next search frontier | `BeamSearch(width)` | `GreedySearch` |
-| `Synthesizer` | combine thoughts into the answer | `LlmSynthesizer` | custom |
+| `Synthesizer` | combine thoughts into the answer (**synthesis**) | `LlmSynthesizer` | custom |
 
-`create_engine(...)` wires the defaults. To customize, build the
-components yourself and construct `Coordinator` directly:
+`create_engine(...)` wires the defaults. To customize, build the components
+yourself and construct `Coordinator` directly:
 
 ```python
 from dialectica import (
     Coordinator, BeamSearch, SinglePassEvaluator, LlmSynthesizer,
 )
 from dialectica.agent import build_default_components
-
-# Start from the defaults, then swap a stage:
-generator, _evaluator, _selector, synthesizer = build_default_components()
 from dialectica.agent_factory import create_agent
 from dialectica.models import DiscriminatorVerdict
 
+# Start from the defaults, then swap a stage:
+generator, _evaluator, _selector, synthesizer = build_default_components()
 discriminator = create_agent(
     role="Discriminator", role_name="Discriminator", output_schema=DiscriminatorVerdict
 )
@@ -608,77 +491,178 @@ engine = Coordinator(
 result = await engine.run()
 ```
 
-Any object implementing a protocol's method works (they are
-`typing.Protocol`, so no subclassing needed) — e.g. a non-LLM heuristic
-`Evaluator`, or a `Selector` that keeps a diverse frontier instead of pure
-top-k.
+Any object implementing a protocol's method works (they are `typing.Protocol`,
+so no subclassing needed) — e.g. a non-LLM heuristic `Evaluator`, or a
+`Selector` that keeps a diverse frontier instead of pure top-k. Retarget the
+engine at code review, research, or decision-making just by changing the
+generator's prompts or swapping a stage.
 
-## Key Components
+### GAN-style adversarial evaluation (keep-best)
 
-### Coordinator
-Orchestrates the three-phase workflow against the stage protocols:
-- Initialize → Explore → Synthesize
-- Manages the thought tree and active beam
-- Delegates generation, scoring, selection, and synthesis to injected components
+Each thought undergoes **iterative adversarial refinement** rather than a single pass:
+1. **Discriminator** scores it with a structured verdict (score, flaws, suggestions)
+2. **Generator** refines it from that critique
+3. **Discriminator** re-scores
+4. Loop until the quality threshold, a terminate signal, or `max_gan_rounds`
 
-### AgentFactory
-Creates agents from role templates:
-- Standardized system prompts
-- Tool configuration per role
-- Model configuration per role
-- Runtime agent instantiation
+Refinement is **not assumed monotonic** — the loop keeps the *best-scoring* round
+(à la autoresearch's "keep only what beats the current best"), and the node stores
+that refined text so synthesis works on the improved version, not the original.
+The `Discriminator` returns a `DiscriminatorVerdict` via ADK `output_schema` (no
+fragile text parsing); the engine wraps it as an `EvaluationResult` with `score`,
+`flaws`, `suggestions`, `should_terminate`, `reasoning`, `adversarial_rounds`,
+`refined_thought`, and the full per-round `history`.
 
-### AdversarialEvaluator
-Implements GAN-style evaluation:
-- Generator proposes/refines thoughts
-- Discriminator critiques with feedback
-- Iterative refinement loop
-- Structured evaluation results
+### Tree search with merit-based beam
+- **Strategies are scored before the beam** — the frontier reflects merit, not generation order
+- **Beam search** keeps the top-k most promising paths (`BeamSearch`, or `GreedySearch`)
+- **Pruning**: paths below threshold are dropped; exploration stops when the beam empties
+- **Multi-node synthesis**: the final answer integrates the top scoring thoughts across branches
 
-### ThoughtData Model
-Validates thought structure:
-- Required fields (id, parent_id, depth, content)
-- Optional evaluation data
-- GAN round tracking
-- Evaluation history
+### Relation to the Tree of Thoughts paper
 
-## Performance Considerations
+How the default wiring maps onto [Yao et al. 2023](https://arxiv.org/abs/2305.10601):
 
-**Token Consumption:**
+| ToT paper concept | Dialectica |
+|-------------------|------------|
+| Thought decomposition | Generic two-level prompts: root → strategies, node → next steps (`generation.py` templates) — not per-task like the paper's |
+| Thought generator `G(p, s, k)` — **propose** | `LlmGenerator`: one call proposes k distinct candidates (capped by `max_items`) |
+| Thought generator — **sample** (k i.i.d. CoT samples) | Not built in; pluggable via a custom `Generator` |
+| State evaluator `V(p, S)` — **value** (independent scalar) | The Discriminator's 0-10 structured verdict |
+| State evaluator — **vote** (comparative) | Not built in; pluggable via a custom `Evaluator`/`Selector` |
+| ToT-BFS with breadth limit `b` | `BeamSearch(width=b)`; `GreedySearch` is `b=1` |
+| DFS pruning threshold `v_th` | `score_threshold` (children below it are pruned) |
+| DFS + **backtracking** | Not implemented — when the beam empties, exploration stops instead of revisiting parents |
+| Evaluator **lookahead** simulation | Not implemented (prompt-level gap) |
+
+Deliberate extensions beyond the paper: the evaluator *refines* thoughts (the
+GAN keep-best loop — the paper's evaluator never mutates state), and a final
+`Synthesizer` integrates top thoughts across branches (the paper outputs the
+best path).
+
+### Key components
+
+- **Coordinator** — orchestrates the three-phase workflow against the stage protocols; manages the thought tree and active beam; delegates generation, scoring, selection, and synthesis to the injected components.
+- **AgentFactory** — creates agents from role templates: standardized system prompts, per-role tool and model configuration, runtime instantiation.
+- **AdversarialEvaluator** — the GAN-style loop above: Generator proposes/refines, Discriminator critiques, iterate, return a structured result.
+- **ThoughtData model** — validates thought structure: required fields (`id`, `parent_id`, `depth`, `content`), optional evaluation data, GAN round tracking, evaluation history.
+
+### Performance considerations
+
+**Token consumption**
 - GAN evaluation: 2-6 LLM calls per thought (depending on rounds)
-- Beam search: beam_width × max_depth iterations
+- Beam search: ~`beam_width` × `max_depth` iterations
 - Typical problem: 50-200 thoughts, 200-800 LLM calls
 
-**Optimization Strategies:**
+**Optimization strategies**
 - Reduce `max_gan_rounds` to 1-2 for faster execution
 - Raise `score_threshold` to prune harder; lower it to explore more paths
 - Narrow the beam (`beam_width`) or use `GreedySearch` to cut fan-out
 - Use a lighter model for the Generator and a stronger one for the Discriminator
 - Swap in `SinglePassEvaluator` to skip the refinement loop entirely
 
+## Development
+
+To work on Dialectica itself (not needed just to *use* it — see [Install](#install)):
+
+```bash
+git clone https://github.com/FradSer/dialectica
+cd dialectica
+uv sync
+cp .env.example dialectica/.env   # add GOOGLE_API_KEY for the live e2e test
+```
+
+## Testing
+
+The suite has two tiers:
+
+- **Mocked tests** (default) — fast, deterministic, no API key. They replace
+  the LLM call seam with stand-ins and exercise the real orchestration: beam
+  search, the GAN refinement loop, pruning, and synthesis.
+- **Live E2E** (`@pytest.mark.e2e`) — drives the full workflow against the real
+  Gemini API. Deselected by default and auto-skipped when `GOOGLE_API_KEY` is
+  unset (loaded from `dialectica/.env`).
+
+```bash
+uv run pytest          # mocked tests only (seconds, no key)
+uv run pytest -m e2e   # live API E2E (slower, requires GOOGLE_API_KEY)
+```
+
+## Project Structure
+
+```
+dialectica/
+├── __init__.py           # Public API exports
+├── agent.py              # Composition root: create_engine() wires defaults
+├── agent_factory.py      # Dynamic ADK agent creation from role templates
+├── agent_runtime.py      # Single LLM-call seam (run_agent), retry, concurrency
+├── agentic.py            # AgenticEngine — tool-using ADK loop
+├── coordinator.py        # ToT beam-search engine (Initialize → Explore → Synthesize)
+├── dialectic.py          # DialecticEngine — thesis/antithesis/synthesis spiral
+├── gan_evaluator.py      # AdversarialEvaluator (GAN loop) / SinglePassEvaluator
+├── generation.py         # LlmGenerator + list parsing
+├── llm_config.py         # Model config factory (provider:model_name parsing)
+├── models.py             # ThoughtData, DiscriminatorVerdict, EvaluationResult
+├── protocols.py          # Stage interfaces: Generator/Evaluator/Selector/Synthesizer
+├── repair.py             # IterativeRepairEngine — generate/verify/repair loop
+├── selection.py          # BeamSearch / GreedySearch
+├── synthesis.py          # LlmSynthesizer
+├── validation.py         # Thought validation utilities
+└── workflow.py           # Workflow + agent/parallel/pipeline/phase/log primitives
+tests/                       # 22 test files, 12 BDD feature files
+├── conftest.py              # Loads .env for the e2e skip guard
+├── helpers.py               # Deterministic mock LLM stand-ins
+├── features/                # Gherkin scenarios (pytest-bdd)
+│   ├── adversarial_evaluation.feature
+│   ├── agentic.feature
+│   ├── code_eval.feature
+│   ├── dialectic.feature
+│   ├── engine.feature
+│   ├── eval_harness.feature
+│   ├── game24.feature
+│   ├── lcb_eval.feature
+│   ├── quality_ablation.feature
+│   ├── repair.feature
+│   ├── resilience.feature
+│   └── workflow.feature
+└── test_*.py                # Step definitions and unit tests
+evals/                       # Eval harness (dev tool, not shipped in the wheel)
+├── __main__.py              # CLI: uv run python -m evals
+├── harness.py               # Orchestration, call counting, report rendering
+├── judge.py                 # Blind pairwise judge with position-swap bias control
+├── baseline.py              # Single-call baseline (the control arm)
+├── problems.py              # Benchmark problems (DEFAULT_PROBLEMS)
+├── hard_problems.py         # Hardest Game-of-24 puzzles (fraction-requiring)
+├── hard_solutions.py        # Verified solutions for hard_problems
+├── novel_problems.py        # Uncontaminated edge-case code problems
+├── novel_solutions.py       # Verified solutions for novel_problems
+├── code_problems.py         # HumanEval-style SWE problems (ground truth)
+├── agentic_eval.py          # Agentic engine evaluation (hidden-oracle)
+├── repair_ablation.py       # Repair engine ablation study
+├── quality_ablation.py      # ToT vs single vs best-of-N vs self-refine
+├── game24.py                # Game-of-24 benchmark
+├── game24_princeton.py      # Princeton Game-of-24 dataset
+├── code_eval.py             # Code evaluation harness
+├── lcb.py                   # LiveCodeBench evaluation
+├── meta_problems.py         # Multi-stakeholder meta-problem suite
+└── workflow_ablation.py     # Workflow engine ablation
+```
+
 ## Troubleshooting
 
-### Import Errors
+**Import errors**
 ```bash
-# Ensure Python 3.11+
-python --version
-
-# Reinstall dependencies
-rm -rf .venv
-uv sync
+python --version              # ensure Python 3.11+
+rm -rf .venv && uv sync       # reinstall dependencies
 ```
 
-### ADK Version Mismatch
+**ADK version mismatch**
 ```bash
-# Check installed version
-uv pip show google-adk
-
-# Should show 2.1.0 or higher
+uv pip show google-adk        # should show 2.1.0 or higher
 ```
 
-### API Key Issues
+**API key issues**
 ```bash
-# Test Google AI Studio
 export GOOGLE_API_KEY=your-key
 uv run python -c "from dialectica import create_engine; print('OK')"
 ```
