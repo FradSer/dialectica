@@ -38,10 +38,10 @@ import re
 import time
 
 from dialectica import agent_runtime
-from dialectica.agent import create_engine
 from dialectica.agent_factory import create_agent
-from dialectica.dialectic import create_dialectic_engine
 from dialectica.llm_config import get_model_config
+from examples.patterns.dialectic_pattern import create_dialectic_engine
+from examples.patterns.tot_gan_pattern import create_engine
 
 from .baseline import SingleCallBaseline, create_baseline_agent
 from .harness import count_agent_calls

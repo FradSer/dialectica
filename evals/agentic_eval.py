@@ -19,10 +19,11 @@ import asyncio
 import subprocess
 import sys
 
-from dialectica import agent_runtime, create_agentic_engine
+from dialectica import agent_runtime
 from dialectica.agent_factory import create_agent
 from dialectica.llm_config import get_model_config
 from evals.code_eval import extract_python_code
+from examples.patterns.agentic_pattern import create_agentic_engine
 
 # Arbitrary-but-learnable hidden rules: not guessable from the bare spec,
 # inferable from a handful of probes.

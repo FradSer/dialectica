@@ -26,15 +26,13 @@ import asyncio
 import json
 import random
 
-from dialectica import (
-    agent_runtime,
-    create_ensemble_engine,
-)
+from dialectica import agent_runtime
 from dialectica.agent_factory import create_agent
 from dialectica.llm_config import get_model_config
 from evals.baseline import BASELINE_INSTRUCTION
 from evals.judge import BlindJudge, create_judge_agent
 from evals.meta_problems import META_PROBLEMS
+from examples.patterns.ensemble_pattern import create_ensemble_engine
 
 SINGLE = BASELINE_INSTRUCTION  # prompt-matched single call
 
@@ -66,7 +64,7 @@ def _make_llm_scorer(scorer_model: str):
     )
 
     async def score(answer: str) -> float:
-        from dialectica.gan_evaluator import repair_json_escapes, strip_code_fence
+        from dialectica.json_repair import repair_json_escapes, strip_code_fence
 
         prompt = f"{SCORER_SYSTEM}\n\nRate this answer (JSON only):\n\n{answer[:1500]}"
         raw = (await agent_runtime.run_agent(scorer_agent, prompt)).strip()

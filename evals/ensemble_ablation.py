@@ -50,12 +50,12 @@ from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
-from dialectica import agent_runtime, create_ensemble_engine, create_repair_engine
+from dialectica import agent_runtime, create_repair_engine
 from dialectica.agent_factory import create_agent
-from dialectica.ensemble import SOLVE_PROMPT
 from evals.code_eval import build_statement, extract_python_code, verify_solution
 from evals.code_problems import CodeProblem
 from evals.harness import count_agent_calls
+from examples.patterns.ensemble_pattern import SOLVE_PROMPT, create_ensemble_engine
 
 # Default roster — two distinct models from different providers.
 # Matched-cost note: call-count budget is matched across all arms, but a flash

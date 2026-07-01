@@ -13,7 +13,7 @@ from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field, ValidationError
 
 from dialectica import agent_runtime
-from dialectica.gan_evaluator import repair_json_escapes, strip_code_fence
+from dialectica.json_repair import repair_json_escapes, strip_code_fence
 from dialectica.llm_config import get_model_config
 
 logger = logging.getLogger(__name__)

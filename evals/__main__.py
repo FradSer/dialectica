@@ -15,7 +15,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from dialectica import create_engine
+from examples.patterns.tot_gan_pattern import create_engine
 
 from .baseline import SingleCallBaseline, create_baseline_agent
 from .code_eval import (

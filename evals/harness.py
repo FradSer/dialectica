@@ -9,15 +9,26 @@ either contender.
 import time
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
+from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
 
 from dialectica import agent_runtime
-from dialectica.coordinator import Coordinator
 
 from .baseline import SingleCallBaseline
 from .judge import BlindJudge
 from .problems import EvalProblem
+
+
+class EngineLike(Protocol):
+    """Structural type for any engine object this harness can run.
+
+    Every engine — shipped (``create_repair_engine``) or a demoted reference
+    pattern (``examples/patterns/*.py``) — returns an object with an async
+    ``run()``; the harness never needs more than that.
+    """
+
+    async def run(self) -> dict[str, Any]: ...
 
 
 class CallCounter:
@@ -87,7 +98,7 @@ class EvalReport(BaseModel):
 async def run_eval(
     problems: list[EvalProblem],
     *,
-    engine_factory: Callable[[str], Coordinator],
+    engine_factory: Callable[[str], EngineLike],
     baseline: SingleCallBaseline,
     judge: BlindJudge,
 ) -> EvalReport:

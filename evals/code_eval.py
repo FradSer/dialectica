@@ -16,11 +16,9 @@ from collections.abc import Callable
 
 from pydantic import BaseModel, Field
 
-from dialectica.coordinator import Coordinator
-
 from .baseline import SingleCallBaseline
 from .code_problems import CodeProblem
-from .harness import count_agent_calls
+from .harness import EngineLike, count_agent_calls
 
 # Code-focused discriminator rubric (the criteria steer answer content).
 CODE_CRITERIA = """\
@@ -126,7 +124,7 @@ class CodeEvalReport(BaseModel):
 async def run_code_eval(
     problems: list[CodeProblem],
     *,
-    engine_factory: Callable[[str], Coordinator],
+    engine_factory: Callable[[str], EngineLike],
     baseline: SingleCallBaseline,
 ) -> CodeEvalReport:
     """Solve every problem with the engine and the baseline, verify both."""
@@ -194,7 +192,7 @@ class RescueReport(BaseModel):
 async def run_rescue_eval(
     problems: list,
     *,
-    engine_factory: Callable[[str], Coordinator],
+    engine_factory: Callable[[str], EngineLike],
     baseline: SingleCallBaseline,
     screen_attempts: int = 2,
     verifier: Callable | None = None,
@@ -356,7 +354,7 @@ class AblationReport(BaseModel):
 async def run_ablation(
     problems: list,
     *,
-    engine_factory: Callable[[str], Coordinator],
+    engine_factory: Callable[[str], EngineLike],
     baseline: SingleCallBaseline,
     verifier: Callable | None = None,
     statement_builder: Callable | None = None,
