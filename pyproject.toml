@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dialectica"
-version = "0.5.0"
-description = "A reasoning-engine toolbox led by an execution-guided repair engine (generate -> verify -> repair); also ships a dialectic engine and a legacy Tree-of-Thoughts + GAN baseline."
+version = "0.7.0"
+description = "A reasoning-engine toolbox: a composable Workflow kernel (agent/parallel/pipeline) plus an execution-guided repair engine (generate -> verify -> repair)."
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
