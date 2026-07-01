@@ -1,65 +1,43 @@
 """
-Dialectica — reasoning engines, kept honest by controlled evals (see README).
+Dialectica — a reasoning-engine toolbox, kept honest by controlled evals (see README).
 
-The hierarchy the data justifies:
+The evals collapsed the public surface to what the data actually justifies:
 
-- ``create_agentic_engine`` — THE GENUINE WIN. A tool-using loop (act -> observe
-  -> iterate): inject tools and the agent works until the task is objectively
-  done. The one engine that lets a model do what a single forward pass CANNOT —
-  it adds capability, not quality (measured 8/8 vs a single call's 0/8 for a
-  small model on tasks requiring interaction).
-- ``create_ensemble_engine`` — AB-MCTS-lite adaptive search over a heterogeneous
-  roster ranked by an injected scorer. ON PROBATION: the honesty gate (README
-  Evaluation finding #5) showed the ensemble *does* improve answer robustness on
-  open-ended tasks (3-1-2 vs a prompt-matched single call under a blind judge),
-  but the gain is attributable to **roster heterogeneity, not the scorer's
-  signal** — a blind-pick arm tied it. The float scorer adds no measurable lift
-  over no-scorer multi-model best-of-N. Verdict: CUT per H1's signal-attribution
-  clause; kept for study.
+- ``Workflow`` / ``agent`` / ``parallel`` / ``pipeline`` / ``phase`` / ``log`` /
+  ``budget`` / ``args`` — the composable execution kernel. ``agent(tools=...)``
+  is the one lever that lets a stage genuinely act (read a file, run a
+  command, query a service) instead of only rearranging text — the same
+  capability a tool-using loop needs, now a first-class primitive instead of
+  a dedicated engine class.
 - ``create_repair_engine`` — verifier-in-the-loop for verifiable tasks. Ties
-  matched-cost best-of-K on pass-rate but reaches it far cheaper (short-circuits
-  on success). Verifier is an injected ``Callable[[answer], (passed, feedback)]``.
-- ``create_dialectic_engine`` — thesis -> antithesis -> synthesis. A pure-LLM
-  scaffold; it does NOT beat a prompt-matched single call on result quality
-  (adds no information). Its value is content-steering via criteria + an
-  auditable trade-off trace.
-- ``create_engine`` / ``create_coordinator`` — legacy Tree-of-Thoughts + GAN
-  beam search, kept as a baseline; every stage is a swappable ``Protocol``.
+  matched-cost best-of-K on pass-rate but reaches it far cheaper
+  (short-circuits on success). Verifier is an injected
+  ``Callable[[answer], (passed, feedback)]``. The one other proven win
+  besides the kernel's tool-using capability.
+
+Everything else this project measured — the agentic engine as its own class,
+the heterogeneous ensemble, the dialectic spiral, the legacy ToT+GAN beam
+search — either needs nothing beyond ``agent(tools=...)`` or was measured to
+tie/lose a prompt-matched single call as a pure-LLM scaffold (dialectic:
+0-3-2; ToT+GAN: dominated; ensemble: CUT per the honesty gate — the roster's
+robustness gain is heterogeneity, not the scorer's signal). They are kept as
+runnable reference patterns in ``examples/patterns/`` (not shipped in the
+wheel, same as ``evals/``) — see README "Patterns (not shipped, for
+reference)" for the exact verdicts and how to reproduce them.
 
 Example:
-    from dialectica import create_agentic_engine
+    from dialectica import Workflow, agent
 
-    engine = create_agentic_engine("Your task", tools=[read_file, run_tests])
-    result = await engine.run()  # {"final_answer"}; tools do the acting
+    async def script():
+        return await agent("Your task", tools=[read_file, run_tests])
 
+    result = await Workflow(script).run()
 
 Configuration is read from ``os.environ`` — as a library, Dialectica does NOT
 load ``.env`` itself; the consuming application owns environment setup.
 """
 
-from .agent import (
-    Engine,
-    build_default_components,
-    create_coordinator,
-    create_engine,
-    run_tot_workflow,
-)
-from .agent_factory import ROLE_TEMPLATES, create_agent
-from .agentic import AgenticEngine, create_agentic_engine
-from .coordinator import Coordinator
-from .dialectic import DialecticEngine, create_dialectic_engine
-from .ensemble import EnsembleSearchEngine, create_ensemble_engine
-from .gan_evaluator import (
-    DEFAULT_EVALUATION_CRITERIA,
-    AdversarialEvaluator,
-    SinglePassEvaluator,
-)
-from .generation import LlmGenerator
-from .models import DiscriminatorVerdict, EvaluationResult, ThoughtData
-from .protocols import Evaluator, Generator, Selector, Synthesizer
 from .repair import IterativeRepairEngine, create_repair_engine
-from .selection import BeamSearch, GreedySearch
-from .synthesis import LlmSynthesizer
 from .workflow import (
     Budget,
     BudgetExhausted,
@@ -74,32 +52,8 @@ from .workflow import (
 )
 
 __all__ = [
-    # Agentic engine — tool-using loop; adds capability (act/observe/iterate)
-    # a single forward pass structurally lacks
-    "create_agentic_engine",
-    "AgenticEngine",
-    # Ensemble search — AB-MCTS-lite over a heterogeneous roster; scorer-in-the-
-    # loop (float rank = ground truth a single pass lacks)
-    "create_ensemble_engine",
-    "EnsembleSearchEngine",
-    # Execution-guided repair — verifier-in-the-loop; cost-efficient reliability
-    "create_repair_engine",
-    "IterativeRepairEngine",
-    # Dialectic — open-ended steering + auditable trade-off trace (not a
-    # single-call quality booster)
-    "create_dialectic_engine",
-    "DialecticEngine",
-    # Legacy ToT + GAN engine (prior generation / baseline)
-    "create_engine",
-    "Engine",
-    "build_default_components",
-    "run_tot_workflow",
-    # Backward-compatible aliases
-    "create_coordinator",
-    "Coordinator",
-    # Workflow primitives — a composable multi-agent runtime for meta-tasks
-    # (research/review/planning/design). Orchestration layer, NOT a
-    # self-contained-quality engine (see README Evaluation).
+    # Workflow primitives — the composable execution kernel. agent(tools=...)
+    # is what lets a stage add capability instead of only rearranging text.
     "Workflow",
     "Budget",
     "BudgetExhausted",
@@ -110,26 +64,9 @@ __all__ = [
     "log",
     "budget",
     "args",
-    # Stage protocols (the pluggable interfaces)
-    "Generator",
-    "Evaluator",
-    "Selector",
-    "Synthesizer",
-    # Default stage implementations
-    "LlmGenerator",
-    "AdversarialEvaluator",
-    "SinglePassEvaluator",
-    "DEFAULT_EVALUATION_CRITERIA",
-    "BeamSearch",
-    "GreedySearch",
-    "LlmSynthesizer",
-    # Data models
-    "ThoughtData",
-    "EvaluationResult",
-    "DiscriminatorVerdict",
-    # Agent creation
-    "create_agent",
-    "ROLE_TEMPLATES",
+    # Execution-guided repair — verifier-in-the-loop; cost-efficient reliability
+    "create_repair_engine",
+    "IterativeRepairEngine",
 ]
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"

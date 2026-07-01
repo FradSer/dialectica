@@ -1,7 +1,10 @@
 """Dynamic agent factory for creating specialist agents at runtime.
 
-Creates LlmAgent instances from role templates (Generator, Discriminator,
-Synthesizer) with per-role prompts, tools, and model configuration.
+Creates LlmAgent instances from role templates. Generator is the only
+surviving role: the Discriminator/Synthesizer templates were specific to the
+ToT+GAN engine and dialectic engine, both demoted to reference patterns
+(``examples/patterns/``) — those scripts call ``wf.agent(prompt,
+instructions=<bespoke framing text>)`` instead of a dedicated role template.
 """
 
 import logging
@@ -14,7 +17,13 @@ from .llm_config import get_model_config
 logger = logging.getLogger(__name__)
 
 
-# Agent role templates - used to generate instructions for common roles
+# Agent role templates - used to generate instructions for common roles.
+# ``{additional_context}`` is deliberately LAST, not sandwiched in the middle:
+# a caller injecting task-specific framing via ``wf.agent(instructions=...)``
+# (e.g. the agentic pattern's "act, don't guess — use tools" charter) needs
+# that framing to have the final word, not be followed by this template's own
+# generic "generate thought branches" closing line, which would otherwise
+# directly contradict it.
 ROLE_TEMPLATES = {
     "Generator": {
         "system_prompt": """You are a {role_name} responsible for generating high-quality thoughts.
@@ -24,40 +33,9 @@ Your task:
 - Each thought should be distinct and explore different angles
 - Build on the parent context when provided
 - Be specific and actionable, not vague or generic
+- Generate thoughts that advance the problem-solving process
 
-{additional_context}
-
-Generate thoughts that advance the problem-solving process.""",
-        "tools": [],
-    },
-    "Discriminator": {
-        "system_prompt": """You are a {role_name} responsible for critically evaluating thoughts.
-
-Your task:
-- Evaluate thoughts with rigorous skepticism
-- Identify logical flaws, weak assumptions, and potential issues
-- Provide specific, actionable feedback for improvement
-- Assess feasibility and quality objectively
-- Recommend termination only if the path is fundamentally flawed
-
-{additional_context}
-
-Your evaluation will drive iterative refinement, so be thorough and constructive.""",
-        "tools": [],
-    },
-    "Synthesizer": {
-        "system_prompt": """You are a {role_name} responsible for integrating insights into a final answer.
-
-Your task:
-- Analyze the best-performing thought branches
-- Identify common themes and complementary insights
-- Synthesize a coherent, comprehensive solution
-- Resolve any conflicts between different approaches
-- Present the final answer clearly and completely
-
-{additional_context}
-
-Create a unified solution from the strongest reasoning paths.""",
+{additional_context}""",
         "tools": [],
     },
 }
@@ -93,10 +71,16 @@ def create_agent(
     template = ROLE_TEMPLATES[role]
     effective_role_name = role_name or role
 
-    # Build the system prompt
-    system_prompt = template["system_prompt"].format(
-        role_name=effective_role_name,
-        additional_context=additional_context,
+    # Build the system prompt. Strip trailing whitespace left by an empty
+    # additional_context (the common case for plain wf.agent() calls with no
+    # instructions=).
+    system_prompt = (
+        template["system_prompt"]
+        .format(
+            role_name=effective_role_name,
+            additional_context=additional_context,
+        )
+        .strip()
     )
 
     # output_schema and tools are mutually exclusive in ADK.

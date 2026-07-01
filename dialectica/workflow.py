@@ -9,11 +9,20 @@ hardcoded into one fixed engine loop.
 
 The primitives:
 
-  * ``agent(prompt, *, schema=None, label=None, phase=None, model=None)`` —
-    one LLM call; ``schema`` (a Pydantic model) forces structured JSON output
-    and returns the validated instance. Returns ``None`` on terminal skip or
-    unparseable output after retry, so a failed agent never kills its batch
-    (``.filter(None)`` the results, as in the JS Workflow).
+  * ``agent(prompt, *, schema=None, tools=None, instructions="", label=None,
+    phase=None, model=None)`` — one LLM call; ``schema`` (a Pydantic model)
+    forces structured JSON output and returns the validated instance. ``tools``
+    wires plain callables into this call the same way the demoted agentic
+    pattern (``examples/patterns/agentic_pattern.py``) does, so
+    a stage can act (read a file, run a command) instead of only rearranging
+    the model's own text — ADK forbids combining ``tools`` with ``schema`` on
+    one call, so mix them across stages, not within one. ``instructions``
+    appends task-specific system-prompt framing (e.g. an "act, don't guess"
+    charter for a tool-using stage). ``model`` accepts a ``"provider:model"``
+    override, resolved the same way every other roster call site in this repo
+    resolves it. Returns ``None`` on terminal skip or unparseable output after
+    retry, so a failed agent never kills its batch (``.filter(None)`` the
+    results, as in the JS Workflow).
   * ``parallel(thunks)`` — run a list of zero-arg coroutines concurrently and
     WAIT for all (a barrier). Exceptions in any thunk -> ``None`` in the result
     list; the call itself never rejects.
@@ -32,7 +41,12 @@ ToT+GAN engine goes 0-4-1 / 0-2-3 / 0-1-4 vs single / best-of-N / self-refine;
 flat self-refine is best). This module is an **orchestration layer for
 meta-tasks** (no ground truth, exploratory/judgmental — research, review,
 planning, design), NOT a self-contained-quality engine. The existing negative
-findings stand; composing a workflow over these primitives does not repeal them.
+findings stand; composing a workflow over these primitives does not repeal
+them. ``agent(tools=...)`` is the one lever that can: a stage that reads a
+real file or runs a real command is grounded the way the agentic pattern is, not a
+pure-LLM rearrangement — but only if the caller actually injects tools. A
+workflow built entirely from schema-only judge/synthesize stages is still
+pure-LLM and still bound by the findings above.
 
 Example — a 3-angle research fan-out + synthesis (mocked in tests):
 
@@ -60,13 +74,12 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Sequence, Type, TypeVar
 
-from google.adk.agents import LlmAgent
 from pydantic import BaseModel, ValidationError
 
 from . import agent_runtime
 from .agent_factory import create_agent
-from .gan_evaluator import repair_json_escapes, strip_code_fence
-from .llm_config import get_model_config
+from .json_repair import repair_json_escapes, strip_code_fence
+from .llm_config import _parse_model_config, get_model_config
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +194,8 @@ async def agent(
     prompt: str,
     *,
     schema: Type[BaseModel] | None = None,
+    tools: list[Any] | None = None,
+    instructions: str = "",
     label: str | None = None,
     phase: str | None = None,  # noqa: A002 — mirrors the Workflow tool's opt name
     model: str | None = None,
@@ -192,9 +207,27 @@ async def agent(
     and the result is validated into the Pydantic model; a transiently
     empty/malformed response is re-asked up to ``max_attempts`` times, then
     returns ``None`` (a failed agent must not kill its batch). Without ``schema``
-    the raw text is returned. ``model`` overrides the model for this call only
-    (``"openai:qwen3.6-flash"`` style; ``None`` inherits the session default).
+    the raw text is returned. ``tools`` wires plain callables (or ADK
+    ``FunctionTool``s) into this call's agent so it can act — read a file, run
+    a command, query a service — the same wiring the demoted agentic pattern
+    (``examples/patterns/agentic_pattern.py``) uses; ADK forbids combining
+    ``tools`` with ``schema`` on one ``LlmAgent``, so passing both raises
+    ``ValueError`` (run a tool-using stage first, then a separate
+    ``schema``-only stage to structure its result). ``instructions`` appends
+    task-specific framing to the agent's system prompt (e.g. "act, don't
+    guess — verify with tools"), the same role the agentic pattern's system
+    prompt plays, without needing a separate engine class. ``model`` overrides the
+    model for this call only (``"openai:qwen3.6-flash"`` style, resolved the
+    same way every other roster call site in this repo resolves it; ``None``
+    inherits the session default).
     """
+    if tools and schema is not None:
+        raise ValueError(
+            "agent() cannot combine tools with schema — ADK forbids tools + "
+            "output_schema on one LlmAgent. Run a tool-using stage (no schema) "
+            "first, then a separate schema-only stage to structure its result."
+        )
+
     ctx = _ctx()
     ctx.budget._charge()
     if phase:
@@ -208,19 +241,13 @@ async def agent(
     agent_obj = create_agent(
         role="Generator",
         role_name=name,
-        model_config=model or get_model_config("GENERATOR"),
+        additional_context=instructions,
+        model_config=_parse_model_config(model)
+        if model
+        else get_model_config("GENERATOR"),
+        tools=tools,
         output_schema=schema,
     )
-    # output_schema and tools are mutually exclusive in ADK; create_agent already
-    # drops tools when a schema is supplied, so we only guard the schema path.
-    if schema is not None and agent_obj.tools:  # pragma: no cover - defensive
-        agent_obj = LlmAgent(
-            name=agent_obj.name,
-            instruction=agent_obj.instruction,
-            model=agent_obj.model,
-            tools=[],
-            output_schema=schema,
-        )
 
     # Some OpenAI-compatible backends (DashScope/qwen) reject `response_format:
     # json_object` unless the word "json" appears in the prompt. The repo hits

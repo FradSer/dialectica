@@ -39,6 +39,11 @@ def _parse_model_config(config_str: str) -> str | LiteLlm:
 
     Supported providers: 'google', 'openrouter', 'openai'.
     Returns model name string for Google, or LiteLlm instance for others.
+
+    A bare model name with no 'provider:' prefix (or an empty string) silently
+    falls back to ``_DEFAULT_MODEL`` with NO warning logged — unlike every
+    other fallback path in this function. Always pass the ``provider:model``
+    form (e.g. ``"google:gemini-3.1-pro-preview"``), not a bare model name.
     """
     if not config_str or ":" not in config_str:
         return _DEFAULT_MODEL

@@ -16,25 +16,21 @@ logic — not just code. The consuming app supplies "how to check it"; the edge
 over one shot is the ground-truth feedback the single pass never sees (not an
 LLM self-score on the same model, which the evals showed adds nothing).
 
-**Relation to the ensemble engine** — repair is *deeper-only*: a single roster
-rotates round-robin on each failure, and the verifier returns a boolean pass/fail
-with concrete feedback. The ensemble engine (``ensemble.py``) is *wider+deeper*:
-it adaptively chooses between sampling a fresh arm and refining the current best,
-ranks answers with a mandatory float scorer, and returns the highest-scoring one.
-Both need a ground-truth-grade signal a single pass lacks; choose repair when the
-signal is a pass/fail verifier, ensemble when it is a real-valued score.
+Built on ``workflow.py``'s shared execution kernel: each attempt is one
+``wf.agent(model=..., label=...)`` call inside a private ``Workflow`` script,
+so repair is "just" a bounded retry loop over the same primitives every other
+workflow uses — no bespoke ``LlmAgent`` construction of its own. Note that
+``create_repair_engine(...).run()`` opens its own fresh ``Workflow`` context;
+if called from inside an outer ``Workflow`` script, its calls are not counted
+against the outer script's ``budget_total``.
 """
 
 import logging
-import re
 from collections.abc import Callable
 from typing import Any, Optional
 
-from google.adk.agents import LlmAgent
-
-from . import agent_runtime
-from .agent_factory import create_agent
-from .llm_config import _parse_model_config, get_model_config
+from . import workflow as wf
+from .workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -58,47 +54,30 @@ REPAIR_PROMPT = """Your solution did NOT pass verification. Below is every previ
 Diagnose what specifically failed — and, if earlier fixes did not work, why — then provide your COMPLETE corrected solution.{format_hint}"""
 
 
-def _safe_agent_name(config: str) -> str:
-    """Coerce a ``provider:model`` config to a valid ADK agent name.
-
-    ADK requires agent names to be valid Python identifiers, so ``:``/``.``/``-``
-    in a model config are replaced. A bare identifier (e.g. a test label ``"A"``)
-    is returned unchanged. Used only for the agent name — the raw config is what
-    the run trace records as the model that produced each attempt.
-    """
-    base = config.split(":", 1)[-1] if ":" in config else config
-    safe = re.sub(r"[^a-zA-Z0-9]", "_", base)
-    if not safe or not safe[0].isalpha():
-        safe = "m_" + safe
-    return safe
-
-
 class IterativeRepairEngine:
     """Generate -> verify -> repair-against-the-failure, until pass or out of tries.
 
-    Accepts a single generator agent or a roster of agents. With a roster, each
-    failed attempt rotates to the next model round-robin, cycling back when the
-    roster is exhausted. A one-element roster is byte-identical to a single agent.
+    Accepts a roster of model configs (``"provider:model_name"`` strings, or
+    ``None`` entries to inherit the session default). With more than one
+    model, each failed attempt rotates to the next model round-robin, cycling
+    back when the roster is exhausted. A one-element roster is byte-identical
+    to a single model.
     """
 
     def __init__(
         self,
         problem: str,
-        generator: LlmAgent | list[LlmAgent],
+        models: list[str | None],
         verifier: Verifier,
         max_attempts: int = 3,
         solution_format: str = "",
-        model_labels: list[str] | None = None,
+        labels: list[str] | None = None,
     ):
         self.problem = problem
-        # Normalize to a list so the single-agent and roster paths are identical.
-        self._generators: list[LlmAgent] = (
-            generator if isinstance(generator, list) else [generator]
-        )
-        # The label recorded in history per attempt. Defaults to the agent name,
-        # but callers pass the raw ``provider:model`` config (which ADK forbids as
-        # an agent name) so the trace attributes attempts to the real model.
-        self._labels: list[str] = model_labels or [g.name for g in self._generators]
+        self._models = models
+        # The label recorded in history per attempt — the raw ``provider:model``
+        # config for a roster, else a placeholder for the single-model default.
+        self._labels: list[str] = labels or [m or "default" for m in models]
         self.verifier = verifier
         self.max_attempts = max(1, max_attempts)
         # Optional domain output-format hint (e.g. "Return a single ```python
@@ -119,58 +98,62 @@ class IterativeRepairEngine:
 
         Each history entry carries ``{"attempt": n, "passed": bool, "model": label}``
         where ``label`` is the roster member (the raw ``provider:model`` config for
-        a roster, else the agent name) that produced the attempt.
+        a roster, else the single-model placeholder) that produced the attempt.
         """
-        idx = 0
-        generator = self._generators[idx]
-        answer = (
-            await agent_runtime.run_agent(
-                generator,
-                SOLVE_PROMPT.format(
-                    problem=self.problem, format_hint=self._format_hint
-                ),
-            )
-        ).strip()
-        passed, feedback = self.verifier(answer)
-        history: list[dict[str, Any]] = [
-            {"attempt": 1, "passed": passed, "model": self._labels[idx]}
-        ]
-        logger.info("Attempt 1: passed=%s (model=%s)", passed, self._labels[idx])
 
-        failed: list[tuple[str, str]] = []
-        attempt = 1
-        while not passed and attempt < self.max_attempts:
-            failed.append((answer, feedback))
-            attempt += 1
-            idx = (attempt - 1) % len(self._generators)
-            generator = self._generators[idx]
+        async def script() -> dict[str, Any]:
+            idx = 0
             answer = (
-                await agent_runtime.run_agent(
-                    generator,
-                    REPAIR_PROMPT.format(
-                        problem=self.problem,
-                        history_block=self._history_block(failed),
-                        format_hint=self._format_hint,
+                await wf.agent(
+                    SOLVE_PROMPT.format(
+                        problem=self.problem, format_hint=self._format_hint
                     ),
+                    model=self._models[idx],
+                    label=self._labels[idx],
                 )
             ).strip()
             passed, feedback = self.verifier(answer)
-            history.append(
-                {"attempt": attempt, "passed": passed, "model": self._labels[idx]}
-            )
-            logger.info(
-                "Repair attempt %d: passed=%s (model=%s)",
-                attempt,
-                passed,
-                self._labels[idx],
-            )
+            history: list[dict[str, Any]] = [
+                {"attempt": 1, "passed": passed, "model": self._labels[idx]}
+            ]
+            logger.info("Attempt 1: passed=%s (model=%s)", passed, self._labels[idx])
 
-        return {
-            "final_answer": answer,
-            "passed": passed,
-            "attempts": attempt,
-            "history": history,
-        }
+            failed: list[tuple[str, str]] = []
+            attempt = 1
+            while not passed and attempt < self.max_attempts:
+                failed.append((answer, feedback))
+                attempt += 1
+                idx = (attempt - 1) % len(self._models)
+                answer = (
+                    await wf.agent(
+                        REPAIR_PROMPT.format(
+                            problem=self.problem,
+                            history_block=self._history_block(failed),
+                            format_hint=self._format_hint,
+                        ),
+                        model=self._models[idx],
+                        label=self._labels[idx],
+                    )
+                ).strip()
+                passed, feedback = self.verifier(answer)
+                history.append(
+                    {"attempt": attempt, "passed": passed, "model": self._labels[idx]}
+                )
+                logger.info(
+                    "Repair attempt %d: passed=%s (model=%s)",
+                    attempt,
+                    passed,
+                    self._labels[idx],
+                )
+
+            return {
+                "final_answer": answer,
+                "passed": passed,
+                "attempts": attempt,
+                "history": history,
+            }
+
+        return await Workflow(script).run()
 
 
 def create_repair_engine(
@@ -181,7 +164,7 @@ def create_repair_engine(
     solution_format: str = "",
     models: list[str] | None = None,
 ) -> IterativeRepairEngine:
-    """Wire an IterativeRepairEngine with one Generator agent or a roster.
+    """Wire an IterativeRepairEngine with one model config or a roster.
 
     ``verifier(raw_answer) -> (passed, feedback)`` is the objective checker; the
     engine is task-agnostic and only reacts to what it returns. ``solution_format``
@@ -191,8 +174,9 @@ def create_repair_engine(
     Pass ``models`` to enable round-robin rotation over a roster of model configs
     (``"provider:model_name"`` strings). Each failed attempt rotates to the next
     model; the cycle wraps back when all members have been tried. This is
-    deeper-only rotation with a boolean verifier — see ``ensemble.py`` for
-    wider+deeper sampling with a float scorer.
+    deeper-only rotation with a boolean verifier — see the ensemble pattern
+    (``examples/patterns/ensemble_pattern.py``) for wider+deeper sampling with a
+    float scorer.
 
     ``model_config`` and ``models`` are mutually exclusive; passing both raises
     ``ValueError``.
@@ -203,34 +187,11 @@ def create_repair_engine(
             "or models (roster), not both"
         )
     if models is not None:
-        # ADK forbids ':'/'.'/'-' in agent names, so sanitize the config for the
-        # name but keep the raw config as the history label (model attribution).
-        name_counts: dict[str, int] = {}
-        generators: list[LlmAgent] = []
-        for m in models:
-            base = _safe_agent_name(m)
-            dup = name_counts.get(base, 0)
-            name_counts[base] = dup + 1
-            arm_name = base if dup == 0 else f"{base}_{dup}"
-            # create_agent does not parse: resolve 'provider:model' to the ADK
-            # model so non-google arms are wrapped in LiteLlm and actually route.
-            generators.append(
-                create_agent(
-                    role="Generator",
-                    role_name=arm_name,
-                    model_config=_parse_model_config(m),
-                )
-            )
+        resolved_models: list[str | None] = list(models)
         labels: list[str] | None = list(models)
     else:
-        generators = [
-            create_agent(
-                role="Generator",
-                role_name="Solver",
-                model_config=model_config or get_model_config("GENERATOR"),
-            )
-        ]
+        resolved_models = [model_config]
         labels = None
     return IterativeRepairEngine(
-        problem, generators, verifier, max_attempts, solution_format, labels
+        problem, resolved_models, verifier, max_attempts, solution_format, labels
     )

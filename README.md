@@ -6,21 +6,20 @@
 
 **Dialectica** is a reasoning-engine toolbox on Google ADK, built and measured the hard way: every engine is run against a matched-cost baseline and a blind judge, and only the wins the data supports are kept. The rest are documented as negative results. The whole point is to answer one question — *does a scaffold beat a single well-prompted call?* — with numbers, not vibes.
 
-> **The one-sentence finding.** On self-contained tasks, *no* pure-LLM scaffold (ToT, GAN, dialectic, heterogeneous ensemble) beats a prompt-matched single call on result quality — they only rearrange the model's own thinking, adding no information. An engine wins only by doing what one forward pass cannot: **acting on the world** (agentic), **running ground-truth verification** (repair), or — measured, partial — **sampling independent models** (ensemble robustness, but the signal is heterogeneity, not the scorer). See [Evaluation](#evaluation).
+> **The one-sentence finding.** On self-contained tasks, *no* pure-LLM scaffold (ToT, GAN, dialectic, heterogeneous ensemble) beats a prompt-matched single call on result quality — they only rearrange the model's own thinking, adding no information. An engine wins only by doing what one forward pass cannot: **acting on the world** (tools), **running ground-truth verification** (repair), or — measured, partial — **sampling independent models** (ensemble robustness, but the signal is heterogeneity, not the scorer). See [Evaluation](#evaluation).
 
 Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch), Sakana AI's AB-MCTS / collective-intelligence line, and Claude Code's composable workflows.
 
-## The engine hierarchy (data-justified)
+## The public API (data-justified)
 
-Pick by what your task lacks in a single call:
+The evals collapsed the shipped surface to exactly what the data supports:
 
-| Engine | Wins by adding | Verdict |
+| | Wins by adding | Verdict |
 |---|---|---|
-| **Agentic** (`create_agentic_engine`) | **capability** — tools let the model act → observe → iterate | ✅ genuine win (8/8 vs 0/8 on hidden-oracle) |
-| **Repair** (`create_repair_engine`) | **ground truth** — verifier-in-the-loop, short-circuits on pass | ✅ cost win (best-of-N reliability at ~1/3 the calls) |
-| **Ensemble** (`create_ensemble_engine`) | **independence** — heterogeneous roster | ⚠️ on probation / CUT (robustness gain is heterogeneity, not the scorer) |
-| **Dialectic** (`create_dialectic_engine`) | — pure-LLM scaffold | ❌ ties a single call (0-3-2); auditable trace only |
-| **ToT + GAN** (`create_engine`) | — pure-LLM scaffold | ❌ dominated (0-4-1 / 0-2-3 / 0-1-4); baseline only |
+| **`Workflow` / `agent(tools=...)`** | **capability** — tools let a stage act → observe → iterate | ✅ genuine win (8/8 vs 0/8 on hidden-oracle) |
+| **`create_repair_engine`** | **ground truth** — verifier-in-the-loop, short-circuits on pass | ✅ cost win (best-of-N reliability at ~1/3 the calls) |
+
+Everything else this project built — a dedicated agentic-engine class, the heterogeneous ensemble, the dialectic spiral, the legacy ToT+GAN beam search — either needs nothing beyond `agent(tools=...)` or was measured to tie/lose a prompt-matched single call as a pure-LLM scaffold. They're kept as runnable **reference patterns**, not shipped API — see [Patterns](#patterns-not-shipped-for-reference).
 
 ## Install
 
@@ -50,25 +49,30 @@ async def main():
 asyncio.run(main())
 ```
 
-Prefer `create_repair_engine` for verifiable tasks (it's the core). For
-multi-step tool-using tasks use `create_agentic_engine`. The library reads
-configuration from `os.environ` and does **not** load `.env` itself.
+Prefer `create_repair_engine` for verifiable tasks. For multi-step tool-using
+tasks, build a `Workflow` script and call `agent(task, tools=[...])` directly
+(see below). The library reads configuration from `os.environ` and does
+**not** load `.env` itself.
 
-## Engines & primitives
+## Workflow kernel & repair
 
-### 🤖 Agentic engine — adds capability (`create_agentic_engine`)
-The one engine that lets a model do what a single forward pass *cannot*: a
-tool-using loop. Inject your tools (read a file, run tests, query a service);
-the agent plans, calls a tool, reads the result, and iterates until the task is
-objectively done — ADK drives the loop.
+### 🔗 `Workflow` / `agent` / `parallel` / `pipeline` — the execution kernel
+A composable multi-agent runtime — the same orchestration surface Claude
+Code's `Workflow` tool provides: `agent()` / `parallel()` / `pipeline()` /
+`phase()` / `log()` / `budget()`. For *meta-task* orchestration (research,
+review, planning, design) — the regime where generate → adversarial-judge →
+synthesize genuinely helps.
 
-- **Wins by capability, not quality** — measured **8/8 vs a single call's 0/8** for a small model on tasks that require gathering information through tools (`evals/agentic_eval.py`). This is the genuine value class; reasoning scaffolds on self-contained prompts tie a single call.
-- **Task-agnostic** — tools are injected callables; ADK derives their schemas.
-- **Returns** `{final_answer}`; side effects happen through your tools, so you check the objective outcome afterward.
+- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None)`** — one LLM call. `schema` (a Pydantic model) forces structured JSON output. **`tools` is the one lever that turns a stage into a genuine capability-add**, not a pure-LLM rearrangement: inject callables (read a file, run tests, query a service) and the stage acts → observes → iterates, the same way the proven-win agentic pattern does — measured **8/8 vs a single call's 0/8** on tasks that require gathering information through tools (`evals/agentic_eval.py`). ADK forbids combining `tools` with `schema` on one call, so mix them across stages, not within one. `instructions` appends task-specific system-prompt framing (e.g. an "act, don't guess" charter). `model` accepts a `"provider:model"` override.
+- **`parallel(thunks)`** — run coroutines concurrently, WAIT for all (a barrier); a failed thunk resolves to `None`.
+- **`pipeline(items, *stages)`** — run each item through every stage with NO barrier between stages; a throwing stage drops that item to `None`.
+- **Honest scope**: a workflow built entirely from schema-only judge/synthesize stages (no `tools`) is still a pure-LLM scaffold and still bound by the negative findings below — composing a workflow over these primitives does not repeal them.
 
 ### 🛠️ Execution-guided repair — verifier-in-the-loop (`create_repair_engine`)
 For verifiable tasks: **generate → run an injected verifier → repair against the
-concrete failure → retry**, until it passes or attempts run out.
+concrete failure → retry**, until it passes or attempts run out. Built on the
+`Workflow` kernel — internally, each attempt is one `agent(model=..., label=...)`
+call in a bounded retry loop, no bespoke agent construction of its own.
 
 - **Task-agnostic verifier** — any `Callable[[answer], (passed, feedback)]`: unit tests, a schema validator, a linter, assertion-checked logic. `solution_format` pins the output shape your verifier parses.
 - **Uses the full failure history** — every prior attempt + its exact failure is fed back, so the loop doesn't oscillate between two wrong fixes.
@@ -78,45 +82,34 @@ concrete failure → retry**, until it passes or attempts run out.
 
 Measure it against pass@1 and matched-cost best-of-K with `uv run python -m evals.repair_ablation`.
 
-### 🌐 Ensemble search engine (`create_ensemble_engine`) — *on probation*
-AB-MCTS-lite adaptive search over a heterogeneous model roster (wider = sample a
-fresh model, deeper = refine the best), ranked by a **mandatory injected float
-scorer**. Designed as a fourth honest win lever — *independence* (different
-training distributions) ranked by a ground-truth-grade signal.
+## Patterns (not shipped, for reference)
 
-**The honesty gate cut it** (Evaluation finding #5): on open-ended meta tasks the
-ensemble *did* beat a single call under a blind judge (**3-1-2**), but a
-**blind-pick** arm (signal replaced by a constant) matched it (**3-1**) — the
-gain is **roster heterogeneity, not the scorer's signal**. On verifiable code
-both arms saturated (6/6). Kept for study; a no-scorer multi-model best-of-N
-captures the measured robustness gain more honestly.
+`examples/patterns/` (a dev tool, like `evals/` — not packaged in the wheel)
+holds runnable reference implementations of everything the evals did **not**
+justify shipping as stable API. Each keeps the demoted engine's exact
+factory name/signature/return-shape, rebuilt on the `Workflow` kernel instead
+of bespoke agent construction, so the same `evals/*.py` scripts that measured
+them keep working unchanged.
 
-- **Mandatory scorer** (`Callable[[str], float]` or async) — constructing without one raises; pure-scaffold misuse is unrepresentable. Wrap a boolean verifier with `lambda a: 1.0 if v(a)[0] else 0.0`.
-- **Injectable policy** — default Thompson-sampling bandit; tests inject a scripted deterministic policy.
-- **FR6 roster-distinctness** — warns when two members resolve to the same effective model or silently fall back to the default.
-- **Returns** `{final_answer, passed, attempts, history, best_score}`.
+| Pattern | What it shows | Measured verdict |
+|---|---|---|
+| `agentic_pattern.py` (`create_agentic_engine`) | `agent(tools=[...], instructions=...)` as a standalone tool-using stage | Same 8/8 vs 0/8 win as the kernel primitive — kept only as a copy-pasteable recipe with the tailored system prompt, not because the capability needs a class. |
+| `dialectic_pattern.py` (`create_dialectic_engine`) | thesis → antithesis → synthesis spiral, scored via `agent(schema=Verdict)` | Ties/loses a prompt-matched single call (**0-3-2**); auditable trace only, not a quality win. |
+| `ensemble_pattern.py` (`create_ensemble_engine`) | AB-MCTS-lite adaptive search (Thompson-sampling bandit) over a heterogeneous roster | **CUT** by the honesty gate — a blind-pick roster (scorer replaced by a constant) matched the real scorer's robustness gain; the signal adds nothing over heterogeneity alone. |
+| `tot_gan_pattern.py` (`create_engine`/`create_coordinator`) | beam search + GAN-style adversarial refinement, `parallel()` for sibling expand/evaluate | **Measured dominated** — never wins a matchup against single/best-of-N/self-refine at matched compute; loses to a single call on Game-of-24 at ~34× the cost. |
 
-### 🔗 Workflow primitives — composable multi-agent runtime (`Workflow`)
-A Python re-implementation of Claude Code's `Workflow` orchestration surface:
-`agent()` / `parallel()` / `pipeline()` / `phase()` / `log()` / `budget()`. For
-*meta-task* orchestration (research, review, planning, design) — the regime
-where generate → adversarial-judge → synthesize genuinely helps. It is an
-**orchestration layer**, not a self-contained-quality engine: the negative
-findings above stand, and composing a workflow over these primitives does not
-repeal them.
+Each pattern's docstring cites its exact eval verdict. They're written in the
+kernel's own compositional idiom (plain functions/closures over
+`agent()`/`parallel()`), not the original Protocol-based plugin system —
+kept for study and historical-number reproducibility, not for extension.
+Import them the same way the evals do:
 
-### 🧩 Dialectic engine (`create_dialectic_engine`)
-*Thesis → antithesis → synthesis*: a self-contained spiral that produces an
-**auditable** reasoning trace, steered by `criteria`. A pure-LLM scaffold —
-useful for transparency and content-steering, but (measured) **not** a
-result-quality win over a single call. Its value is the auditable trace and
-criteria-steering, not better answers.
-
-### 🌳 Tree-of-Thoughts + GAN engine (`create_engine`)
-The prior-generation pluggable pipeline (beam search + GAN-style adversarial
-refinement, every stage a swappable `Protocol`). **Measured dominated** at
-matched compute (loses to single, best-of-N, and flat self-refine); kept for
-study and back-compat, not recommended for quality.
+```python
+from examples.patterns.agentic_pattern import create_agentic_engine
+from examples.patterns.dialectic_pattern import create_dialectic_engine
+from examples.patterns.ensemble_pattern import create_ensemble_engine
+from examples.patterns.tot_gan_pattern import create_engine
+```
 
 ## Evaluation
 
@@ -128,43 +121,45 @@ positions swapped (disagreement = tie); LLM calls are counted through the same
 `run_agent` seam the tests mock.
 
 ```bash
-uv run python -m evals                          # all benchmark problems
+uv run python -m evals                          # all benchmark problems (ToT+GAN pattern, historical default)
 uv run python -m evals.repair_ablation          # repair vs best-of-K
-uv run python -m evals.agentic_eval             # agentic vs single (hidden oracle)
-uv run python -m evals.quality_ablation         # ToT+GAN vs single/best-of-N/self-refine
-uv run python -m evals.ensemble_ablation        # ensemble 3-arm honesty gate (code)
-uv run python -m evals.ensemble_meta_ablation   # ensemble honesty gate (open-ended, LLM judge)
+uv run python -m evals.agentic_eval             # agentic pattern vs single (hidden oracle)
+uv run python -m evals.quality_ablation         # ToT+GAN / dialectic patterns vs single/best-of-N/self-refine
+uv run python -m evals.ensemble_ablation        # ensemble pattern 3-arm honesty gate (code)
+uv run python -m evals.ensemble_meta_ablation   # ensemble pattern honesty gate (open-ended, LLM judge)
 ```
 
 ### Headline findings (measured, no preset conclusion)
 
-1. **Where an engine genuinely wins — capability, not quality.** On tasks that require *acting* (the agentic hidden-oracle benchmark), a small model with the **agentic engine** scored **8/8** vs a single call's **0/8**: it probes the hidden function, infers the rule, and implements it — a single call can't know an arbitrary rule without probing. This is the genuine value class. Reproduce: `uv run python -m evals.agentic_eval`.
+1. **Where an engine genuinely wins — capability, not quality.** On tasks that require *acting* (the agentic hidden-oracle benchmark), a small model with `agent(tools=[...])` scored **8/8** vs a single call's **0/8**: it probes the hidden function, infers the rule, and implements it — a single call can't know an arbitrary rule without probing. This is the genuine value class. Reproduce: `uv run python -m evals.agentic_eval`.
 
-2. **Where scaffolds do NOT win — self-contained result quality.** Judged against a *matched-cost* baseline, **no pure-LLM scaffold beats a single call**: the dialectic went **0-3-2** vs a prompt-matched strong baseline at every model size (the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly **ties matched-cost best-of-K** on pass-rate — its real edge is **cost** (best-of-N reliability at ~1/3 the calls). Reproduce: `uv run python -m evals.repair_ablation`.
+2. **Where scaffolds do NOT win — self-contained result quality.** Judged against a *matched-cost* baseline, **no pure-LLM scaffold beats a single call**: the dialectic pattern went **0-3-2** vs a prompt-matched strong baseline at every model size (the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly **ties matched-cost best-of-K** on pass-rate — its real edge is **cost** (best-of-N reliability at ~1/3 the calls). Reproduce: `uv run python -m evals.repair_ablation`.
 
-3. **The tree structure is *dominated*, not just unhelpful.** On **Game-of-24** — ToT's *own* canonical benchmark — a faithful ToT scored **14/15 and lost to a single call's 15/15 at ~34× the cost**: modern models one-shot the task the 2023 paper's GPT-4 failed 96% of the time. At matched compute under a blind judge, the ToT+GAN engine went **0-4-1 / 0-2-3 / 0-1-4** (vs single / best-of-N / self-refine) — it *never won a matchup*. The quality order is **self-refine ≥ best-of-N ≥ single ≥ tree-scaffold**. Reproduce: `uv run python -m evals.game24` and `uv run python -m evals.quality_ablation`.
+3. **The tree structure is *dominated*, not just unhelpful.** On **Game-of-24** — ToT's *own* canonical benchmark — a faithful ToT scored **14/15 and lost to a single call's 15/15 at ~34× the cost**: modern models one-shot the task the 2023 paper's GPT-4 failed 96% of the time. At matched compute under a blind judge, the ToT+GAN pattern went **0-4-1 / 0-2-3 / 0-1-4** (vs single / best-of-N / self-refine) — it *never won a matchup*. The quality order is **self-refine ≥ best-of-N ≥ single ≥ tree-scaffold**. Reproduce: `uv run python -m evals.game24` and `uv run python -m evals.quality_ablation`.
 
 4. **The value window is closed across the accessible model range.** ToT only helps where the base model fails alone but search can recover — a "fails-but-fixable" band. Probing the *hardest* Game-of-24 puzzles against **four model tiers** (the weakest cloud models available) a single call scored **5/5 on every model, every puzzle**. There is no accessible weak model that fails these tasks, so there is no gap for search to recover — the boundary has moved past this task.
 
 5. **Heterogeneous ensemble — the scorer's signal is not what does the work (2026-06-26).** The ensemble was designed as a fourth honest win lever — *independence* ranked by a mandatory ground-truth-grade signal. A two-axis honesty gate falsified the signal half of the thesis while surfacing a real, narrower result:
    - **Code (ground-truth verifier, 6 problems, budget 6):** ensemble+signal **6/6**, best-single best-of-6 **6/6**, blind-pick **6/6** — **CUT**: both models one-shot every problem, so heterogeneity and the signal both have empty headroom. Saturation, same shape as finding #4.
-   - **Open-ended meta (blind LLM-judge, 5 problems, budget 6, position-swap):** ensemble+signal beat a prompt-matched single call **3-1-2** — *the engine does improve answer robustness on open-ended tasks* (the code axis couldn't measure this). But the **blind-pick arm** (signal replaced by a constant) also beat single **3-1**: the gain is **attributable to roster heterogeneity, not the scorer's ranking signal**. Per H1's signal-attribution clause: **CUT**.
+   - **Open-ended meta (blind LLM-judge, 5 problems, budget 6, position-swap):** ensemble+signal beat a prompt-matched single call **3-1-2** — *the pattern does improve answer robustness on open-ended tasks* (the code axis couldn't measure this). But the **blind-pick arm** (signal replaced by a constant) also beat single **3-1**: the gain is **attributable to roster heterogeneity, not the scorer's ranking signal**. Per H1's signal-attribution clause: **CUT**.
    - **Takeaway:** a *no-scorer* multi-model best-of-N (sample N heterogeneous models, keep one) captures the robustness gain the ensemble shows on open-ended tasks; the float scorer adds no measurable lift over blind-pick. The repair sub-criterion was also **CUT** (multi-model-repair@6 vs single@6: 6/6 vs 6/6, **0 model-switch rescues**). Reproduce: `uv run python -m evals.ensemble_ablation` and `uv run python -m evals.ensemble_meta_ablation` (need a live multi-provider roster via `OPENAI_API_BASE`/`OPENAI_API_KEY`, e.g. a cliproxy exposing qwen + glm; `DIALECTICA_DISABLE_THINKING=true` for qwen-family latency).
 
 ### The law these findings all point to
 
 A scaffold beats one forward pass **iff** it adds information a single pass
-lacks — **tools** (agentic), **ground-truth verification** (repair), or
+lacks — **tools** (`agent(tools=...)`), **ground-truth verification** (repair), or
 **independent samples** (ensemble robustness, but only via heterogeneity, not a
 learned ranking). Pure rearrangement of one model's thinking on one context
 (ToT, GAN, dialectic, an LLM-judge scorer over same-family candidates) ties a
 single call. Sakana AI's portfolio converges on the same law from the other
 side: every genuine win there is also backed by a ground-truth oracle external
-to the model.
+to the model. This law is exactly why the shipped API is now two things —
+the kernel primitive that can add capability, and the one engine that adds
+ground truth — and why everything else moved to `examples/patterns/`.
 
 ### Earlier advice-suite matrices (2026-06-10/11) — superseded
 
-The first-round matrices compared the ToT+GAN engine against a *weaker*
+The first-round matrices compared the ToT+GAN pattern against a *weaker*
 single-call baseline (no matched-prompt control) and an "Innovation"
 discriminator criterion that steered toward over-complex answers. They are
 superseded by findings #2–#5 above. Kept in `evals/results/` for reproducibility:
@@ -183,10 +178,9 @@ suite loads `dialectica/.env`.
 # Default model for all agents
 export DEFAULT_MODEL_CONFIG="google:gemini-3.5-flash"
 
-# Role-specific overrides (optional)
+# Role-specific override (optional) — every wf.agent() call uses the Generator role
 export GENERATOR_MODEL_CONFIG="google:gemini-3.5-flash"
-export DISCRIMINATOR_MODEL_CONFIG="google:gemini-3.1-pro-preview"
-export SYNTESIZER_MODEL_CONFIG="google:gemini-3.5-flash"
+# Used by evals/judge.py's blind judge, not by any shipped engine
 export JUDGE_MODEL_CONFIG="google:gemini-3.1-pro-preview"
 
 # Google AI Studio
@@ -212,13 +206,11 @@ stable `gemini-3.1-pro` (404 on generateContent). Provider strings are
 `provider:model_name`; the `openai:` provider passes `api_base` explicitly
 (recent LiteLLM no longer reads `OPENAI_API_BASE` for the `openai/` prefix).
 
-### Engine parameters
+### Parameters
 
-- **Agentic** — `tools` (injected callables), `instructions` (task-specific guidance).
-- **Repair** — `verifier` (mandatory), `max_attempts`, `solution_format`, `models` (optional roster).
-- **Ensemble** — `scorer` (mandatory), `models` (roster), `max_calls`, `solved_score`, `policy` (default Thompson bandit).
-- **Dialectic** — `criteria` (steers synthesis content), `rounds`.
-- **Workflow** — `budget_total`, `concurrency` (or `DIALECTICA_WORKFLOW_CONCURRENCY`).
+- **`agent()`** — `tools` (injected callables), `instructions` (task-specific guidance), `schema` (structured output), `model` (per-call override).
+- **`create_repair_engine`** — `verifier` (mandatory), `max_attempts`, `solution_format`, `models` (optional roster).
+- **Patterns** — see each pattern's own docstring/factory signature in `examples/patterns/`; they keep their demoted engine's original parameters (e.g. `scorer`/`policy` for the ensemble pattern, `criteria`/`rounds` for the dialectic pattern).
 
 ## Usage examples
 
@@ -236,19 +228,21 @@ result = await engine.run()
 # {"final_answer", "passed", "attempts", "history"}
 ```
 
-### Agentic (tool-using task)
+### Tool-using stage (kernel primitive)
 
 ```python
-from dialectica import create_agentic_engine
+from dialectica import Workflow, agent
 
-engine = create_agentic_engine("Fix the failing test", tools=[read_file, run_tests])
-result = await engine.run()   # tools do the acting; check the outcome after
+async def script():
+    return await agent("Fix the failing test", tools=[read_file, run_tests])
+
+result = await Workflow(script).run()   # tools do the acting; check the outcome after
 ```
 
-### Ensemble (heterogeneous roster)
+### Patterns (illustrative only — not shipped API)
 
 ```python
-from dialectica import create_ensemble_engine
+from examples.patterns.ensemble_pattern import create_ensemble_engine
 
 def scorer(answer: str) -> float: ...      # your ground-truth-grade rank
 
@@ -264,29 +258,10 @@ result = await engine.run()
 
 ### Inspecting the result
 
-All engines return a `dict` with `final_answer`, `passed` (or implicit), `attempts`,
-and `history`. The ensemble and repair `history` entries carry the producing
-model per attempt, so you can attribute wins to a specific arm or to
-model-switching.
-
-## The ToT + GAN engine (legacy, deep-dive)
-
-The pluggable pipeline every stage is a `typing.Protocol` in `protocols.py`:
-`Generator.expand` → `Evaluator.evaluate` → `Selector.select` →
-`Synthesizer.synthesize`. `coordinator.py` runs three phases (Initialize →
-Explore → Synthesize) with sibling expansions/evaluations concurrent via
-`asyncio.gather`. Knobs: `score_threshold` (beam admission) vs
-`gan_score_threshold` (stop-refining bar), and `criteria` (the discriminator
-rubric — steers answer content, not just selection).
-
-Defaults: `LlmGenerator`, `AdversarialEvaluator` (GAN refine loop) /
-`SinglePassEvaluator`, `BeamSearch` / `GreedySearch`, `LlmSynthesizer`.
-Unparseable verdicts are re-asked up to 3 times; 3 consecutive post-retry
-failures trip a circuit breaker that aborts the run. All public stage methods
-are `async`.
-
-This engine is **measured dominated** (finding #3) — keep it for study and
-back-compat, not for quality.
+`create_repair_engine` and every pattern in `examples/patterns/` return a
+`dict` with `final_answer`, `passed` (or implicit), `attempts`, and `history`.
+The repair and ensemble-pattern `history` entries carry the producing model
+per attempt, so you can attribute wins to a specific arm or to model-switching.
 
 ## Development
 
@@ -301,6 +276,9 @@ The library never calls `logging.basicConfig` — the consuming app owns logging
 Mock the LLM at the single seam `agent_runtime.run_agent()` — never patch ADK
 internals or per-stage agents (`tests/helpers.py` has the fakes). `asyncio_mode =
 auto`; pytest-bdd steps are sync, so wrap coroutines with `asyncio.run()`.
+The `examples/patterns/` reference scripts get a lighter regression net
+(`tests/test_example_patterns_smoke.py`, one mocked end-to-end run each) —
+full BDD scenario coverage is reserved for the shipped kernel + repair.
 
 ## Testing workflow (BDD-driven TDD)
 
@@ -315,22 +293,20 @@ updating tests, update the matching `.feature` first. CI
 
 ```
 dialectica/
-  agent.py            # legacy ToT+GAN composition root (create_engine)
-  agent_factory.py    # builds LlmAgents from ROLE_TEMPLATES
+  agent_factory.py    # builds LlmAgents from ROLE_TEMPLATES (Generator only)
   agent_runtime.py    # THE single LLM seam: run_agent() + retry/backoff
-  agentic.py          # create_agentic_engine (the genuine win)
-  coordinator.py      # legacy ToT Explore/Synthesize loop
-  dialectic.py        # create_dialectic_engine (auditable trace, no quality win)
-  ensemble.py         # create_ensemble_engine (on probation / CUT)
-  gan_evaluator.py    # AdversarialEvaluator + verdict parsing/repair
-  llm_config.py       # provider:model parsing (google/openrouter/openai)
-  models.py           # ThoughtData / EvaluationResult / DiscriminatorVerdict
-  protocols.py        # Generator/Evaluator/Selector/Synthesizer Protocols
-  repair.py           # create_repair_engine (cost win)
-  workflow.py         # Workflow + agent/parallel/pipeline/phase/log/budget
+  json_repair.py       # shared fence/escape JSON-repair helpers
+  llm_config.py        # provider:model parsing (google/openrouter/openai)
+  repair.py            # create_repair_engine (cost win)
+  workflow.py           # Workflow + agent/parallel/pipeline/phase/log/budget (the kernel)
+examples/patterns/     # reference implementations of demoted engines (not shipped)
+  agentic_pattern.py
+  dialectic_pattern.py
+  ensemble_pattern.py
+  tot_gan_pattern.py
 evals/                # dev-only eval harness (not shipped in the wheel)
 tests/                # BDD features + step defs + helpers
-docs/plans/           # design + plan folders (brainstorming/writing-plans)
+docs/plans/            # design + plan folders (brainstorming/writing-plans)
 ```
 
 ## Troubleshooting
@@ -338,16 +314,50 @@ docs/plans/           # design + plan folders (brainstorming/writing-plans)
 - **`gemini-3.1-pro` 404s** — use `gemini-3.1-pro-preview` or `gemini-3.5-flash`.
 - **OpenAI-compatible backend "Connection error"** — `OPENAI_API_BASE` is no longer read for the `openai/` prefix by recent LiteLLM; the library passes `api_base` explicitly, so make sure `OPENAI_API_BASE` is set (not just `OPENAI_API_KEY`).
 - **qwen-family evals are slow** — set `DIALECTICA_DISABLE_THINKING=true` to disable the reasoning trace (`chat_template_kwargs.enable_thinking=false`).
-- **Ensemble roster "collapsed to duplicate effective model"** — two members resolved to the same model (often a provider key is unset, so both silently fell back to the default). Set the provider's API key or use distinct models.
-- **Enforced JSON mode returns empty verdicts** (some backends, e.g. gemma-4-26b-a4b) — use `structured_output=False` / `--no-structured-output`.
+- **Ensemble pattern roster "collapsed to duplicate effective model"** (`examples/patterns/ensemble_pattern.py`) — this pattern no longer warns automatically (the check needed pre-built agents, dropped when it was demoted); compare your `models` list for duplicates yourself before calling `create_ensemble_engine`.
+- **ToT+GAN pattern + enforced JSON mode returns empty verdicts** (some backends, e.g. gemma-4-26b-a4b) — the pattern's `structured_output` parameter is accepted for signature parity but always uses schema-enforced scoring; the original engine's workaround was not ported.
+
+## Migration from 0.6.x
+
+`create_agentic_engine`, `create_ensemble_engine`, `create_dialectic_engine`,
+`create_engine`/`create_coordinator` and their supporting `Protocol`/model
+types are **no longer part of the public API**. They remain available as
+unshipped reference implementations in `examples/patterns/` (not installed
+via `pip install dialectica`):
+
+```python
+# before (0.6.x)
+from dialectica import create_agentic_engine
+
+# after (0.7.0) — same signature/return-shape, now unshipped reference code
+from examples.patterns.agentic_pattern import create_agentic_engine
+```
+
+Or, for the tool-using case specifically, use the kernel primitive directly —
+no separate import needed:
+
+```python
+from dialectica import Workflow, agent
+
+result = await Workflow(lambda: agent(task, tools=[...])).run()
+```
+
+`create_repair_engine`'s signature and return shape are unchanged.
+`workflow.agent()` gained `instructions=` (task-specific system-prompt
+framing) and now correctly resolves `provider:model`-style `model=`
+overrides (previously passed through unresolved). `dialectica.gan_evaluator`
+is renamed `dialectica.json_repair` (only the shared fence/escape helpers
+survive; the GAN-specific classes moved to `examples/patterns/tot_gan_pattern.py`).
 
 ## Contributing
 
 Conventional commits (use the `/git:commit` skill). Release = push a `v*.*.*`
 tag whose version **matches** `pyproject.toml`; CI runs tests, publishes to PyPI,
-and creates a GitHub release. When adding an engine, ship the honesty-gate
-ablation that would CUT it if the data says so — the repo's tradition is
-documented negative results, not unproven claims.
+and creates a GitHub release. When adding to the shipped API, ship the
+honesty-gate ablation that would CUT it if the data says so — the repo's
+tradition is documented negative results, not unproven claims. This release's
+own honesty gate is the reason the shipped surface is now just the kernel and
+repair — see [Patterns](#patterns-not-shipped-for-reference).
 
 ## License
 
@@ -355,8 +365,8 @@ MIT — see `LICENSE`.
 
 ## References
 
-- [Tree of Thoughts](https://arxiv.org/abs/2305.10601) — Yao et al., 2023 (the ToT engine's lineage; now a baseline).
-- [Sakana AB-MCTS / "Wider or Deeper?"](https://arxiv.org/abs/2503.04412) — the ensemble engine's lineage (independence + ground-truth signal).
+- [Tree of Thoughts](https://arxiv.org/abs/2305.10601) — Yao et al., 2023 (the ToT+GAN pattern's lineage; now reference-only).
+- [Sakana AB-MCTS / "Wider or Deeper?"](https://arxiv.org/abs/2503.04412) — the ensemble pattern's lineage (independence + ground-truth signal).
 - [karpathy/autoresearch](https://github.com/karpathy/autoresearch) — inspiration.
 
 ## Acknowledgments
