@@ -4,11 +4,10 @@ import asyncio
 import json
 from unittest.mock import patch
 
-from helpers import make_constant_call_agent
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from dialectica import agent_runtime
-from dialectica.agent import create_coordinator
+from dialectica.agent_factory import create_agent
 from evals.baseline import SingleCallBaseline, create_baseline_agent
 from evals.harness import count_agent_calls, run_eval
 from evals.judge import BlindJudge, create_judge_agent
@@ -46,8 +45,7 @@ def make_judge_fake(policy: str):
 
 def make_full_fake():
     """Dispatch by role: Judge prefers the engine, Baseline answers once,
-    everything else behaves like the standard mocked engine pipeline."""
-    engine_fake = make_constant_call_agent(8.0)
+    everything else (the fake engine's own internal calls) returns filler."""
     judge_fake = make_judge_fake("prefers_engine")
 
     async def fake(agent, instruction: str) -> str:
@@ -55,9 +53,27 @@ def make_full_fake():
             return await judge_fake(agent, instruction)
         if agent.name == "Baseline":
             return BASELINE_ANSWER
-        return await engine_fake(agent, instruction)
+        return "engine step output"
 
     return fake
+
+
+class FakeEngine:
+    """Decouples this harness-behavior test from any concrete engine — the
+    harness only needs an object with an async ``run()`` returning
+    ``{"final_answer": ...}``. A few extra ``run_agent`` calls simulate an
+    engine that costs more than the baseline's single call.
+    """
+
+    def __init__(self, answer: str, extra_calls: int = 2):
+        self._answer = answer
+        self._extra_calls = extra_calls
+
+    async def run(self) -> dict:
+        agent = create_agent(role="Generator", role_name="EngineStep")
+        for _ in range(self._extra_calls):
+            await agent_runtime.run_agent(agent, "engine step")
+        return {"final_answer": self._answer}
 
 
 @given(
@@ -135,9 +151,7 @@ def evaluate(harness_llm, n: int):
     ]
 
     def engine_factory(statement: str):
-        return create_coordinator(
-            problem=statement, max_depth=2, beam_width=2, max_gan_rounds=1
-        )
+        return FakeEngine(ENGINE_ANSWER)
 
     baseline = SingleCallBaseline(create_baseline_agent())
     judge = BlindJudge(create_judge_agent())

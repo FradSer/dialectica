@@ -199,11 +199,21 @@ def conflicting_config_error(result):
 
 def test_roster_configs_are_parsed_to_resolved_models():
     """C2 regression guard: repair roster 'provider:model' configs must be
-    resolved before create_agent (else a non-google arm never wraps in LiteLlm
-    and never routes). The history label keeps the raw config for attribution.
+    resolved before the underlying agent is built (else a non-google arm never
+    wraps in LiteLlm and never routes). The history label keeps the raw config
+    for attribution regardless of how the model resolves.
     """
+    captured = {"agent": None}
+
+    async def fake(agent, instruction: str) -> str:
+        captured["agent"] = agent
+        return "def f(): return 1"
+
     engine = create_repair_engine(
         "p", verifier=lambda a: (True, ""), models=["google:gemini-3.5-flash"]
     )
-    assert engine._generators[0].model == "gemini-3.5-flash"
-    assert engine._labels[0] == "google:gemini-3.5-flash"
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(engine.run())
+
+    assert captured["agent"].model == "gemini-3.5-flash"
+    assert result["history"][0]["model"] == "google:gemini-3.5-flash"

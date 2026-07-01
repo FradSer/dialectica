@@ -333,3 +333,111 @@ def phase_captured(phase_result):
     assert ctx.phases == ["Gather", "Done"]
     assert ctx.log == ["starting", "finished"]
     assert ctx.budget.spent() == 1
+
+
+# --- Scenario 9: agent wires injected tools into the underlying agent -----
+
+
+def _noop_tool(x: str) -> str:
+    """A trivial tool for wiring assertions."""
+    return x
+
+
+@given("a mocked LLM that records the agent it receives", target_fixture="capture_llm")
+def capture_llm():
+    captured = {"agent": None}
+
+    async def fake(agent, instruction: str) -> str:
+        captured["agent"] = agent
+        return "ok"
+
+    return fake, captured
+
+
+@when("agent runs with a tool injected", target_fixture="tools_result")
+def run_agent_tools(capture_llm):
+    fake, captured = capture_llm
+
+    async def script():
+        return await wf.agent("do it", tools=[_noop_tool], label="doer")
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        asyncio.run(Workflow(script).run())
+    return captured
+
+
+@then("the underlying agent carries that tool")
+def tools_wired(tools_result):
+    assert _noop_tool in tools_result["agent"].tools
+
+
+# --- Scenario 10: tools + schema is rejected ------------------------------
+
+
+@when("agent runs with both tools and a schema", target_fixture="conflict_error")
+def run_agent_conflict():
+    async def fake(agent, instruction: str) -> str:
+        return "ok"
+
+    async def script():
+        await wf.agent("do it", tools=[_noop_tool], schema=_Item)
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        try:
+            asyncio.run(Workflow(script).run())
+            return None
+        except ValueError as e:
+            return e
+
+
+@then("it raises ValueError naming the ADK conflict")
+def conflict_raised(conflict_error):
+    assert conflict_error is not None
+    assert "tools" in str(conflict_error) and "schema" in str(conflict_error)
+
+
+# --- Scenario 11: agent(instructions=...) reaches the system prompt -------
+
+
+@when("agent runs with instructions injected", target_fixture="instructions_result")
+def run_agent_instructions(capture_llm):
+    fake, captured = capture_llm
+
+    async def script():
+        return await wf.agent(
+            "do it", instructions="Verify with tools before answering.", label="doer"
+        )
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        asyncio.run(Workflow(script).run())
+    return captured
+
+
+@then("the underlying agent's instruction contains the injected text")
+def instructions_wired(instructions_result):
+    assert (
+        "Verify with tools before answering."
+        in instructions_result["agent"].instruction
+    )
+
+
+# --- Scenario 12: agent(model=...) resolves provider:model before build ---
+
+
+@when(
+    "agent runs with a provider-prefixed model override", target_fixture="model_result"
+)
+def run_agent_model_override(capture_llm):
+    fake, captured = capture_llm
+
+    async def script():
+        return await wf.agent("do it", model="google:gemini-3.5-flash", label="doer")
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        asyncio.run(Workflow(script).run())
+    return captured
+
+
+@then("the underlying agent's model is the resolved model name")
+def model_resolved(model_result):
+    assert model_result["agent"].model == "gemini-3.5-flash"

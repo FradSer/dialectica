@@ -5,7 +5,6 @@ from unittest.mock import patch
 
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from dialectica.agent import create_coordinator
 from evals.baseline import SingleCallBaseline, create_baseline_agent
 from evals.code_eval import (
     extract_python_code,
@@ -14,6 +13,7 @@ from evals.code_eval import (
     verify_solution,
 )
 from evals.code_problems import CodeProblem
+from examples.patterns.tot_gan_pattern import create_coordinator
 
 scenarios("features/code_eval.feature")
 
@@ -91,9 +91,9 @@ def code_llm():
     async def fake(agent, instruction: str) -> str:
         if agent.name == "Baseline":
             return f"```python\n{WRONG}```"
-        if agent.name == "Synthesizer":
+        if agent.name == "synthesizer":
             return f"```python\n{CORRECT}```"
-        if "Discriminator" in agent.name:
+        if agent.name == "discriminator":
             return '{"score": 8.0, "reasoning": "ok"}'
         return "1. Implement directly\n2. Use builtins"
 
@@ -148,9 +148,9 @@ def rescue_llm():
     async def fake(agent, instruction: str) -> str:
         if agent.name == "Baseline":
             return f"```python\n{CORRECT}```"  # only correct for add_two
-        if agent.name == "Synthesizer":
+        if agent.name == "synthesizer":
             return f"```python\n{SUB_CORRECT}```"
-        if "Discriminator" in agent.name:
+        if agent.name == "discriminator":
             return '{"score": 8.0, "reasoning": "ok"}'
         return "1. Implement directly\n2. Use builtins"
 

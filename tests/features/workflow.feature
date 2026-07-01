@@ -49,3 +49,22 @@ Feature: Workflow orchestration primitives
     Given a workflow script that phases and logs
     When the workflow runs
     Then the phases and log are captured on the run
+
+  Scenario: agent wires injected tools into the underlying agent
+    Given a mocked LLM that records the agent it receives
+    When agent runs with a tool injected
+    Then the underlying agent carries that tool
+
+  Scenario: agent rejects combining tools with schema
+    When agent runs with both tools and a schema
+    Then it raises ValueError naming the ADK conflict
+
+  Scenario: agent injects instructions into the underlying agent's system prompt
+    Given a mocked LLM that records the agent it receives
+    When agent runs with instructions injected
+    Then the underlying agent's instruction contains the injected text
+
+  Scenario: agent resolves a provider:model override before building the agent
+    Given a mocked LLM that records the agent it receives
+    When agent runs with a provider-prefixed model override
+    Then the underlying agent's model is the resolved model name

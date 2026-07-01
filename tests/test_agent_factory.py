@@ -1,17 +1,22 @@
 """Unit tests for the role-template agent factory (no network)."""
 
+from pydantic import BaseModel
+
 from dialectica.agent_factory import ROLE_TEMPLATES, create_agent
-from dialectica.models import DiscriminatorVerdict
+
+
+class _Schema(BaseModel):
+    x: int
 
 
 def test_known_roles_have_templates():
-    assert set(ROLE_TEMPLATES) == {"Generator", "Discriminator", "Synthesizer"}
+    assert set(ROLE_TEMPLATES) == {"Generator"}
 
 
 def test_create_agent_uses_role_template_and_name():
-    agent = create_agent(role="Discriminator", role_name="Critic")
-    assert agent.name == "Critic"
-    assert "Critic" in agent.instruction
+    agent = create_agent(role="Generator", role_name="Solver")
+    assert agent.name == "Solver"
+    assert "Solver" in agent.instruction
 
 
 def test_unknown_role_falls_back_to_generator():
@@ -21,12 +26,12 @@ def test_unknown_role_falls_back_to_generator():
 
 def test_output_schema_forces_structured_output_and_drops_tools():
     agent = create_agent(
-        role="Discriminator",
-        role_name="Discriminator",
+        role="Generator",
+        role_name="Generator",
         tools=[lambda: None],
-        output_schema=DiscriminatorVerdict,
+        output_schema=_Schema,
     )
-    assert agent.output_schema is DiscriminatorVerdict
+    assert agent.output_schema is _Schema
     assert agent.tools == []
 
 

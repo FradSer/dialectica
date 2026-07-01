@@ -5,14 +5,16 @@ Deselected by default (``addopts = -m 'not e2e'``). Run explicitly with:
     uv run pytest -m e2e
 
 Skipped automatically when GOOGLE_API_KEY is absent (loaded from .env via
-conftest). Uses a deliberately small engine configuration to keep cost low.
+conftest). Exercises the harness against the shipped production API
+(``create_repair_engine``), which also proves ``evals/harness.py``'s
+``EngineLike`` type works with a non-Coordinator engine.
 """
 
 import os
 
 import pytest
 
-from dialectica import create_engine
+from dialectica import create_repair_engine
 from evals.baseline import SingleCallBaseline, create_baseline_agent
 from evals.harness import run_eval
 from evals.judge import BlindJudge, create_judge_agent
@@ -35,14 +37,11 @@ async def test_live_eval_compares_engine_and_baseline():
         )
     ]
 
+    def verifier(answer: str) -> tuple[bool, str]:
+        return bool(answer.strip()), "empty answer"
+
     def engine_factory(statement: str):
-        return create_engine(
-            statement,
-            max_depth=1,
-            beam_width=2,
-            max_gan_rounds=1,
-            score_threshold=6.0,
-        )
+        return create_repair_engine(statement, verifier=verifier, max_attempts=2)
 
     report = await run_eval(
         problems,
@@ -56,5 +55,5 @@ async def test_live_eval_compares_engine_and_baseline():
     assert len(result.engine_answer) > 50
     assert len(result.baseline_answer) > 50
     assert result.baseline_calls == 1
-    assert result.engine_calls > result.baseline_calls
+    assert result.engine_calls >= 1
     assert report.engine_wins + report.baseline_wins + report.ties == 1
