@@ -68,9 +68,7 @@ def _make_llm_scorer(scorer_model: str):
     async def score(answer: str) -> float:
         from dialectica.gan_evaluator import repair_json_escapes, strip_code_fence
 
-        prompt = (
-            f"{SCORER_SYSTEM}\n\nRate this answer (JSON only):\n\n{answer[:1500]}"
-        )
+        prompt = f"{SCORER_SYSTEM}\n\nRate this answer (JSON only):\n\n{answer[:1500]}"
         raw = (await agent_runtime.run_agent(scorer_agent, prompt)).strip()
         body = strip_code_fence(raw).strip()
         try:
@@ -105,7 +103,9 @@ async def blind_ensemble_arm(problem: str, roster: list[str], budget: int):
 
 
 async def single_arm(problem: str, solver):
-    return (await agent_runtime.run_agent(solver, SINGLE.format(problem=problem))).strip()
+    return (
+        await agent_runtime.run_agent(solver, SINGLE.format(problem=problem))
+    ).strip()
 
 
 async def run(limit, budget, roster, scorer_model, judge_seed):
@@ -175,8 +175,8 @@ def render(md: dict) -> str:
     verdict_a = "WIN" if a > bl else ("TIE" if a == bl else "LOSE")
     verdict_c = "signal-attributable" if a > c else "not-attributable"
     keep = a > bl and a > c
-    return f"""# Ensemble meta ablation (LLM-judge robustness) — {n} problems, budget N={md['budget']}
-Roster: {md['roster']}
+    return f"""# Ensemble meta ablation (LLM-judge robustness) — {n} problems, budget N={md["budget"]}
+Roster: {md["roster"]}
 ## Blind position-swap judge: net wins vs single call
 | arm | beats single | loses to single | ties |
 |---|---|---|---|
@@ -184,23 +184,25 @@ Roster: {md['roster']}
 | (c) ensemble blind-pick  | {c} | {bl} | {ct} |
 (a) vs single: **{verdict_a}** (ensemble {a}-{bl}-{at})
 Signal-attribution: (a) beats-single {a} vs (c) beats-single {c} -> **{verdict_c}**
-**{'KEEP' if keep else 'CUT'}** — {'ensemble+signal beats both single and blind' if keep else 'ensemble does not beat both single and blind; the robustness gain is not attributable to signal+heterogeneity'}
+**{"KEEP" if keep else "CUT"}** — {"ensemble+signal beats both single and blind" if keep else "ensemble does not beat both single and blind; the robustness gain is not attributable to signal+heterogeneity"}
 """
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description="Ensemble vs single on meta problems, LLM judge.")
+    ap = argparse.ArgumentParser(
+        description="Ensemble vs single on meta problems, LLM judge."
+    )
     ap.add_argument("--limit", type=int, default=None)
     ap.add_argument("--budget", type=int, default=6, help="max_calls for ensemble arms")
     ap.add_argument("--json", type=str, default=None)
-    ap.add_argument("--roster", type=str, default=None, help="comma-separated provider:model")
+    ap.add_argument(
+        "--roster", type=str, default=None, help="comma-separated provider:model"
+    )
     ap.add_argument("--scorer-model", type=str, default=DEFAULT_SCORER_MODEL)
     ap.add_argument("--seed", type=int, default=0)
     args = ap.parse_args()
     roster = args.roster.split(",") if args.roster else DEFAULT_ROSTER
-    md = asyncio.run(
-        run(args.limit, args.budget, roster, args.scorer_model, args.seed)
-    )
+    md = asyncio.run(run(args.limit, args.budget, roster, args.scorer_model, args.seed))
     print(render(md))
     if args.json:
         with open(args.json, "w") as f:
