@@ -212,10 +212,15 @@ async def _ablate_one(
     # Arm (b): N independent samples from the single strongest arm.
     # Pure best-of-N (no refinement between samples) is the cleanest matched-cost
     # resampling control; using the same prompt the ensemble uses internally.
+    # Parse the config the same way create_ensemble_engine does — create_agent does
+    # not parse, so a 'provider:model' string must be resolved (else non-google
+    # arms never wrap in LiteLlm and fail to connect).
+    from dialectica.llm_config import _parse_model_config
+
     single_agent = create_agent(
         role="Generator",
         role_name="BestSingle",
-        model_config=best_single,
+        model_config=_parse_model_config(best_single),
     )
     solve_prompt = SOLVE_PROMPT.format(problem=statement, format_hint=f" {CODE_FORMAT}")
     with count_agent_calls() as cnt_b:
@@ -445,6 +450,21 @@ def main() -> None:
         default="novel",
         help="Verifiable benchmark set: novel (medium difficulty) or hard.",
     )
+    parser.add_argument(
+        "--roster",
+        type=str,
+        default=None,
+        help=(
+            "Comma-separated roster of provider:model configs overriding DEFAULT_ROSTER "
+            "(e.g. 'openai:qwen3.6-flash,openai:glm-5.2')."
+        ),
+    )
+    parser.add_argument(
+        "--best-single",
+        type=str,
+        default=None,
+        help="The roster member used as the best-of-N single-model baseline (arm b).",
+    )
     args = parser.parse_args()
 
     if args.problems == "hard":
@@ -453,7 +473,15 @@ def main() -> None:
         from evals.novel_problems import NOVEL_PROBLEMS as all_problems
 
     problems = all_problems[: args.limit] if args.limit else all_problems
-    report = asyncio.run(run_ensemble_ablation(problems, budget=args.budget))
+    roster = args.roster.split(",") if args.roster else None
+    report = asyncio.run(
+        run_ensemble_ablation(
+            problems,
+            budget=args.budget,
+            roster=roster,
+            best_single=args.best_single,
+        )
+    )
     print(render_markdown(report))
     if args.json:
         with open(args.json, "w") as f:

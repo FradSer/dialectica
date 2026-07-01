@@ -9,9 +9,13 @@ The hierarchy the data justifies:
   it adds capability, not quality (measured 8/8 vs a single call's 0/8 for a
   small model on tasks requiring interaction).
 - ``create_ensemble_engine`` — AB-MCTS-lite adaptive search over a heterogeneous
-  roster. A *capability-adding* engine: the injected scorer (ground-truth / value
-  signal) is information a single forward pass lacks, so the ensemble can
-  structurally win where a single call cannot.
+  roster ranked by an injected scorer. ON PROBATION: the honesty gate (README
+  Evaluation finding #5) showed the ensemble *does* improve answer robustness on
+  open-ended tasks (3-1-2 vs a prompt-matched single call under a blind judge),
+  but the gain is attributable to **roster heterogeneity, not the scorer's
+  signal** — a blind-pick arm tied it. The float scorer adds no measurable lift
+  over no-scorer multi-model best-of-N. Verdict: CUT per H1's signal-attribution
+  clause; kept for study.
 - ``create_repair_engine`` — verifier-in-the-loop for verifiable tasks. Ties
   matched-cost best-of-K on pass-rate but reaches it far cheaper (short-circuits
   on success). Verifier is an injected ``Callable[[answer], (passed, feedback)]``.

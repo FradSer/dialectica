@@ -20,7 +20,7 @@ import logging
 import random
 import re
 import warnings
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -244,8 +244,14 @@ class EnsembleSearchEngine:
                 failed = True
             # Score outside the guard: a model that raises is a tolerated failed
             # candidate, but a bug in the injected scorer is the caller's and must
-            # surface, not be silently swallowed as score 0.0.
-            score = 0.0 if failed else self.scorer(answer)
+            # surface, not be silently swallowed as score 0.0. The scorer may be
+            # sync (float) or async (returns an awaitable) — an LLM-judge scorer
+            # needs to call run_agent, so await it when required.
+            if failed:
+                score = 0.0
+            else:
+                raw = self.scorer(answer)
+                score = (await raw) if isinstance(raw, Awaitable) else raw
 
             calls += 1
             depth = 0 if action == "wider" else (best.depth + 1 if best else 0)

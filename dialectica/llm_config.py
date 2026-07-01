@@ -6,6 +6,7 @@ Provides a factory to create model configs for dynamically spawned agents.
 
 import logging
 import os
+from typing import Any
 
 from google.adk.models.lite_llm import LiteLlm
 
@@ -60,10 +61,21 @@ def _parse_model_config(config_str: str) -> str | LiteLlm:
             return _DEFAULT_MODEL
 
         if provider == "openai":
-            if os.environ.get("OPENAI_API_KEY") and os.environ.get("OPENAI_API_BASE"):
+            api_base = os.environ.get("OPENAI_API_BASE")
+            if os.environ.get("OPENAI_API_KEY") and api_base:
                 openai_model = f"openai/{model_name}"
-                logger.info("OpenAI-compatible model: %s", openai_model)
-                return LiteLlm(model=openai_model)
+                logger.info("OpenAI-compatible model: %s at %s", openai_model, api_base)
+                # Pass api_base explicitly: recent LiteLLM no longer reads the
+                # OPENAI_API_BASE env var for the 'openai/'-prefixed custom base.
+                kwargs: dict[str, Any] = {"api_base": api_base}
+                # Qwen/thinking models expose a long reasoning trace by default,
+                # which dominates latency for code evals. Allow disabling it via
+                # the standard chat_template_kwargs flag (no-op for non-Qwen).
+                if os.environ.get("DIALECTICA_DISABLE_THINKING", "").lower() == "true":
+                    kwargs["extra_body"] = {
+                        "chat_template_kwargs": {"enable_thinking": False}
+                    }
+                return LiteLlm(model=openai_model, **kwargs)
             logger.warning(
                 "OpenAI credentials missing, falling back to %s", _DEFAULT_MODEL
             )
