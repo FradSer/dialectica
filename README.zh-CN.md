@@ -1,620 +1,380 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)](https://google.github.io/adk-docs/) [![Evaluation](https://img.shields.io/badge/Evaluation-GAN%20对抗-red.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
 
 [English](README.md) | **简体中文**
 
-**Dialectica（辩证）** 是一个基于 Google ADK 的推理引擎工具箱。它是用数据「逼」出来的——把各引擎放在受控基线下实测，只保留数据站得住的部分。诚实的层级：
+**Dialectica** 是基于 Google ADK 的推理引擎工具箱，按硬方式构建与度量：每个引擎都跑过 matched-cost 基线和盲评判，只有数据支持的赢才保留，其余作为负向结果记录在案。全部目的就是用数字（而非感觉）回答一个问题——*scaffold 是否能打败一次精心提示的单次调用？*
 
-- **Agentic 引擎**（`create_agentic_engine`）——唯一真正让模型做到「单次调用做不到的事」的引擎：工具使用循环（行动 → 观察 → 迭代）。它靠**增加能力**取胜，而非质量——实测**小模型 8/8 对单次调用 0/8**，在需要通过工具获取信息的任务上。
-- **执行制导修复**（`create_repair_engine`）——生成 → 跑验证器 → 据失败修复 → 重试。在可验证任务上，以**几分之一的成本**达到 best-of-N 的可靠性（成功即短路）。
-- **辩证引擎**（`create_dialectic_engine`）——*正题 → 反题 → 合题*：一条**可审计**、受 criteria 引导的推理轨迹（透明，而非更好的答案）。
-- **思维树 + GAN**（`create_engine`）——上一代可插拔流水线，保留作基线。实测在同成本下被**压制**（输给 best-of-N 与扁平 self-refine——见 [评测](#评测) 第 3 条）；仅作研究与向后兼容保留，不推荐用于质量。
+> **一句话结论。** 在自包含任务上，*没有任何*纯 LLM scaffold（ToT、GAN、辩证、异构 ensemble）能在结果质量上打败 prompt-matched 单次调用——它们只是重排模型自己的思考，不增加信息。引擎只有在做到单次前向传播做不到的事时才赢：**作用于世界**（agentic）、**运行 ground-truth 验证**（repair），或——经实测、部分地——**采样独立模型**（ensemble 健壮性，但起作用的是异构性，不是 scorer）。见[评测](#评测)。
 
-> **诚实边界（实测，无预设结论——见 [评测](#评测)）。** 先说硬结论：在**自包含**任务上，*没有*任何纯 LLM scaffold（ToT、辩证）能在结果质量上胜过同 prompt 的单次调用，各模型规模皆然（辩证 **0-3-2** 对同 prompt 基线；ToT+GAN 对单次调用 **0-4-1**，且在同成本下被扁平 best-of-N 与 self-refine **压制**）——它们只是重排模型已有的思考，不注入新信息，而树结构还会*削弱*扁平循环本就提供的精炼。即使在 **Game-of-24**——ToT 的经典搜索基准——该任务对所有云可得模型也已**饱和**（最难那批谜题，单次调用在 qwen-flash / gemini-lite / doubao-lite / glm-5.2 上均为 5/5），ToT 的恢复区间为空。引擎取胜的唯一途径是补上单次前向传播缺失的东西：**对世界采取行动**（agentic：小模型 **8/8 对 0/8**）或**真值验证**（repair：best-of-N 可靠性、**约 1/3 的调用数**）。复现：`uv run python -m evals.agentic_eval` 与 `uv run python -m evals.repair_ablation`。
+受 [karpathy/autoresearch](https://github.com/karpathy/autoresearch)、Sakana AI 的 AB-MCTS / 集体智能系列、以及 Claude Code 可组合工作流启发。
 
-设计参考 [karpathy/autoresearch](https://github.com/karpathy/autoresearch) 与 Claude Code 的可组合 workflows。
+## 引擎层级（由数据支撑）
+
+按"单次调用缺什么"来选：
+
+| 引擎 | 靠加入什么赢 | 判决 |
+|---|---|---|
+| **Agentic**（`create_agentic_engine`） | **能力**——工具让模型 act → observe → iterate | ✅ 真赢（hidden-oracle 上 8/8 vs 0/8） |
+| **Repair**（`create_repair_engine`） | **ground truth**——验证器在环，通过即短路 | ✅ 成本赢（best-of-N 可靠性，约 1/3 调用） |
+| **Ensemble**（`create_ensemble_engine`） | **独立性**——异构 roster | ⚠️ 待定 / CUT（健壮性增益来自异构性，不是 scorer） |
+| **Dialectic**（`create_dialectic_engine`） | ——纯 LLM scaffold | ❌ 与单次打平（0-3-2）；仅可审计轨迹 |
+| **ToT + GAN**（`create_engine`） | ——纯 LLM scaffold | ❌ 被压制（0-4-1 / 0-2-3 / 0-1-4）；仅作基线 |
 
 ## 安装
 
-作为库在你自己的项目里使用：
-
 ```bash
-uv add dialectica
-# 或: pip install dialectica
+uv add dialectica      # 或: pip install dialectica
 ```
 
 ```python
 import os, asyncio
 from dialectica import create_repair_engine
 
-os.environ["GOOGLE_API_KEY"] = "..."          # 由应用方负责环境配置
+os.environ["GOOGLE_API_KEY"] = "..."          # 环境配置由应用负责
 
 # 验证器对任意客观检查返回 (passed, feedback)——单元测试、JSON schema、
 # linter、断言校验的业务逻辑。引擎据反馈反复修复，直到通过或用尽次数。
 def verify(answer: str) -> tuple[bool, str]:
-    ok = "def solve" in answer                 # 换成你真正的检查
-    return ok, "" if ok else "未定义 solve() 函数"
+    ok = "def solve" in answer                 # 你的真实检查写这里
+    return ok, "" if ok else "no solve() function defined"
 
 async def main():
     result = await create_repair_engine(
-        "写一个 solve() 函数……", verifier=verify
+        "Write a solve() function that ...", verifier=verify
     ).run()
     print(result["passed"], result["attempts"], result["final_answer"])
 
 asyncio.run(main())
 ```
 
-按任务选引擎：多步、用工具的任务 → `create_agentic_engine`（注入工具，引擎驱动
-「行动 → 观察 → 迭代」循环）；可验证任务 → `create_repair_engine`（核心）；
-需要可审计推理轨迹的开放式问题 → `create_dialectic_engine`；旧版 `create_engine`
-（思维树 + GAN）保留作基线。库从 `os.environ` 读取配置，**不会**自己加载 `.env`。
-如果是想开发 Dialectica 本身，见 [本地开发](#本地开发)。
+可验证任务优先用 `create_repair_engine`（核心引擎）。多步工具任务用
+`create_agentic_engine`。库从 `os.environ` 读配置，**不**自行加载 `.env`。
 
 ## 引擎与原语
 
 ### 🤖 Agentic 引擎——增加能力（`create_agentic_engine`）
-唯一让模型做到「单次前向传播做不到的事」的引擎：工具使用循环。注入你的工具（读文件、跑测试、查服务），智能体规划、调用工具、读取结果、迭代，直到任务客观完成——由 ADK 驱动循环。
+唯一让模型做到单次前向传播*做不到*之事的引擎：工具使用循环。注入你的工具
+（读文件、跑测试、查服务），agent 规划、调用工具、读结果、迭代直到任务客观
+完成——ADK 驱动循环。
 
-- **靠能力取胜，而非质量**——实测**小模型 8/8 对单次调用 0/8**，在需要通过工具获取信息的任务上（`evals/agentic_eval.py`）。这是真正的价值类别；自包含 prompt 上的推理 scaffold 只能与单次调用打平（见 [评测](#评测)）。
-- **任务无关**——工具是注入的可调用对象，ADK 自动推导其 schema，引擎保持通用。
-- **返回** `{final_answer}`；副作用通过你的工具发生，故事后由你检查客观结果。
+- **靠能力赢，不靠质量**——小模型在需通过工具采集信息的任务上测得 **8/8 vs
+  单次 0/8**（`evals/agentic_eval.py`）。这是真正的价值类别；自包含 prompt
+  上的推理 scaffold 与单次打平。
+- **任务无关**——工具是注入的可调用对象，ADK 自动推导 schema。
+- **返回** `{final_answer}`；副作用通过你的工具发生，调用方事后检查客观结果。
 
 ### 🛠️ 执行制导修复——验证器在环（`create_repair_engine`）
-面向可验证任务：**生成 → 跑注入的验证器 → 据具体失败修复 → 重试**，直到通过或用尽次数。它在**质量**上打不过同成本的重采样，但以低得多的成本达到同等可靠性。
+可验证任务：**生成 → 跑注入的验证器 → 据具体失败修复 → 重试**，直到通过或
+用尽次数。
 
-- **任务无关的验证器**——任意 `Callable[[answer], (passed, feedback)]`：单元测试、schema 校验、linter、断言校验的逻辑。`solution_format` 固定验证器解析的输出形态。
-- **用完整失败历史**——每次先前尝试及其确切失败都回喂，避免在两个错误解之间反复横跳。
-- **成本自律**——验证器一通过即短路，以几分之一的调用数达到 best-of-N 的可靠性（如同等通过率下 20 对 60 次调用）。
+- **任务无关的验证器**——任意 `Callable[[answer], (passed, feedback)]`：单测、
+  schema 校验、linter、断言校验。`solution_format` 钉住验证器解析的输出形态。
+- **用满失败历史**——每次失败尝试及其精确失败都回灌，避免在两个错误修复间
+  振荡。
+- **成本克制**——验证器一通过即短路，以远少于 best-of-N 的调用达到其可靠性。
+- **多模型**——传 `models=[...]` 在失败时跨 roster 轮换；`history[i]["model"]`
+  记录每次尝试由哪个模型产出。
 - **返回** `{final_answer, passed, attempts, history}`。
 
-用 `uv run python -m evals.repair_ablation` 诚实地对比 pass@1 与同成本 best-of-K。
+用 `uv run python -m evals.repair_ablation` 对比 pass@1 与 matched-cost best-of-K。
+
+### 🌐 集成搜索引擎（`create_ensemble_engine`）—— *待定*
+AB-MCTS-lite 自适应搜索（wider = 采样新模型，deeper = 修优当前最佳），由
+**必填的注入式 float scorer** 排序。设计为第四个诚实赢的杠杆——*独立性*
+（不同训练分布）由 ground-truth 级信号排序。
+
+**honesty gate 判 CUT**（评测结论 #5）：open-ended meta 任务上 ensemble 在盲
+评判下*确实*打败单次调用（**3-1-2**），但 **blind-pick** 臂（信号换成常数）
+与之持平（**3-1**）——增益来自 **roster 异构性，不是 scorer 信号**。可验证
+代码上两臂都饱和（6/6）。保留以供研究；no-scorer 多模型 best-of-N 更诚实地
+捕获实测的健壮性增益。
+
+- **必填 scorer**（`Callable[[str], float]` 或 async）——不传则构造失败，纯
+  scaffold 误用不可表示。布尔验证器包一层：`lambda a: 1.0 if v(a)[0] else 0.0`。
+- **可注入 policy**——默认 Thompson 采样 bandit；测试注入脚本化确定性 policy。
+- **FR6 roster 去重**——两个成员解析到同一有效模型或静默回退默认时告警。
+- **返回** `{final_answer, passed, attempts, history, best_score}`。
 
 ### 🔗 Workflow 原语——可组合的多 agent 运行时（`Workflow`）
-Claude Code `Workflow` 工具的 Python 复刻，建立在仓库唯一的 LLM 调用接缝上。用普通 async Python 表达任意多 agent 工作流——原语包括 `agent()`（一次 LLM 调用，可选 Pydantic schema）、`parallel()`（屏障）、`pipeline()`（无屏障逐项过 stage）、`phase()`、`log()`，以及一个调用 `Budget`。
-
-```python
-from dialectica import Workflow, agent, parallel, phase
-from pydantic import BaseModel
-
-class Verdict(BaseModel):
-    summary: str
-    confidence: str
-
-async def research(question: str):
-    phase("Gather")
-    findings = await parallel(
-        lambda: agent(f"广角研究: {question}"),
-        lambda: agent(f"质疑式研究: {question}"),
-    )
-    phase("Synthesize")
-    return await agent(
-        f"综合: {' | '.join(f for f in findings if f)}",
-        schema=Verdict,
-    )
-
-result = await Workflow(lambda: research("...")).run()
-```
-
-**诚实边界。** 这是一个面向**元任务**的**编排层**——研究、审查、规划、设计：这类任务没有 ground truth，扇出 / 对抗审判 / 综合的形状确实有用。它**不是**自包含结果质量引擎：在开放式咨询任务上，盲评判官测得 **0-4-1 / 0-2-3 / 0-1-4**（对 单次 / best-of-N / self-refine，见 `evals/quality_ablation.py`）。但在**多利益相关者对抗任务**——即单次前向传播只能站一个立场、把冲突糊弄过去的 regime——工作流引擎实测**净 +1**（盲评，同成本；`evals/workflow_ablation.py` + `evals/meta_problems.py`）。关键杠杆是 synthesis 的锐度：「承诺一个绑定决策，而非把所有选项都列举一遍」——增加更多结构（kill-condition、编号 critique 逐条回应）反而一致地**降低**分数。根据任务选对工具：多视角审查用 `pipeline(items, find, adversarially_verify, synthesize)`；可验证任务用 `repair.py`；用工具的任务用 `agentic.py`。
+Claude Code `Workflow` 编排面的 Python 复刻：`agent()` / `parallel()` /
+`pipeline()` / `phase()` / `log()` / `budget()`。用于 *meta-task* 编排（研究、
+评审、规划、设计）——生成 → 对抗评审 → 综合 真正有用的场景。它是**编排层**，
+不是自包含质量引擎：上述负向结论仍然成立，在这些原语上组合工作流不会推翻它们。
 
 ### 🧩 辩证引擎（`create_dialectic_engine`）
-*正题 → 反题 → 合题*：一条自包含的螺旋，产出**可审计**的推理轨迹，受 `criteria` 引导。它是纯 LLM scaffold——适合透明与内容引导，但（实测）在结果质量上**不**胜过单次调用。见 [诚实边界](#dialectica-) 与 [评测](#评测)。
+*正 → 反 → 合*：自包含螺旋，产出**可审计**的推理轨迹，由 `criteria` 引导。纯
+LLM scaffold——对透明度和内容引导有用，但（实测）**不**在结果质量上胜过单次
+调用。其价值是可审计轨迹与 criteria 引导，不是更好的答案。
 
 ### 🌳 思维树 + GAN 引擎（`create_engine`）
-上一代可插拔流水线：一个束搜索，每个思维经对抗精炼（GAN 保留最优循环），最终由综合器跨分支整合高分思维。保留作基线与研究对象；其机制、阶段接口，以及与 ToT 论文的映射见 [思维树 + GAN 引擎](#思维树--gan-引擎深入)。与辩证引擎一样，它是纯 LLM scaffold——透明与引导，而非质量胜利。
+上一代可插拔管线（beam search + GAN 风格对抗精修，每个阶段是可替换 `Protocol`）。
+**实测被压制**（输给单次、best-of-N、平铺 self-refine）；保留以供研究与向后
+兼容，不推荐用于质量。
 
 ## 评测
 
-> **核心发现（2026-06-17，实测，无预设结论）。** 以下结论取代下文更早的 advice 矩阵（2026-06-10/11），那批实验用的是更弱的基线。
->
-> 1. **引擎真正取胜之处——能力，而非质量。** 在需要*行动*的任务上（agentic 隐藏函数发现基准），小模型 + **agentic 引擎**得 **8/8**，单次调用 **0/8**：它探测隐藏函数、推断规则、再实现——单次调用没探测就无从知道任意规则。这是真正的价值类别。复现：`uv run python -m evals.agentic_eval`。
-> 2. **scaffold 不取胜之处——自包含任务的结果质量。** 对*同成本*基线，**没有任何纯 LLM scaffold 能胜过单次调用**：辩证对同 prompt 强基线在各模型规模上都是 **0-3-2**（早先的 4-1-0「胜」是 prompt + 长度，不是结构）。**repair** 胜过*单次*调用，但与同成本 best-of-K **恰好打平**（在 HumanEval、自建边界题集、LeetCode-medium、LCB-hard、专门构造的未污染基准上皆然——连最小的模型都一次做对，「会失败但可修」的区间几乎为空）。repair 的真实优势是**成本**（best-of-N 的可靠性、约 1/3 的调用数）。复现：`uv run python -m evals.repair_ablation`。
-> 3. **树结构是被*压制*的，而非仅仅无用（2026-06-22）。** 两项测试补上最后的疑点。在 **Game-of-24**——ToT *自己的*经典可验证搜索基准——上，*忠实*的 ToT（部分状态节点、前瞻价值、BFS、胜出叶即答案）得 **14/15，以约 34× 成本输给单次调用的 15/15**：现代模型对 2023 年论文里 GPT-4 96% 失败的任务一次做对（ToT 主场上的天花板）。而此前缺失的对照——**best-of-N + selector** 与 **K 轮 self-refine**——在同成本盲评下：ToT+GAN 引擎为 **0-4-1 / 0-2-3 / 0-1-4**（对 单次 / best-of-N / self-refine）——它**从未赢下一场**。质量排序为 **self-refine ≥ best-of-N ≥ 单次 ≥ 树式 scaffold**：对抗/精炼*机制*有用（扁平 self-refine 是最佳方法），但*树/beam/对抗最佳路径结构*反而削弱了它。复现：`uv run python -m evals.game24` 与 `uv run python -m evals.quality_ablation`。
-> 4. **ToT 的价值窗口在*整个*可用模型范围上已关闭（2026-06-22）。** ToT 只在「基模型单独失败、但搜索能恢复」的「会失败但可修」区间内有用。把*最难*的 Game-of-24 谜题（需分数的经典：`3 3 8 8`、`1 5 5 5`、`3 3 7 7`、`1 3 4 6`、`4 4 7 7`）拿到**四个模型层级**——`qwen3.6-flash`、`gemini-3.1-flash-lite`、`doubao-seed-2-0-lite`、`glm-5.2`（最弱的云可得模型）——上测，单次调用**每个模型、每道题都是 5/5**。没有任何可达的弱模型会失败，因此 ToT 的搜索没有可恢复的差距。同样的饱和也出现在 repair 的可验证基准上，这里也一样：Game-of-24 对任何你调得到的模型都不再是「需要搜索」的基准。ToT「抬高边界质量」的论点在理论上成立，但边界已经越过了这个任务。
-
-引擎真的比单次强模型调用更好吗？仓库自带评测工具（`evals/`，开发工具，
-不随包发布）用数据而非感觉回答这个问题：
-
-1. 每道基准题（`evals/problems.py`）分别由**引擎**和**单次调用基线**
-   （一次精心提示的 LLM 调用）求解。
-2. **盲评裁判**在不知道哪个是哪个的情况下对比两个答案。换位评判两次以中和
-   位置偏差——两次裁决不一致即判平局。
-3. 报告统计胜负与两边的成本（LLM 调用数、墙钟时间），都经由测试 mock 的同一个
-   `run_agent` 接缝计数。
+引擎是否真的打败一次强模型调用？仓库附带评测工具（`evals/`，开发工具——不随
+包发布），用数据回答：每题由引擎**和**单次调用基线各解一次；**盲评判**对两答案
+各评两次并交换位置（不一致记 tie）；LLM 调用通过测试 mock 的同一 `run_agent`
+接缝计数。
 
 ```bash
 uv run python -m evals                          # 全部基准题
-uv run python -m evals --limit 2 --json out.json
-uv run python -m evals --max-depth 3 --beam-width 3 --gan-rounds 2
+uv run python -m evals.repair_ablation          # repair vs best-of-K
+uv run python -m evals.agentic_eval             # agentic vs 单次（隐藏 oracle）
+uv run python -m evals.quality_ablation         # ToT+GAN vs 单次/best-of-N/self-refine
+uv run python -m evals.ensemble_ablation        # ensemble 三臂 honesty gate（代码）
+uv run python -m evals.ensemble_meta_ablation   # ensemble honesty gate（open-ended，LLM 评判）
 ```
 
-模型可用环境变量覆盖：`BASELINE_MODEL_CONFIG` / `JUDGE_MODEL_CONFIG`
-（同 `provider:model_name` 格式；例如把基线指向 `google:gemini-3.1-pro-preview`
-以对比更强的单次调用）。
+### 核心结论（实测，无预设结论）
+
+1. **引擎真正赢的地方——能力，不是质量。** 在需要*行动*的任务上（agentic 隐藏
+   oracle 基准），小模型用 **agentic 引擎**得 **8/8**，单次调用 **0/8**：它探测
+   隐藏函数、推断规则、实现之——单次调用无从知晓任意规则。这是真正的价值类别。
+   复现：`uv run python -m evals.agentic_eval`。
+
+2. **scaffold 不赢的地方——自包含结果质量。** 与 *matched-cost* 基线相比，**无
+   纯 LLM scaffold 打败单次调用**：辩证 vs prompt-matched 强基线在各档模型上
+   **0-3-2**（早先 4-1-0 的"赢"是 prompt+长度，不是结构）。**repair** 引擎打败
+   *单次*调用，但在通过率上与 *matched-cost best-of-K* **打平**——其真正优势是
+   **成本**（best-of-N 可靠性，约 1/3 调用）。复现：`uv run python -m evals.repair_ablation`。
+
+3. **树结构被*压制*，而不仅无用。** 在 **24 点游戏**——ToT *自己*的标志基准
+   上——忠实 ToT 得 **14/15，以约 34× 成本输给单次的 15/15**：现代模型一次解出
+   2023 论文 GPT-4 失败 96% 的任务。matched-cost 盲评判下 ToT+GAN 引擎
+   **0-4-1 / 0-2-3 / 0-1-4**（vs 单次 / best-of-N / self-refine）——*从未赢过一
+   场*。质量序：**self-refine ≥ best-of-N ≥ 单次 ≥ 树 scaffold**。复现：
+   `uv run python -m evals.game24` 与 `uv run python -m evals.quality_ablation`。
+
+4. **价值窗口在可达模型范围上已关闭。** ToT 只在基模型单独失败但搜索能恢复的
+   "失败但可修"区间有用。对最难的 24 点题在四个模型档位（最弱的可达云模型）上
+   探测，单次调用**每个模型、每题都是 5/5**。没有可达的弱模型会失败这些任务，
+   所以没有搜索可恢复的空隙——边界已越过此任务。
+
+5. **异构 ensemble——scorer 的信号并非起作用者（2026-06-26）。** ensemble 设计
+   为第四个诚实赢的杠杆——*独立性*由 ground-truth 级信号排序。两轴 honesty gate
+   证伪了信号这一半的论题，同时浮现一个真实的更窄结果：
+   - **代码（ground-truth 验证器，6 题，budget 6）：** ensemble+信号 **6/6**、
+     best-single best-of-6 **6/6**、blind-pick **6/6**——**CUT**：两模型均一击解
+     出，异构性与信号都无空间。饱和，同 #4。
+   - **Open-ended meta（盲 LLM 评判，5 题，budget 6，位置交换）：** ensemble+信号
+     以 **3-1-2** 打败 prompt-matched 单次调用——*引擎确实在 open-ended 任务上
+     提升回答健壮性*（代码轴测不出）。但 **blind-pick 臂**（信号换常数）也以
+     **3-1** 打败单次：增益**归因于 roster 异构性，不是 scorer 排序信号**。按 H1
+     信号归因条款：**CUT**。
+   - **要点：** *无 scorer* 的多模型 best-of-N（采样 N 个异构模型、保留一个）即可
+     捕获 ensemble 在 open-ended 上展现的健壮性增益；float scorer 相对 blind-pick
+     无可测提升。repair 子判据亦 **CUT**（multi-model-repair@6 vs single@6：6/6 vs
+     6/6，**0 次模型切换救援**）。复现：`uv run python -m evals.ensemble_ablation`
+     与 `uv run python -m evals.ensemble_meta_ablation`（需经 `OPENAI_API_BASE`/
+     `OPENAI_API_KEY` 的多 provider roster，如暴露 qwen+glm 的 cliproxy；
+     `DIALECTICA_DISABLE_THINKING=true` 以降 qwen 族延迟）。
+
+### 这些结论共同指向的定律
+
+scaffold 打败一次前向传播，**当且仅当**它加入了单次传播无法获得的信息——**工具**
+（agentic）、**ground-truth 验证**（repair），或**独立样本**（ensemble 健壮性，
+但只经异构性，非学习到的排序）。对一个模型在单上下文上的纯重排（ToT、GAN、辩证、
+对同族候选的 LLM-judge scorer）与单次打平。Sakana AI 的研究合集从另一侧收敛到同
+一定律：那里每个真正的赢也都由模型外部的 ground-truth oracle 支撑。
 
 ### 早期 advice 矩阵（2026-06-10/11）——已被取代
 
-> **已被上文核心发现取代。** 这批矩阵把引擎对比的是**单个答案**的基线（由 `gemini-3.5-flash` 盲评）——**不是**同成本下的**同 prompt** 基线。当基线后来被给到同样的质量门槛（核心发现 #2，2026-06-17），下面这些表面胜绩（如 20-8-2）便坍缩为 **0-3-2**。请把这里的数字读作「引擎 vs 朴素 prompt 的单个答案」——它有价值，是关于 Discriminator **评分标准如何引导内容**的研究，而**不是**引擎胜过公平基线的证据。
-
-5 道基准题 × 三轮完整矩阵（裁判统一为 `gemini-3.5-flash` 盲评换位双评；引擎配置
-`max_depth=2, beam_width=2, max_gan_rounds=2, threshold=7.0`）。V1 与 V2 之间只改了一处：
-Discriminator 评分标准中的 **"Innovation"（创新性）** 替换为 **"Feasibility
-under stated constraints"（给定约束下的可行性）**——矩阵因此构成一次对照实验，
-检验对抗评分标准如何引导答案。V3 是 V2 标准的第二个 seed，在引擎加入并发评估
-与裁决重试之后运行。
-
-| 矩阵 | 评分标准 | 引擎(flash) vs flash | 引擎(flash) vs **pro** | 引擎(qwen) vs qwen | 合计（胜-负-平） |
-|------|----------|------|------|------|------|
-| V1 | Innovation | 2-1-2 | 3-2-0 | 2-2-1 | 7-5-3 |
-| V2 | Feasibility | 4-1-0 | 4-1-0 | 3-2-0 | **11-4-0** |
-| V3 | Feasibility（seed 2） | 2-2-1 | 3-2-0 | **4-0-1** | 9-4-2 |
-
-V1 → V2 对照实验的逐题明细：
-
-| 问题 | 引擎(flash) vs flash | 引擎(flash) vs **pro** | 引擎(qwen) vs qwen |
-|------|------|------|------|
-| cloud-costs | 平 → 引擎 | 引擎 → 引擎 | 引擎 → 基线 |
-| api-versioning | 引擎 → 引擎 | 引擎 → 引擎 | 基线 → 引擎 |
-| flaky-tests | 引擎 → 引擎 | 引擎 → 引擎 | 引擎 → 引擎 |
-| meeting-overload | 平 → 基线 | 基线 → 引擎 | 基线 → 基线 |
-| urban-transport | 基线 → 引擎 | 基线 → 基线 | 平 → 引擎 |
-
-flash = `gemini-3.5-flash` · pro = 单次 `gemini-3.1-pro-preview` 调用 ·
-qwen = `qwen3.6-35b-a3b`。引擎成本：Gemini 上约为基线 1 次调用的 20 倍，
-Qwen 上约 30 倍（更严的 Discriminator 触发更多 GAN 轮次）。
-
-45 场对比的结论：
-
-- **评分标准是方向盘，不只是过滤器**：换掉一条标准就把战绩从 V1 的 7-5-3
-  推到可行性标准两 seed 合并的 **20-8-2**。因为 GAN 循环会按批评*改写*思维
-  （不同于纯价值函数），Discriminator 奖励什么，最终答案就长成什么样。
-- **技术/工程类问题引擎稳赢**：V1 为 7-1-1，可行性标准下合并 **15-2-1**
-  （云成本、API 版本化、flaky 测试治理）。裁判反复肯定对抗精炼磨出的细节深度
-  （契约测试管线、brownout 的 HTTP 语义 503 vs 410、锁定财务承诺前的稳定观察期
-  与回滚预案）。
-- **组织/社会类问题从稳输升到大致平手**：V1 为 0-4-2（败因一致为"过度复杂、
-  不切实际"，跨模型家族复现），可行性标准下合并 5-6-1——仍是短板，
-  且单 seed 方差明显。
-- flash 引擎对单次更强的 **pro** 调用合并净胜 **7-3**：搜索能买回模型档位差，
-  代价约 20 倍调用。
-- **并发化把引擎墙钟时间砍掉 2-3 倍**（调用数不变）：Gemini 上 V3 为 64-108
-  秒/题（V2 串行时 143-228 秒），Qwen 上 272-314 秒（串行时 533-915 秒）。
-  Qwen 后端约 7-10% 的裁决瞬时为空，裁决重试在 V3 中全部治愈（5/5）——
-  串行时代这些曾被静默扣 0 分。
-
-注意：flash 裁判、样本量小——结论是方向性的，非定论（V2 与 V3 的总分差
-表明单 seed 噪声约 ±2 场）。完整报告（含全部答案与裁决理由）运行后生成于
-`evals/results/`。
-
-### SWE 套件结果（2026-06-12，地面真值）
-
-`swe` 套件（12 道 HumanEval 式题目，跑单元测试判定通过/失败——无裁判）在
-三个本地 ollama 模型上运行。全量模式（引擎跑每道题，基线单次尝试）显示
-引擎略占优势：
-
-| 模型 | 引擎 | 基线（1 次尝试） |
-|------|------|------------------|
-| gpt-oss:20b | 11/12 | 10/12 |
-| gemma4:e4b-mlx | 10/12 | 9/12 |
-
-救援模式随后拆穿了这个优势。先用 **2 次尝试**的基线筛题，引擎只跑真正的
-失败题：
-
-| 模型 | 基线解决（pass@2） | 待救援 | 救回 |
-|------|---------------------|--------|------|
-| gpt-oss:20b | 12/12 | 0 | — |
-| gemma4:26b-mlx | 12/12 | 0 | — |
-| gemma4:e4b-mlx | 11/12 | 1（max-fill） | **0** |
-
-诚实的解读：在这个难度的题目上，引擎对单次调用的表面优势主要是**重采样
-运气**——引擎约 15 次调用隐含了多次"尝试"，而基线只要简单地问两次（2 次
-调用）就能追平。唯一真实的能力缺口（4B 级模型上的 max-fill）经 11 次引擎
-调用仍未救回。全量模式还观察到引擎把基线本来能过的题做砸（e4b 的
-min-path）——综合阶段可能损坏正确代码，这正是救援模式（结构上不碰基线
-已解题目）成为默认的原因。
-
-结论：对可验证任务，给任何脚手架记功之前，先和**同等成本的 pass@k**
-对比。上文 advice 套件面临同一批评的高阶版本（其基线是单个答案而非
-best-of-k）——best-of-2 加裁判的基线是下一个要跑的对照。
-
-随后套件扩展到 18 题，加入文献点名的 HumanEval 最难题（`find_zero`、
-`order_by_points`、`match_parens`、`decode_cyclic` 等），并通过 AI Studio
-API 对云端 gemma-4 跑救援模式：**`gemma-4-31b-it` 和 `gemma-4-26b-a4b-it`
-均在 pass@2 内解决 18/18**——失败集为空，连本地 4B 级的 `gemma4:e4b` 也能
-17/18。HumanEval 级题目对该模型家族已饱和；要在代码任务上证明引擎的真实
-价值，需要 LiveCodeBench/竞赛级难度。（附带发现：强制 JSON mode 会令
-`gemma-4-26b-a4b-it` 返回空/截断裁决，因此提供了 `structured_output=False`
-回退到提示词驱动 JSON。）
+首轮矩阵将 ToT+GAN 引擎与*较弱*的单次基线（无 prompt 匹配对照）和"Innovation"
+判别准则（偏向过度复杂的答案）比较。已被上方 #2–#5 取代。保留在 `evals/results/`
+以供复现：V1（Innovation 准则）技术上 7-1-1 赢、组织上 0-4-2 输；V2（Feasibility
+准则）合计 20-8-2 vs V1 的 7-5-3——证明判别准则引导答案*内容*而非仅选择，但都未
+打败 prompt-matched 强基线。
 
 ## 配置
 
-### 环境变量
+所有配置从 `os.environ` 读取——作为库，Dialectica **不**自行加载 `.env`；环境
+配置由消费应用负责。仅测试套件加载 `dialectica/.env`。
 
-**模型配置：**
 ```bash
-# 所有代理的默认模型
-DEFAULT_MODEL_CONFIG=google:gemini-3.5-flash
+# 所有 agent 的默认模型
+export DEFAULT_MODEL_CONFIG="google:gemini-3.5-flash"
 
 # 角色特定覆盖（可选）
-GENERATOR_MODEL_CONFIG=google:gemini-3.1-pro-preview
-DISCRIMINATOR_MODEL_CONFIG=google:gemini-3.1-pro-preview
-SYNTHESIZER_MODEL_CONFIG=google:gemini-3.1-pro-preview
-```
+export GENERATOR_MODEL_CONFIG="google:gemini-3.5-flash"
+export DISCRIMINATOR_MODEL_CONFIG="google:gemini-3.1-pro-preview"
+export SYNTESIZER_MODEL_CONFIG="google:gemini-3.5-flash"
+export JUDGE_MODEL_CONFIG="google:gemini-3.1-pro-preview"
 
-**支持的提供商：**
-- `google:gemini-3.5-flash`（Google AI Studio）
-- `openrouter:anthropic/claude-3.5-sonnet`（OpenRouter）
-- `openai:gpt-4o`（OpenAI）
-
-**API 凭证：**
-```bash
 # Google AI Studio
-GOOGLE_API_KEY=your-key-here
+export GOOGLE_API_KEY="..."
 
 # 或 Vertex AI
-GOOGLE_GENAI_USE_VERTEXAI=true
-GOOGLE_CLOUD_PROJECT=your-project
-GOOGLE_CLOUD_LOCATION=us-central1
+export GOOGLE_GENAI_USE_VERTEXAI=true
+export GOOGLE_CLOUD_PROJECT="..."
+export GOOGLE_CLOUD_LOCATION="..."
 
 # OpenRouter
-OPENROUTER_API_KEY=sk-or-...
+export OPENROUTER_API_KEY="..."
 
-# OpenAI
-OPENAI_API_KEY=sk-...
-OPENAI_API_BASE=https://api.openai.com/v1
+# OpenAI 兼容（proxy / vLLM / cliproxy）
+export OPENAI_API_KEY="..."
+export OPENAI_API_BASE="http://localhost:8317/v1"
+# 关闭 qwen 族思考链以降评测延迟（可选）
+export DIALECTICA_DISABLE_THINKING=true
 ```
+
+只用 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`——没有稳定的
+`gemini-3.1-pro`（generateContent 返回 404）。provider 串为 `provider:model_name`；
+`openai:` provider 显式传 `api_base`（新版 LiteLLM 不再为 `openai/` 前缀读
+`OPENAI_API_BASE`）。
 
 ### 引擎参数
 
-```python
-engine = create_engine(
-    problem="你的问题陈述",
-    max_depth=4,               # 最大树深度
-    beam_width=3,              # 每次迭代的活跃路径数
-    max_gan_rounds=3,          # 最大对抗优化轮次
-    score_threshold=7.0,       # 入 beam 的最低分数
-    gan_score_threshold=None,  # GAN「足够好，停止精炼」线（默认同 score_threshold）
-    criteria=None,             # Discriminator 评分标准（默认可行性导向）
-    synthesizer_model=None,    # 可选的模型覆盖
-)
-```
-
-`criteria` 值得特别注意：早期评测矩阵证明 Discriminator 的评分标准会引导答案的
-**内容**而不只是筛选（见[评测](#评测)）。默认标准以可行性为锚；
-传入自定义标准即可重定向引擎（例如安全审查标准）。
-
-兄弟思维会**并发**展开与评估；运行时对瞬时 LLM 失败做指数退避重试——
-单次网络错误不再毁掉整个长跑。
+- **Agentic**——`tools`（注入的可调用对象）、`instructions`（任务指引）。
+- **Repair**——`verifier`（必填）、`max_attempts`、`solution_format`、`models`（可选 roster）。
+- **Ensemble**——`scorer`（必填）、`models`（roster）、`max_calls`、`solved_score`、`policy`（默认 Thompson bandit）。
+- **Dialectic**——`criteria`（引导综合内容）、`rounds`。
+- **Workflow**——`budget_total`、`concurrency`（或 `DIALECTICA_WORKFLOW_CONCURRENCY`）。
 
 ## 使用示例
 
-### 基本使用
+### Repair（可验证任务）
 
 ```python
-from dialectica import create_engine
+from dialectica import create_repair_engine
 
-# 创建引擎
-engine = create_engine(
-    "设计一个可持续的城市交通系统"
-)
+def verify(code: str) -> tuple[bool, str]:
+    # 你的真实检查——跑测试、校验 schema 等
+    return True, ""
 
-# 运行工作流
+engine = create_repair_engine("Write solve()", verifier=verify, max_attempts=3)
 result = await engine.run()
+# {"final_answer", "passed", "attempts", "history"}
+```
 
-# 访问结果
-print(result["final_answer"])
-print(f"生成了 {len(result['thought_tree'])} 个思维")
-print(f"最佳路径: {result['best_path']}")
+### Agentic（工具任务）
+
+```python
+from dialectica import create_agentic_engine
+
+engine = create_agentic_engine("Fix the failing test", tools=[read_file, run_tests])
+result = await engine.run()   # 工具负责行动；事后检查结果
+```
+
+### Ensemble（异构 roster）
+
+```python
+from dialectica import create_ensemble_engine
+
+def scorer(answer: str) -> float: ...      # 你的 ground-truth 级排序
+
+engine = create_ensemble_engine(
+    "Design the pricing tier",
+    scorer=scorer,
+    models=["google:gemini-3.5-flash", "openrouter:qwen3.6-32b"],
+    max_calls=8,
+)
+result = await engine.run()
+# {"final_answer", "passed", "attempts", "history", "best_score"}
 ```
 
 ### 查看结果
 
-`run()` 返回答案以及完整的搜索轨迹：
+所有引擎返回含 `final_answer`、`passed`（或隐含）、`attempts`、`history` 的
+`dict`。ensemble 与 repair 的 `history` 条目记录每次尝试的产出模型，便于将赢归因
+到具体臂或模型切换。
 
-```python
-result = await engine.run()
-result["final_answer"]   # 综合后的答案
-result["best_path"]      # 从根到最高分思维的节点 id
-result["thought_tree"]   # 所有节点，含分数与每轮 GAN 历史
-result["stats"]          # total_thoughts, max_depth_reached, duration_seconds
-```
+## ToT + GAN 引擎（遗留，深入）
 
-### 自定义配置
+可插拔管线，每个阶段是 `protocols.py` 中的 `typing.Protocol`：`Generator.expand`
+→ `Evaluator.evaluate` → `Selector.select` → `Synthesizer.synthesize`。
+`coordinator.py` 跑三阶段（Initialize → Explore → Synthesize），兄弟展开/评估经
+`asyncio.gather` 并发。旋钮：`score_threshold`（beam 准入）vs
+`gan_score_threshold`（停止精修门槛），`criteria`（判别 rubric——引导答案内容，
+非仅选择）。
 
-```python
-engine = create_engine(
-    problem="优化供应链物流",
-    max_depth=5,
-    beam_width=5,
-    max_gan_rounds=4,
-    score_threshold=8.0,
-    synthesizer_model="google:gemini-3.1-pro-preview",
-)
-```
+默认：`LlmGenerator`、`AdversarialEvaluator`（GAN 精修循环）/`SinglePassEvaluator`、
+`BeamSearch`/`GreedySearch`、`LlmSynthesizer`。不可解析的判定最多重试 3 次；重试后
+连续 3 次失败触发断路器中止运行。所有公开阶段方法为 `async`。
 
-## 思维树 + GAN 引擎（深入）
-
-旧版 `create_engine` 是一个通用的推理工作流，ToT + GAN 只是默认装配。
-`Coordinator` 只负责搜索的**控制流**——每个决策都委托给注入的组件，任何阶段
-都可替换而不动引擎。（实测：在同成本下被压制——见 [评测](#评测) 第 3 条。
-本节是机制说明，仅作研究与向后兼容保留。）
-
-### 阶段
-
-引擎运行三个阶段：**初始化 → 探索 → 综合**。
-
-**阶段 1 — 初始化**
-- 从用户问题创建根节点
-- `Generator.expand(root)` 生成初始策略（用 `ThoughtData` 验证）
-- **每个策略都经过对抗评分**，达标者进入 beam（若全不达标，回退取 Selector 的 top-k）
-
-**阶段 2 — 探索（束搜索）**——迭代最多 `max_depth` 次：
-1. **选择**：`Selector.select(...)` 从活跃束选出前沿
-2. **生成**：`Generator.expand(parent)` 产生子思维
-3. **评估**：`Evaluator.evaluate(...)` 跑 GAN 循环，保留最优轮次并持久化改进后的思维
-4. **过滤**：分数 ≥ `score_threshold` 的子节点组成下一个 beam
-
-beam 清空或达到 `max_depth` 时停止探索。
-
-**阶段 3 — 综合**
-- `Synthesizer.synthesize(...)` 取高分的已评估思维
-- 产生连贯、全面的最终答案
-
-```mermaid
-graph TD
-    A[用户输入: 问题] --> B[Engine: 初始化];
-    B --> C[Generator: 扩展根 → 初始策略];
-    C --> D[Evaluator: 给每个策略评分 → 达标者入 beam];
-    D --> E[开始探索迭代];
-
-    subgraph 探索迭代
-        direction TB
-        E_Input[Selector: 选择前沿] --> F[Generator: 为每个节点扩展子思维];
-        F -->|对每个子节点| H[GAN 对抗循环];
-
-        subgraph GAN 对抗循环
-            direction TB
-            H1[Discriminator: 结构化打分] --> H2{达阈值 / 终止 / 用尽轮次?};
-            H2 -- 否 --> H3[Generator: 据批评改进];
-            H3 --> H1;
-            H2 -- 是 --> H4[保留最优轮 + 持久化改进思维];
-        end
-
-        H4 --> J{分数 >= 阈值?};
-        J -- 是 --> K[加入下一个 beam];
-        J -- 否 --> L[剪枝];
-    end
-
-    K --> M{beam 非空且未达 max_depth?};
-    M -- 是 --> E_Input;
-    M -- 否 --> N[Synthesizer: 综合高分思维];
-    N --> P[最终输出 + thought_tree / best_path / stats];
-```
-
-> **警告：高 Token 消耗。** GAN 对抗评估每个思维需 2-6 次 LLM 调用（策略也会评分）；
-> 典型问题（50-200 个思维）可能需要 200-800 次 LLM 调用。请密切关注用量与成本。
-
-### 可插拔架构
-
-每个决策都是一个 `typing.Protocol`，任何阶段都可替换而无需继承：
-
-| 接口 | 职责 | 默认实现 | 可选实现 |
-|------|------|----------|----------|
-| `Generator` | 把节点扩展成候选思维（**正题**） | `LlmGenerator` | 自定义提示词/agent |
-| `Evaluator` | 给思维打分（可选改进，**反题**） | `AdversarialEvaluator`（GAN 循环） | `SinglePassEvaluator`（廉价） |
-| `Selector` | 选择下一轮搜索前沿 | `BeamSearch(width)` | `GreedySearch` |
-| `Synthesizer` | 把思维综合成答案（**合题**） | `LlmSynthesizer` | 自定义 |
-
-`create_engine(...)` 负责装配默认实现。要定制，自己构建组件并直接构造 `Coordinator`：
-
-```python
-from dialectica import Coordinator, BeamSearch, SinglePassEvaluator
-from dialectica.agent import build_default_components
-from dialectica.agent_factory import create_agent
-from dialectica.models import DiscriminatorVerdict
-
-# 从默认实现起步，替换其中一个阶段：
-generator, _evaluator, _selector, synthesizer = build_default_components()
-discriminator = create_agent(
-    role="Discriminator", role_name="Discriminator", output_schema=DiscriminatorVerdict
-)
-
-engine = Coordinator(
-    problem="...",
-    generator=generator,
-    evaluator=SinglePassEvaluator(discriminator),   # 更便宜：不跑改进循环
-    selector=BeamSearch(width=5),                    # 更宽的前沿
-    synthesizer=synthesizer,
-    max_depth=3,
-    score_threshold=7.0,
-)
-result = await engine.run()
-```
-
-接口都是 `typing.Protocol`（结构化类型，无需继承），任何实现了对应方法的对象都行——
-比如一个非 LLM 的启发式 `Evaluator`，或一个保持前沿多样性而非纯 top-k 的 `Selector`。
-只需改生成器的提示词或替换某个阶段，就能把它重定向到代码审查、研究、决策等任务。
-
-### GAN 风格对抗评估（保留最优）
-
-每个思维经历**迭代对抗优化**，而非单次评估：
-1. **Discriminator** 用结构化 verdict 打分（分数、缺陷、建议）
-2. **Generator** 据此改写
-3. **Discriminator** 重新打分
-4. 循环直到达到阈值、收到终止信号，或用尽 `max_gan_rounds`
-
-改进**不假设单调**——循环保留**分数最高的那一轮**（类似 autoresearch 的「只保留超越当前最优的改动」），并把那一版改进文本存到节点上，让综合用的是改进版而非原版。`Discriminator` 通过 ADK `output_schema` 返回 `DiscriminatorVerdict`（无脆弱文本解析）；引擎将其包装为 `EvaluationResult`，含 `score`、`flaws`、`suggestions`、`should_terminate`、`reasoning`、`adversarial_rounds`、`refined_thought`，以及完整的每轮 `history`。
-
-### 择优 beam 的树搜索
-- **策略先评分再入 beam**——前沿反映优劣，而非生成顺序
-- **束搜索**保留 top-k 最有希望的路径（`BeamSearch`，或 `GreedySearch`）
-- **剪枝**：低于阈值的路径丢弃；beam 清空即停止探索
-- **多节点综合**：最终答案整合跨分支的高分思维
-
-### 与思维树论文的对应关系
-
-默认装配与 [Yao et al. 2023](https://arxiv.org/abs/2305.10601) 框架的映射：
-
-| ToT 论文概念 | Dialectica |
-|--------------|------------|
-| 思维分解（thought decomposition） | 通用两级提示词：根 → 策略、节点 → 下一步（`generation.py` 模板）——非论文中的按任务定制 |
-| 思维生成器 `G(p, s, k)` —— **propose** | `LlmGenerator`：单次调用提出 k 个不同候选（受 `max_items` 上限约束） |
-| 思维生成器 —— **sample**（k 次独立 CoT 采样） | 未内置；可通过自定义 `Generator` 插入 |
-| 状态评估器 `V(p, S)` —— **value**（独立标量打分） | Discriminator 的 0-10 结构化裁决 |
-| 状态评估器 —— **vote**（比较式投票） | 未内置；可通过自定义 `Evaluator`/`Selector` 插入 |
-| ToT-BFS（广度上限 `b`） | `BeamSearch(width=b)`；`GreedySearch` 即 `b=1` |
-| DFS 剪枝阈值 `v_th` | `score_threshold`（低于阈值的子节点被剪掉） |
-| DFS + **回溯**（backtracking） | 未实现——beam 清空即停止探索，不会回访父节点 |
-| 评估器 **lookahead** 前瞻模拟 | 未实现（提示词层面的缺口） |
-
-超出论文的刻意扩展：评估器会*改写*思维（GAN 保留最优循环——论文的评估器
-从不修改状态）；最终由 `Synthesizer` 跨分支整合高分思维（论文输出最佳路径）。
-
-### 关键组件
-
-- **Coordinator**——按阶段接口编排三阶段工作流；管理思维树与活跃束；把生成、打分、选择、综合委托给注入的组件。
-- **AgentFactory**——从角色模板创建代理：标准化系统提示、每角色的工具与模型配置、运行时实例化。
-- **AdversarialEvaluator**——上述 GAN 风格循环：Generator 提出/改进，Discriminator 批判，迭代，返回结构化结果。
-- **ThoughtData 模型**——验证思维结构：必需字段（`id`、`parent_id`、`depth`、`content`）、可选评估数据、GAN 轮次跟踪、评估历史。
-
-### 性能考虑
-
-**Token 消耗**
-- GAN 评估：每个思维 2-6 次 LLM 调用（取决于轮次）
-- 束搜索：约 `beam_width` × `max_depth` 次迭代
-- 典型问题：50-200 个思维，200-800 次 LLM 调用
-
-**优化策略**
-- 将 `max_gan_rounds` 降到 1-2 加快执行
-- 提高 `score_threshold` 剪得更狠；降低则探索更多路径
-- 收窄 beam（`beam_width`）或用 `GreedySearch` 减少扇出
-- Generator 用轻量模型、Discriminator 用更强模型
-- 换成 `SinglePassEvaluator` 完全跳过改进循环
+此引擎**实测被压制**（结论 #3）——保留以供研究与向后兼容，不用于质量。
 
 ## 本地开发
 
-仅当你想开发 Dialectica 本身时需要（只是*使用*它的话见 [安装](#安装)）：
-
 ```bash
-git clone https://github.com/FradSer/dialectica
-cd dialectica
-uv sync
-cp .env.example dialectica/.env   # 填入 GOOGLE_API_KEY 以跑 live e2e 测试
+uv sync                                         # 安装依赖
+uv run pytest                                   # 模拟，快，无需 API key
+uv run pytest -m e2e                            # 实时 E2E（需 GOOGLE_API_KEY）
+uv run ruff format && uv run ruff check         # 格式化 / lint
 ```
 
-## 测试
+库不调用 `logging.basicConfig`——日志配置由消费应用负责。在唯一接缝
+`agent_runtime.run_agent()` 处 mock LLM——绝不 patch ADK 内部或各阶段 agent
+（`tests/helpers.py` 有 fakes）。`asyncio_mode = auto`；pytest-bdd 步骤为同步，故
+用 `asyncio.run()` 包协程。
 
-测试分两层：
+## 测试流程（BDD 驱动 TDD）
 
-- **Mock 测试**（默认）—— 快速、确定、无需 API key。它把 LLM 调用点替换为替身，
-  验证真实的编排逻辑：束搜索、GAN 优化循环、剪枝、综合。
-- **真实 E2E**（`@pytest.mark.e2e`）—— 用真实 Gemini API 跑完整工作流。默认不选中，
-  且在未设置 `GOOGLE_API_KEY`（从 `dialectica/.env` 加载）时自动跳过。
-
-```bash
-uv run pytest          # 仅 mock 测试（秒级，无需 key）
-uv run pytest -m e2e   # 真实 API E2E（较慢，需要 GOOGLE_API_KEY）
-```
+新行为始于 `tests/features/*.feature` 中的 Gherkin 场景，经 pytest-bdd 执行——步骤
+定义在 `tests/test_*_feature.py`（用 `scenarios(...)` 绑定）。然后 RED 测试 → GREEN
+代码 → REFACTOR。更新测试时先改对应 `.feature`。CI
+（`.github/workflows/test.yml`）在每次 push/PR 跑 `ruff format --check`、
+`ruff check`、`pytest`。
 
 ## 项目结构
 
 ```
 dialectica/
-├── __init__.py           # 公共 API 导出
-├── agent.py              # 组合根：create_engine() 装配默认实现
-├── agent_factory.py      # 从角色模板动态创建 ADK Agent
-├── agent_runtime.py      # 唯一的 LLM 调用入口（run_agent），含重试与并发控制
-├── agentic.py            # AgenticEngine —— 工具使用 ADK 循环
-├── coordinator.py        # ToT 束搜索引擎（初始化 → 探索 → 综合）
-├── dialectic.py          # DialecticEngine —— 正题/反题/合题螺旋
-├── gan_evaluator.py      # AdversarialEvaluator（GAN 循环）/ SinglePassEvaluator
-├── generation.py         # LlmGenerator + 列表解析
-├── llm_config.py         # 模型配置工厂（解析 provider:model_name）
-├── models.py             # ThoughtData, DiscriminatorVerdict, EvaluationResult
-├── protocols.py          # 阶段接口：Generator/Evaluator/Selector/Synthesizer
-├── repair.py             # IterativeRepairEngine —— 生成/验证/修复循环
-├── selection.py          # BeamSearch / GreedySearch
-├── synthesis.py          # LlmSynthesizer
-├── validation.py         # 思维验证工具
-└── workflow.py           # Workflow + agent/parallel/pipeline/phase/log 原语
-tests/                       # 22 个测试文件，12 个 BDD feature 文件
-├── conftest.py              # 加载 .env 供 e2e 跳过判断
-├── helpers.py               # 确定性的 mock LLM 替身
-├── features/                # Gherkin 场景（pytest-bdd）
-│   ├── adversarial_evaluation.feature
-│   ├── agentic.feature
-│   ├── code_eval.feature
-│   ├── dialectic.feature
-│   ├── engine.feature
-│   ├── eval_harness.feature
-│   ├── game24.feature
-│   ├── lcb_eval.feature
-│   ├── quality_ablation.feature
-│   ├── repair.feature
-│   ├── resilience.feature
-│   └── workflow.feature
-└── test_*.py                # 步骤定义与单元测试
-evals/                       # 评测工具（开发工具，不随包发布）
-├── __main__.py              # CLI：uv run python -m evals
-├── harness.py               # 编排、调用计数、报告渲染
-├── judge.py                 # 盲评裁判（换位双评消除位置偏差）
-├── baseline.py              # 单次调用基线（对照组）
-├── problems.py              # 基准问题集（DEFAULT_PROBLEMS）
-├── hard_problems.py         # Game-of-24 最难的题（需要分数运算）
-├── hard_solutions.py        # hard_problems 的已验证解
-├── novel_problems.py        # 未污染的边界情况代码题
-├── novel_solutions.py       # novel_problems 的已验证解
-├── code_problems.py         # HumanEval 风格的 SWE 问题（ground truth）
-├── agentic_eval.py          # Agentic 引擎评测（隐藏预言机）
-├── repair_ablation.py       # Repair 引擎消融实验
-├── quality_ablation.py      # ToT vs 单次 vs best-of-N vs self-refine
-├── game24.py                # Game-of-24 基准
-├── game24_princeton.py      # Princeton Game-of-24 数据集
-├── code_eval.py             # 代码评测工具
-├── lcb.py                   # LiveCodeBench 评测
-├── meta_problems.py         # 多利益相关者元问题集
-└── workflow_ablation.py     # Workflow 引擎消融实验
+  agent.py            # 遗留 ToT+GAN 组合根（create_engine）
+  agent_factory.py    # 从 ROLE_TEMPLATES 构建 LlmAgent
+  agent_runtime.py    # 唯一 LLM 接缝：run_agent() + 重试/退避
+  agentic.py          # create_agentic_engine（真正赢的引擎）
+  coordinator.py      # 遗留 ToT Explore/Synthesize 循环
+  dialectic.py        # create_dialectic_engine（可审计轨迹，无质量赢）
+  ensemble.py         # create_ensemble_engine（待定 / CUT）
+  gan_evaluator.py    # AdversarialEvaluator + 判定解析/修复
+  llm_config.py       # provider:model 解析（google/openrouter/openai）
+  models.py           # ThoughtData / EvaluationResult / DiscriminatorVerdict
+  protocols.py        # Generator/Evaluator/Selector/Synthesizer Protocol
+  repair.py           # create_repair_engine（成本赢）
+  workflow.py         # Workflow + agent/parallel/pipeline/phase/log/budget
+evals/                # 仅开发的评测工具（不随 wheel 发布）
+tests/                # BDD 特性 + 步骤定义 + helpers
+docs/plans/           # 设计与计划文件夹（brainstorming/writing-plans）
 ```
 
 ## 故障排除
 
-**导入错误**
-```bash
-python --version              # 确保 Python 3.11+
-rm -rf .venv && uv sync       # 重新安装依赖
-```
-
-**ADK 版本不匹配**
-```bash
-uv pip show google-adk        # 应显示 2.1.0 或更高
-```
-
-**API 密钥问题**
-```bash
-export GOOGLE_API_KEY=your-key
-uv run python -c "from dialectica import create_engine; print('OK')"
-```
+- **`gemini-3.1-pro` 返回 404**——用 `gemini-3.1-pro-preview` 或 `gemini-3.5-flash`。
+- **OpenAI 兼容后端 "Connection error"**——新版 LiteLLM 不再为 `openai/` 前缀读
+  `OPENAI_API_BASE`；库显式传 `api_base`，故确保设置了 `OPENAI_API_BASE`（而非仅
+  `OPENAI_API_KEY`）。
+- **qwen 族评测慢**——设 `DIALECTICA_DISABLE_THINKING=true` 关闭思考链
+  （`chat_template_kwargs.enable_thinking=false`）。
+- **Ensemble roster "collapsed to duplicate effective model"**——两成员解析到同一
+  模型（常因某 provider key 未设，双双静默回退默认）。设该 provider 的 API key 或
+  用不同模型。
+- **强制 JSON 模式返回空判定**（部分后端，如 gemma-4-26b-a4b）——用
+  `structured_output=False` / `--no-structured-output`。
 
 ## 贡献
 
-欢迎贡献！感兴趣的领域：
-- 新的阶段实现（`Generator` / `Evaluator` / `Selector` / `Synthesizer`）
-- 替代的搜索/选择策略（如保持多样性的前沿）
-- 性能优化
-- 文档改进
-- 测试覆盖率
+约定式提交（用 `/git:commit` skill）。发布 = 推一个版本号与 `pyproject.toml`
+**匹配**的 `v*.*.*` tag；CI 跑测试、发 PyPI、建 GitHub release。新增引擎时，连同
+ship 会在数据说 CUT 时 CUT 它的 honesty-gate ablation——本仓的传统是记录负向结果，
+而非未证实的声明。
 
 ## 许可证
 
-[MIT](LICENSE)
+MIT——见 `LICENSE`。
 
 ## 参考资料
 
-- [karpathy/autoresearch](https://github.com/karpathy/autoresearch) —— 提议 → 评估 → 保留最优 循环
-- [Google ADK 文档](https://google.github.io/adk-docs/)
-- [思维树论文](https://arxiv.org/abs/2305.10601)
+- [Tree of Thoughts](https://arxiv.org/abs/2305.10601)——Yao et al., 2023（ToT 引擎
+  的谱系；现作基线）。
+- [Sakana AB-MCTS / "Wider or Deeper?"](https://arxiv.org/abs/2503.04412)——ensemble
+  引擎的谱系（独立性 + ground-truth 信号）。
+- [karpathy/autoresearch](https://github.com/karpathy/autoresearch)——灵感来源。
 
 ## 致谢
 
-基于 [Google ADK](https://github.com/google/adk-python) 构建，灵感来自思维树研究、[karpathy/autoresearch](https://github.com/karpathy/autoresearch) 的自主保留最优循环，以及 Claude Code 的可组合 workflows。
+基于 Google ADK 构建。honesty-gate 方法得益于 LLM 评测中通用的盲位置交换评判模式。
