@@ -34,6 +34,9 @@ The primitives:
   * ``log(msg)`` — emit a progress line.
   * ``budget`` — a ``Budget`` with ``total`` / ``spent()`` / ``remaining()``;
     ``agent()`` raises ``BudgetExhausted`` if a total is set and exhausted.
+    ``Workflow(budget_total=..., budget_unit="tokens")`` gates on API-reported
+    output tokens (thinking included) instead of call counts; both meters
+    always accumulate — ``spent_calls()`` / ``spent_tokens()`` / ``usage()``.
 
 HONEST SCOPE: on *self-contained result-quality* tasks, no multi-agent scaffold
 in this repo beats a prompt-matched single call (see README Evaluation — the
@@ -78,6 +81,7 @@ from pydantic import BaseModel, ValidationError
 
 from . import agent_runtime
 from .agent_factory import create_agent
+from .agent_runtime import TokenUsage
 from .json_repair import repair_json_escapes, strip_code_fence
 from .llm_config import _parse_model_config, get_model_config
 
@@ -85,9 +89,11 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
-# Cap overlapping agent() calls, matching agent_runtime's DIALECTICA_MAX_CONCURRENCY
-# semantics. The Workflow tool's cap is min(16, cpu-2); we honor an explicit env
-# override, else fall back to the shared limiter inside agent_runtime.
+# Cap overlapping agent() calls. The Workflow tool caps concurrent agent()
+# calls (excess calls queue) — the semaphore is acquired inside agent() around
+# each underlying LLM call, so parallel/pipeline branches doing non-LLM work
+# never hold a slot. The cap is min(16, cpu-2), overridable via
+# DIALECTICA_WORKFLOW_CONCURRENCY or the Workflow(concurrency=...) arg.
 _DEFAULT_CONCURRENCY = max(1, min(16, (os.cpu_count() or 4) - 2))
 
 
@@ -97,30 +103,66 @@ class BudgetExhausted(RuntimeError):
 
 @dataclass
 class Budget:
-    """Token/agent-call budget for a workflow run.
+    """Call/token budget for a workflow run.
 
-    ``total`` is ``None`` (unlimited) unless the caller sets it (e.g. from a
-    ``+Nk`` directive). ``spent()`` counts ``agent()`` calls made so far; ``agent()``
-    raises ``BudgetExhausted`` once ``remaining()`` hits 0 so a dynamic loop
-    can't run away. Counting is per-workflow-run, shared across all branches —
-    the pool is global, not per-branch.
+    ``unit`` selects what ``total`` means and what ``spent()``/``remaining()``
+    report: ``"calls"`` (default) counts ``agent()`` calls; ``"tokens"``
+    counts API-reported output tokens (thinking included — the Workflow
+    tool's unit). Both meters always accumulate regardless of unit —
+    ``spent_calls()``, ``spent_tokens()`` and ``usage()`` expose them for
+    observability even when no total is set. The gate fires at ``agent()``
+    entry: once ``spent()`` reaches ``total``, further calls raise
+    ``BudgetExhausted`` (a token total can be overshot by the call in flight;
+    the next call throws). The pool is per-workflow-run, shared across all
+    branches — global, not per-branch. Mocked responses without usage
+    metadata (plain strs through the ``run_agent`` seam) meter as zero
+    tokens.
     """
 
     total: int | None = None
-    _spent: int = field(default=0, init=False, repr=False)
+    unit: str = "calls"
+    _calls: int = field(default=0, init=False, repr=False)
+    _prompt_tokens: int = field(default=0, init=False, repr=False)
+    _output_tokens: int = field(default=0, init=False, repr=False)
+    _total_tokens: int = field(default=0, init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        if self.unit not in ("calls", "tokens"):
+            raise ValueError(
+                f"unknown budget unit {self.unit!r}: use 'calls' or 'tokens'"
+            )
 
     def spent(self) -> int:
-        return self._spent
+        return self._calls if self.unit == "calls" else self._output_tokens
+
+    def spent_calls(self) -> int:
+        return self._calls
+
+    def spent_tokens(self) -> int:
+        return self._output_tokens
+
+    def usage(self) -> TokenUsage:
+        return TokenUsage(
+            prompt_tokens=self._prompt_tokens,
+            output_tokens=self._output_tokens,
+            total_tokens=self._total_tokens,
+        )
 
     def remaining(self) -> float:
-        return float("inf") if self.total is None else max(0, self.total - self._spent)
+        return float("inf") if self.total is None else max(0, self.total - self.spent())
 
     def _charge(self) -> None:
-        if self.total is not None and self._spent >= self.total:
+        if self.total is not None and self.spent() >= self.total:
+            noun = "agent calls" if self.unit == "calls" else "output tokens"
             raise BudgetExhausted(
-                f"Workflow budget exhausted: {self._spent}/{self.total} agent calls."
+                f"Workflow budget exhausted: {self.spent()}/{self.total} {noun}."
             )
-        self._spent += 1
+        self._calls += 1
+
+    def _record(self, usage: TokenUsage) -> None:
+        self._prompt_tokens += usage.prompt_tokens
+        self._output_tokens += usage.output_tokens
+        self._total_tokens += usage.total_tokens
 
 
 # --- Run context (ContextVar so nested asyncio tasks see the same context) ---
@@ -190,6 +232,16 @@ def args() -> Any:
     return _ctx().args
 
 
+def in_workflow() -> bool:
+    """True when called inside an active ``Workflow`` script context.
+
+    Lets an engine that wraps its own ``Workflow`` script (e.g. repair) join
+    an outer run instead of opening a fresh context, so its calls share the
+    outer budget and concurrency cap — the Workflow tool's child-workflow rule.
+    """
+    return _current.get() is not None
+
+
 async def agent(
     prompt: str,
     *,
@@ -256,7 +308,24 @@ async def agent(
     if schema is not None and "json" not in prompt.lower():
         prompt = prompt + "\n\nReturn your answer as a single JSON object."
 
-    response = await agent_runtime.run_agent(agent_obj, prompt)
+    # The run's concurrency cap gates each underlying LLM call here — not in
+    # parallel/pipeline — so a branch idling in non-LLM work holds no slot.
+    # Each response's API-reported usage (if the transport attached any) is
+    # metered onto the run's budget, re-asks included.
+    sem = ctx.semaphore
+
+    async def _call() -> str:
+        if sem is None:
+            response = await agent_runtime.run_agent(agent_obj, prompt)
+        else:
+            async with sem:
+                response = await agent_runtime.run_agent(agent_obj, prompt)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            ctx.budget._record(usage)
+        return response
+
+    response = await _call()
 
     if schema is None:
         return response
@@ -273,7 +342,7 @@ async def agent(
                 attempt + 1,
                 max_attempts,
             )
-            response = await agent_runtime.run_agent(agent_obj, prompt)
+            response = await _call()
     logger.warning(
         "agent(%s) returning None after %d parse failures", label, max_attempts
     )
@@ -355,15 +424,13 @@ async def parallel(thunks: Sequence[Callable[[], Awaitable[Any]]]) -> list[Any]:
 
     A thunk that raises (or whose awaited value raises) resolves to ``None``;
     the call never rejects. Filter with ``[x for x in res if x is not None]``.
+    Thunks hold no concurrency slot themselves — the run's cap gates the
+    ``agent()`` calls inside them.
     """
-    ctx = _ctx()
-    sem = ctx.semaphore
+    _ctx()  # primitives are only valid inside a Workflow script
 
     async def _run(thunk: Callable[[], Awaitable[Any]]) -> Any:
         try:
-            if sem is not None:
-                async with sem:
-                    return await thunk()
             return await thunk()
         except Exception as e:  # noqa: BLE001 —Workflow contract: failure -> null
             logger.warning("parallel thunk failed: %s", e)
@@ -382,26 +449,21 @@ async def pipeline(
     callback receives ``(prev_result, original_item, index)``; use
     ``original_item``/``index`` to label work without threading context through
     stage 1's return value. A stage that throws drops that item to ``None`` and
-    skips its remaining stages.
+    skips its remaining stages. The run's concurrency cap gates the ``agent()``
+    calls inside stages, not whole item chains — an item idling in a non-LLM
+    stage holds no slot.
     """
-    ctx = _ctx()
-    sem = ctx.semaphore
+    _ctx()  # primitives are only valid inside a Workflow script
 
     async def _chain(item: Any, index: int) -> Any:
         try:
-            if sem is not None:
-                async with sem:
-                    return await _chain_inner(item, index)
-            return await _chain_inner(item, index)
+            prev = item
+            for stage in stages:
+                prev = await stage(prev, item, index)
+            return prev
         except Exception as e:  # noqa: BLE001 — pipeline contract: failure -> null
             logger.warning("pipeline item %d dropped: %s", index, e)
             return None
-
-    async def _chain_inner(item: Any, index: int) -> Any:
-        prev = item
-        for stage in stages:
-            prev = await stage(prev, item, index)
-        return prev
 
     return await asyncio.gather(*(_chain(it, i) for i, it in enumerate(items)))
 
@@ -425,11 +487,13 @@ class Workflow:
         *,
         args: Any = None,
         budget_total: int | None = None,
+        budget_unit: str = "calls",
         concurrency: int | None = None,
     ):
         self.script = script
         self._args = args
         self._budget_total = budget_total
+        self._budget_unit = budget_unit
         self._concurrency = concurrency
 
     async def run(self) -> Any:
@@ -439,7 +503,7 @@ class Workflow:
             or _DEFAULT_CONCURRENCY
         )
         ctx = _RunCtx(
-            budget=Budget(total=self._budget_total),
+            budget=Budget(total=self._budget_total, unit=self._budget_unit),
             concurrency=cap,
             semaphore=asyncio.Semaphore(cap),
             args=self._args,
@@ -462,4 +526,5 @@ __all__ = [
     "log",
     "budget",
     "args",
+    "in_workflow",
 ]

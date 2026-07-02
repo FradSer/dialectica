@@ -13,11 +13,78 @@ import asyncio
 import logging
 import os
 import random
+from collections.abc import Iterable
+from dataclasses import dataclass
 
 from google.adk.agents import LlmAgent
+from google.adk.events import Event
 from google.adk.runners import InMemoryRunner
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class TokenUsage:
+    """API-reported token counts for one or more LLM calls.
+
+    ``output_tokens`` includes thinking tokens (billed as output). All zeros
+    when the backend reports no usage metadata.
+    """
+
+    prompt_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+
+
+class AgentResponse(str):
+    """The agent's text output, carrying the call's ``TokenUsage``.
+
+    A ``str`` subclass so every consumer of the ``run_agent`` seam — and every
+    test fake that returns a plain str — keeps working unchanged; metering
+    callers read ``.usage``.
+    """
+
+    usage: TokenUsage
+
+    def __new__(cls, text: str, usage: TokenUsage) -> "AgentResponse":
+        obj = super().__new__(cls, text)
+        obj.usage = usage
+        return obj
+
+    def __getnewargs__(self) -> tuple:  # str's default drops ``usage`` on pickle
+        return (str(self), self.usage)
+
+
+def _usage_from_events(events: Iterable[Event]) -> TokenUsage:
+    """Sum ``usage_metadata`` across a run's events.
+
+    One event per LLM turn — a tool-using call produces several. Events
+    without metadata (e.g. function-call events) count as zero.
+
+    Output tokens: native Gemini reports ``candidates_token_count`` EXCLUDING
+    thoughts, but ADK's LiteLLM mapping sets it to ``completion_tokens`` —
+    which already INCLUDES reasoning — and reports ``thoughts_token_count`` on
+    top. Naively summing both double-counts reasoning on ``openai:`` roster
+    models, so when a total is reported, thoughts are clamped to the room the
+    totals actually leave (``total - prompt - candidates``); Gemini's totals
+    leave exactly ``thoughts``, LiteLLM's leave zero.
+    """
+    prompt = output = total = 0
+    for event in events:
+        um = event.usage_metadata
+        if um is None:
+            continue
+        event_prompt = um.prompt_token_count or 0
+        candidates = um.candidates_token_count or 0
+        thoughts = um.thoughts_token_count or 0
+        event_total = um.total_token_count or 0
+        if event_total and thoughts:
+            thoughts = min(thoughts, max(0, event_total - event_prompt - candidates))
+        prompt += event_prompt
+        output += candidates + thoughts
+        total += event_total
+    return TokenUsage(prompt_tokens=prompt, output_tokens=output, total_tokens=total)
+
 
 # Optional global cap on concurrent LLM calls, for tightly-quota'd backends
 # (e.g. gemma-4-31b allows only 16k input tokens/minute — unbounded gather
@@ -44,7 +111,11 @@ def _get_concurrency_limiter() -> asyncio.Semaphore | None:
 
 
 async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
-    """One raw ADK invocation, returning the concatenated text output."""
+    """One raw ADK invocation, returning the concatenated text output.
+
+    The return value is an ``AgentResponse`` — a str carrying the call's
+    summed ``TokenUsage`` for metering callers.
+    """
     runner = InMemoryRunner(agent=agent, app_name="dialectica")
     events = await runner.run_debug(instruction, quiet=True)
 
@@ -55,7 +126,7 @@ async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
                 if part.text and not part.thought:
                     response_text += part.text
 
-    return response_text.strip()
+    return AgentResponse(response_text.strip(), _usage_from_events(events))
 
 
 # Rate-limit quotas (e.g. tokens-per-minute) need the window to roll over;
@@ -85,6 +156,11 @@ async def run_agent(
     jittered to desynchronize concurrent callers) so the quota window can
     roll over; other failures use ``max_attempts`` with fast exponential
     backoff. ``DIALECTICA_MAX_CONCURRENCY`` caps overlapping calls globally.
+    From the real transport the returned str is an ``AgentResponse`` whose
+    ``.usage`` carries API-reported token counts; a plain str (e.g. from a
+    test fake) simply meters as zero. Usage covers the returned attempt only —
+    an attempt that raises partway (even after billable turns) discards its
+    events, so those tokens are not metered.
     """
     limiter = _get_concurrency_limiter()
     failures = 0

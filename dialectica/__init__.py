@@ -37,6 +37,7 @@ Configuration is read from ``os.environ`` — as a library, Dialectica does NOT
 load ``.env`` itself; the consuming application owns environment setup.
 """
 
+from .agent_runtime import TokenUsage
 from .repair import IterativeRepairEngine, create_repair_engine
 from .workflow import (
     Budget,
@@ -45,6 +46,7 @@ from .workflow import (
     agent,
     args,
     budget,
+    in_workflow,
     log,
     parallel,
     phase,
@@ -57,6 +59,7 @@ __all__ = [
     "Workflow",
     "Budget",
     "BudgetExhausted",
+    "TokenUsage",
     "agent",
     "parallel",
     "pipeline",
@@ -64,6 +67,7 @@ __all__ = [
     "log",
     "budget",
     "args",
+    "in_workflow",
     # Execution-guided repair — verifier-in-the-loop; cost-efficient reliability
     "create_repair_engine",
     "IterativeRepairEngine",

@@ -19,10 +19,14 @@ LLM self-score on the same model, which the evals showed adds nothing).
 Built on ``workflow.py``'s shared execution kernel: each attempt is one
 ``wf.agent(model=..., label=...)`` call inside a private ``Workflow`` script,
 so repair is "just" a bounded retry loop over the same primitives every other
-workflow uses — no bespoke ``LlmAgent`` construction of its own. Note that
-``create_repair_engine(...).run()`` opens its own fresh ``Workflow`` context;
-if called from inside an outer ``Workflow`` script, its calls are not counted
-against the outer script's ``budget_total``.
+workflow uses — no bespoke ``LlmAgent`` construction of its own. When
+``create_repair_engine(...).run()`` is called from inside an outer ``Workflow``
+script it joins that run's context, so its attempts are charged to the outer
+``budget_total`` and share the outer concurrency cap (the child-workflow rule);
+standalone it opens its own fresh ``Workflow`` context. A joined run can
+therefore raise ``BudgetExhausted`` mid-loop when the outer budget runs out —
+the partial history is lost with it, exactly as any other over-budget
+``wf.agent()`` call would; standalone runs are unbudgeted and never raise it.
 """
 
 import logging
@@ -153,6 +157,10 @@ class IterativeRepairEngine:
                 "history": history,
             }
 
+        # Inside an outer Workflow script, join its run context so attempts
+        # are charged to the outer budget; standalone, open a fresh one.
+        if wf.in_workflow():
+            return await script()
         return await Workflow(script).run()
 
 
