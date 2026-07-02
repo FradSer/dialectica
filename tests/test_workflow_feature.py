@@ -9,11 +9,13 @@ deterministic fake LLM.
 import asyncio
 from unittest.mock import patch
 
+import pytest
 from pydantic import BaseModel
 from pytest_bdd import given, scenarios, then, when
 
 from dialectica import workflow as wf
-from dialectica.workflow import BudgetExhausted, Workflow
+from dialectica.agent_runtime import AgentResponse, TokenUsage
+from dialectica.workflow import Budget, BudgetExhausted, Workflow
 
 scenarios("features/workflow.feature")
 
@@ -441,3 +443,216 @@ def run_agent_model_override(capture_llm):
 @then("the underlying agent's model is the resolved model name")
 def model_resolved(model_result):
     assert model_result["agent"].model == "gemini-3.5-flash"
+
+
+# --- Scenario 13: concurrency cap gates each agent call --------------------
+
+
+@given("a mocked LLM that records calls in flight", target_fixture="inflight_llm")
+def inflight_llm():
+    state = {"inflight": 0, "max": 0}
+
+    async def fake(agent, instruction: str) -> str:
+        state["inflight"] += 1
+        state["max"] = max(state["max"], state["inflight"])
+        await asyncio.sleep(0.01)
+        state["inflight"] -= 1
+        return "ok"
+
+    return fake, state
+
+
+@when(
+    "three agent calls run concurrently under a cap of one",
+    target_fixture="inflight_state",
+)
+def run_capped_agents(inflight_llm):
+    fake, state = inflight_llm
+
+    async def script():
+        await asyncio.gather(wf.agent("a"), wf.agent("b"), wf.agent("c"))
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        asyncio.run(Workflow(script, concurrency=1).run())
+    return state
+
+
+@then("no more than one LLM call was ever in flight")
+def capped_in_flight(inflight_state):
+    assert inflight_state["max"] == 1, f"max in flight was {inflight_state['max']}"
+
+
+# --- Scenario 14: a waiting pipeline item holds no concurrency slot --------
+
+
+@given(
+    "a concurrency cap of one and a pipeline item that waits for its sibling",
+    target_fixture="waiting_llm",
+)
+def waiting_llm():
+    async def fake(agent, instruction: str) -> str:
+        return instruction
+
+    return fake
+
+
+@when("the pipeline runs both items", target_fixture="waiting_result")
+def run_waiting_pipeline(waiting_llm):
+    async def script():
+        sibling_done = asyncio.Event()
+
+        async def stage(prev, item, index):
+            if index == 0:
+                # Item 0 idles until item 1 finishes; under a chain-held slot
+                # with cap 1 this deadlocks — the cap must gate agent() only.
+                await sibling_done.wait()
+                return await wf.agent("first-after-sibling")
+            result = await wf.agent("second")
+            sibling_done.set()
+            return result
+
+        return await wf.pipeline(["a", "b"], stage)
+
+    with patch("dialectica.agent_runtime.run_agent", waiting_llm):
+        return asyncio.run(
+            asyncio.wait_for(Workflow(script, concurrency=1).run(), timeout=2)
+        )
+
+
+@then("both items complete because waiting held no slot")
+def waiting_completed(waiting_result):
+    assert waiting_result == ["first-after-sibling", "second"]
+
+
+# --- Scenario 15/16: budget meters API-reported token usage ----------------
+
+
+@given(
+    "a mocked LLM that reports token usage on each response",
+    target_fixture="usage_llm",
+)
+def usage_llm():
+    async def fake(agent, instruction: str) -> str:
+        return AgentResponse(
+            "ok", TokenUsage(prompt_tokens=100, output_tokens=40, total_tokens=140)
+        )
+
+    return fake
+
+
+@when("two agent calls run in a workflow", target_fixture="usage_budget")
+def run_two_usage_calls(usage_llm):
+    async def script():
+        await wf.agent("a")
+        await wf.agent("b")
+        return wf.budget()
+
+    with patch("dialectica.agent_runtime.run_agent", usage_llm):
+        return asyncio.run(Workflow(script).run())
+
+
+@then("the budget records the summed prompt, output, and total tokens")
+def usage_summed(usage_budget):
+    assert usage_budget.usage() == TokenUsage(
+        prompt_tokens=200, output_tokens=80, total_tokens=280
+    )
+    assert usage_budget.spent_tokens() == 80
+    assert usage_budget.spent_calls() == 2
+
+
+@when(
+    "a second agent call starts after the first spends the token budget",
+    target_fixture="token_budget_result",
+)
+def run_token_budget(usage_llm):
+    state = {"raised": None}
+
+    async def script():
+        await wf.agent("first")  # spends the full 40-output-token budget
+        try:
+            await wf.agent("second")
+        except BudgetExhausted as e:
+            state["raised"] = str(e)
+        return state
+
+    with patch("dialectica.agent_runtime.run_agent", usage_llm):
+        return asyncio.run(
+            Workflow(script, budget_total=40, budget_unit="tokens").run()
+        )
+
+
+@then("the token budget raises BudgetExhausted")
+def token_budget_raised(token_budget_result):
+    assert token_budget_result["raised"] is not None
+    assert "40/40" in token_budget_result["raised"]
+    assert "output tokens" in token_budget_result["raised"]
+
+
+# --- Scenario 17: plain-string responses keep the token meter at zero ------
+
+
+@when("two agent calls run with plain-string responses", target_fixture="plain_budget")
+def run_two_plain_calls(prose_llm):
+    async def script():
+        await wf.agent("a")
+        await wf.agent("b")
+        return wf.budget()
+
+    with patch("dialectica.agent_runtime.run_agent", prose_llm):
+        return asyncio.run(Workflow(script).run())
+
+
+@then("the budget records zero tokens spent")
+def plain_zero_tokens(plain_budget):
+    assert plain_budget.spent_tokens() == 0
+    assert plain_budget.usage() == TokenUsage()
+    assert plain_budget.spent_calls() == 2
+
+
+# --- Scenario 18: schema re-asks meter every underlying call ---------------
+
+
+@given(
+    "a mocked LLM that returns unparseable JSON with token usage",
+    target_fixture="bad_usage_llm",
+)
+def bad_usage_llm():
+    async def fake(agent, instruction: str) -> str:
+        return AgentResponse(
+            "not json at all",
+            TokenUsage(prompt_tokens=10, output_tokens=5, total_tokens=15),
+        )
+
+    return fake
+
+
+@when(
+    "agent retries a schema on usage-reporting responses",
+    target_fixture="reask_budget",
+)
+def run_agent_reask_usage(bad_usage_llm):
+    async def script():
+        await wf.agent("judge", schema=_Item, label="judge", max_attempts=2)
+        return wf.budget()
+
+    with patch("dialectica.agent_runtime.run_agent", bad_usage_llm):
+        return asyncio.run(Workflow(script).run())
+
+
+@then("the budget records the token usage of every re-ask")
+def reask_usage_metered(reask_budget):
+    # max_attempts=2 -> the initial call plus one re-ask, both metered; the
+    # calls meter counts agent() entries, not underlying LLM calls.
+    assert reask_budget.spent_tokens() == 10
+    assert reask_budget.usage() == TokenUsage(
+        prompt_tokens=20, output_tokens=10, total_tokens=30
+    )
+    assert reask_budget.spent_calls() == 1
+
+
+# --- plain regression guards for the budget unit ---------------------------
+
+
+def test_budget_rejects_unknown_unit():
+    with pytest.raises(ValueError, match="unit"):
+        Budget(total=10, unit="dollars")

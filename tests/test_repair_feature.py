@@ -10,6 +10,8 @@ from unittest.mock import patch
 from pytest_bdd import given, parsers, scenarios, then, when
 
 from dialectica import create_repair_engine
+from dialectica import workflow as wf
+from dialectica.workflow import BudgetExhausted, Workflow
 from tests.helpers import make_ensemble_fake
 
 scenarios("features/repair.feature")
@@ -90,6 +92,52 @@ def run_repair(ctx):
     engine = make_engine(ctx)
     with patch("dialectica.agent_runtime.run_agent", make_run_agent(ctx)):
         return asyncio.run(engine.run())
+
+
+@when(
+    "the repair engine runs inside an outer workflow with a budget of three calls",
+    target_fixture="result",
+)
+def run_repair_in_workflow(ctx):
+    engine = make_engine(ctx)
+
+    async def script():
+        result = await engine.run()
+        result["outer_spent"] = wf.budget().spent()
+        return result
+
+    with patch("dialectica.agent_runtime.run_agent", make_run_agent(ctx)):
+        return asyncio.run(Workflow(script, budget_total=3).run())
+
+
+@then(parsers.re(r"the outer budget records (?P<n>\d+) calls spent"))
+def outer_budget_spent(result, n: str):
+    assert result["outer_spent"] == int(n), (
+        f"expected {n} calls charged to the outer budget, got {result['outer_spent']}"
+    )
+
+
+@when(
+    "the repair engine runs inside an outer workflow with a budget of one call",
+    target_fixture="result",
+)
+def run_repair_in_exhausted_workflow(ctx):
+    engine = make_engine(ctx)
+
+    async def script():
+        return await engine.run()
+
+    with patch("dialectica.agent_runtime.run_agent", make_run_agent(ctx)):
+        try:
+            asyncio.run(Workflow(script, budget_total=1).run())
+            return {"error": None}
+        except BudgetExhausted as e:
+            return {"error": e}
+
+
+@then("the outer workflow raises BudgetExhausted")
+def outer_budget_exhausted(result):
+    assert isinstance(result["error"], BudgetExhausted)
 
 
 @then("the solution passed")

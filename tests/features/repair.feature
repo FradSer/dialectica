@@ -50,3 +50,15 @@ Feature: Execution-guided repair engine
   Scenario: Passing model_config and models together is rejected
     When a repair engine is created with both model_config and models set
     Then construction fails with a conflicting-config error
+
+  Scenario: Repair inside a workflow script charges the outer budget
+    Given a repair engine whose first solution fails then is fixed
+    When the repair engine runs inside an outer workflow with a budget of three calls
+    Then the solution passed
+    And it took 2 attempts
+    And the outer budget records 2 calls spent
+
+  Scenario: Repair that exhausts the outer workflow budget raises BudgetExhausted
+    Given a repair engine with max 2 attempts whose solution never passes
+    When the repair engine runs inside an outer workflow with a budget of one call
+    Then the outer workflow raises BudgetExhausted

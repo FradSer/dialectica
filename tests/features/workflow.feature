@@ -68,3 +68,33 @@ Feature: Workflow orchestration primitives
     Given a mocked LLM that records the agent it receives
     When agent runs with a provider-prefixed model override
     Then the underlying agent's model is the resolved model name
+
+  Scenario: the concurrency cap gates each agent call directly
+    Given a mocked LLM that records calls in flight
+    When three agent calls run concurrently under a cap of one
+    Then no more than one LLM call was ever in flight
+
+  Scenario: a waiting pipeline item does not hold a concurrency slot
+    Given a concurrency cap of one and a pipeline item that waits for its sibling
+    When the pipeline runs both items
+    Then both items complete because waiting held no slot
+
+  Scenario: the budget meters API-reported token usage
+    Given a mocked LLM that reports token usage on each response
+    When two agent calls run in a workflow
+    Then the budget records the summed prompt, output, and total tokens
+
+  Scenario: a token budget raises BudgetExhausted when output tokens run out
+    Given a mocked LLM that reports token usage on each response
+    When a second agent call starts after the first spends the token budget
+    Then the token budget raises BudgetExhausted
+
+  Scenario: a plain-string response leaves the token meter at zero
+    Given a mocked LLM that returns prose
+    When two agent calls run with plain-string responses
+    Then the budget records zero tokens spent
+
+  Scenario: schema re-asks meter every underlying call
+    Given a mocked LLM that returns unparseable JSON with token usage
+    When agent retries a schema on usage-reporting responses
+    Then the budget records the token usage of every re-ask
