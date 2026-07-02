@@ -307,10 +307,26 @@ async def run_ensemble_ablation(
     """Run all three arms + repair sub-criterion over ``problems``.
 
     Sequential (clean per-problem cost counts; no cross-problem seam contamination).
+    Prints one line per problem as it completes (matches
+    ``ensemble_meta_ablation.py``'s progress style) — at higher budgets a
+    single problem can take a long time, and without this a run is a black
+    box: there is no way to tell "still grinding on a real multi-attempt
+    case" apart from "hung" until the whole report prints at the end.
     """
     _roster = roster if roster is not None else DEFAULT_ROSTER
     _best = best_single if best_single is not None else _roster[0]
-    results = [await _ablate_one(p, budget, _roster, _best) for p in problems]
+    results = []
+    for p in problems:
+        r = await _ablate_one(p, budget, _roster, _best)
+        print(
+            f"[{p.id}] signal={int(r.ensemble_passed)}({r.ensemble_calls}c) "
+            f"best-of-N={int(r.bon_passed)}({r.bon_calls}c) "
+            f"blind={int(r.blind_passed)}({r.blind_calls}c) "
+            f"repair-multi={int(r.repair_multi_passed)}({r.repair_multi_calls}c) "
+            f"repair-single={int(r.repair_single_passed)}({r.repair_single_calls}c)",
+            flush=True,
+        )
+        results.append(r)
     return EnsembleAblationReport(budget=budget, roster=_roster, results=results)
 
 
