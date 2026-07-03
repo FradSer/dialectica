@@ -25,7 +25,6 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from dialectica import workflow as wf
-from dialectica.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -276,7 +275,7 @@ class EnsembleSearchEngine:
                 "best_score": best.score,
             }
 
-        return await Workflow(script).run()
+        return await wf.workflow(script)
 
 
 def create_ensemble_engine(

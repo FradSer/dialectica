@@ -12,7 +12,7 @@ license-files = ["LICENSE"]
 authors = [{ name = "Frad LEE", email = "fradser@gmail.com" }]
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk>=2.0.0",
+    "google-adk>=2.3.0",
     "litellm>=1.66.0",
     "pydantic>=2.11.3",
 ]

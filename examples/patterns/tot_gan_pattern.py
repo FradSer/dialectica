@@ -28,7 +28,6 @@ from datetime import datetime
 from typing import Any, Optional
 
 from dialectica import workflow as wf
-from dialectica.workflow import Workflow
 
 from ._scoring import DEFAULT_CRITERIA, Verdict, build_scoring_prompt, clamp_score
 
@@ -298,7 +297,7 @@ class Coordinator:
                 },
             }
 
-        return await Workflow(script).run()
+        return await wf.workflow(script)
 
     async def _initialize(self) -> None:
         """Phase 1: create the root, expand into strategies, score each."""

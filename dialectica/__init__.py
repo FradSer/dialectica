@@ -3,8 +3,10 @@ Dialectica — a reasoning-engine toolbox, kept honest by controlled evals (see 
 
 The evals collapsed the public surface to what the data actually justifies:
 
-- ``Workflow`` / ``agent`` / ``parallel`` / ``pipeline`` / ``phase`` / ``log`` /
-  ``budget`` / ``args`` — the composable execution kernel. ``agent(tools=...)``
+- ``Workflow`` / ``agent`` / ``parallel`` / ``pipeline`` / ``workflow`` (in
+  ``dialectica.workflow``) / ``phase`` / ``log`` / ``budget`` / ``args`` /
+  ``run_id`` — the composable execution kernel with resume/journal, registry,
+  and worktree isolation. ``agent(tools=...)``
   is the one lever that lets a stage genuinely act (read a file, run a
   command, query a service) instead of only rearranging text — the same
   capability a tool-using loop needs, now a first-class primitive instead of

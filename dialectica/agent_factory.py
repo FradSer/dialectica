@@ -40,6 +40,14 @@ Your task:
     },
 }
 
+# Named subagent types mirroring Claude Code Workflow's agent_type option.
+AGENT_TYPE_PRESETS: dict[str, str] = {
+    "Explore": """You are in read-only exploration mode.
+- Search, read, and map the codebase or data — do not edit files or run mutating commands.
+- Report findings concretely: paths, symbols, and evidence.
+- Stop when you have enough context to answer the task; do not speculate beyond what you observed.""",
+}
+
 
 def create_agent(
     role: str,
@@ -48,6 +56,7 @@ def create_agent(
     tools: list[Any] | None = None,
     model_config: str | None = None,
     output_schema: type | None = None,
+    agent_type: str | None = None,
 ) -> LlmAgent:
     """Create a specialist agent with a specific role.
 
@@ -71,6 +80,18 @@ def create_agent(
     template = ROLE_TEMPLATES[role]
     effective_role_name = role_name or role
 
+    type_context = ""
+    if agent_type:
+        preset = AGENT_TYPE_PRESETS.get(agent_type)
+        if preset is None:
+            logger.warning("Unknown agent_type %r, ignoring", agent_type)
+        else:
+            type_context = preset.strip()
+
+    combined_context = "\n\n".join(
+        part for part in (type_context, additional_context.strip()) if part
+    )
+
     # Build the system prompt. Strip trailing whitespace left by an empty
     # additional_context (the common case for plain wf.agent() calls with no
     # instructions=).
@@ -78,7 +99,7 @@ def create_agent(
         template["system_prompt"]
         .format(
             role_name=effective_role_name,
-            additional_context=additional_context,
+            additional_context=combined_context,
         )
         .strip()
     )

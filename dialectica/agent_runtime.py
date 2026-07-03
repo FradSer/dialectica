@@ -17,8 +17,15 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from google.adk.agents import LlmAgent
+from google.adk.apps.app import App
 from google.adk.events import Event
 from google.adk.runners import InMemoryRunner
+
+from .adk_config import (
+    ensure_otel_setup,
+    get_context_cache_config,
+    reset_adk_config_state,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +41,7 @@ class TokenUsage:
     prompt_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
+    cached_tokens: int = 0
 
 
 class AgentResponse(str):
@@ -69,7 +77,7 @@ def _usage_from_events(events: Iterable[Event]) -> TokenUsage:
     totals actually leave (``total - prompt - candidates``); Gemini's totals
     leave exactly ``thoughts``, LiteLLM's leave zero.
     """
-    prompt = output = total = 0
+    prompt = output = total = cached = 0
     for event in events:
         um = event.usage_metadata
         if um is None:
@@ -83,7 +91,13 @@ def _usage_from_events(events: Iterable[Event]) -> TokenUsage:
         prompt += event_prompt
         output += candidates + thoughts
         total += event_total
-    return TokenUsage(prompt_tokens=prompt, output_tokens=output, total_tokens=total)
+        cached += um.cached_content_token_count or 0
+    return TokenUsage(
+        prompt_tokens=prompt,
+        output_tokens=output,
+        total_tokens=total,
+        cached_tokens=cached,
+    )
 
 
 # Optional global cap on concurrent LLM calls, for tightly-quota'd backends
@@ -110,13 +124,32 @@ def _get_concurrency_limiter() -> asyncio.Semaphore | None:
     return _concurrency_limiter
 
 
+def _make_runner(agent: LlmAgent) -> InMemoryRunner:
+    """Build an ADK runner, optionally wiring ADK 2.3 context caching via ``App``."""
+    cache_config = get_context_cache_config()
+    if cache_config is not None:
+        app = App(
+            name="dialectica",
+            root_agent=agent,
+            context_cache_config=cache_config,
+        )
+        return InMemoryRunner(app=app, app_name="dialectica")
+    return InMemoryRunner(agent=agent, app_name="dialectica")
+
+
+def _reset_adk_runtime_state() -> None:
+    """Re-read ADK env config on next call (tests only)."""
+    reset_adk_config_state()
+
+
 async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
     """One raw ADK invocation, returning the concatenated text output.
 
     The return value is an ``AgentResponse`` — a str carrying the call's
     summed ``TokenUsage`` for metering callers.
     """
-    runner = InMemoryRunner(agent=agent, app_name="dialectica")
+    ensure_otel_setup()
+    runner = _make_runner(agent)
     events = await runner.run_debug(instruction, quiet=True)
 
     response_text = ""

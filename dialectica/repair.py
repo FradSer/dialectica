@@ -34,7 +34,6 @@ from collections.abc import Callable
 from typing import Any, Optional
 
 from . import workflow as wf
-from .workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -157,11 +156,7 @@ class IterativeRepairEngine:
                 "history": history,
             }
 
-        # Inside an outer Workflow script, join its run context so attempts
-        # are charged to the outer budget; standalone, open a fresh one.
-        if wf.in_workflow():
-            return await script()
-        return await Workflow(script).run()
+        return await wf.workflow(script)
 
 
 def create_repair_engine(

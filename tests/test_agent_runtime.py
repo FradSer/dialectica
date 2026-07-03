@@ -80,6 +80,35 @@ def test_usage_from_events_without_total_keeps_candidates_plus_thoughts():
     assert _usage_from_events(events).output_tokens == 7
 
 
+def test_usage_from_events_sums_cached_tokens():
+    events = [
+        Event(
+            author="agent",
+            usage_metadata=types.GenerateContentResponseUsageMetadata(
+                prompt_token_count=100,
+                candidates_token_count=20,
+                cached_content_token_count=80,
+                total_token_count=120,
+            ),
+        ),
+        Event(
+            author="agent",
+            usage_metadata=types.GenerateContentResponseUsageMetadata(
+                prompt_token_count=50,
+                candidates_token_count=10,
+                cached_content_token_count=30,
+                total_token_count=60,
+            ),
+        ),
+    ]
+    assert _usage_from_events(events) == TokenUsage(
+        prompt_tokens=150,
+        output_tokens=30,
+        total_tokens=180,
+        cached_tokens=110,
+    )
+
+
 def test_agent_response_is_a_str_carrying_usage():
     """The run_agent seam contract stays ``-> str``: every existing consumer
     (and every fake returning a plain str) must keep working unchanged."""

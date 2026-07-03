@@ -16,7 +16,6 @@ like every other scaffold in this repo.
 from typing import Any, Optional
 
 from dialectica import workflow as wf
-from dialectica.workflow import Workflow
 
 AGENTIC_SYSTEM_PROMPT = """You are a capable agent that completes a task by USING TOOLS, not by guessing.
 
@@ -63,7 +62,7 @@ class AgenticEngine:
                 label="Agent",
             )
 
-        answer = await Workflow(script).run()
+        answer = await wf.workflow(script)
         return {"final_answer": answer}
 
 

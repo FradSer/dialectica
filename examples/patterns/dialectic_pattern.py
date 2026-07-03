@@ -15,7 +15,6 @@ import logging
 from typing import Any, Optional
 
 from dialectica import workflow as wf
-from dialectica.workflow import Workflow
 
 from ._scoring import DEFAULT_CRITERIA, Verdict, build_scoring_prompt, clamp_score
 
@@ -300,7 +299,7 @@ class DialecticEngine:
                 "history": history,
             }
 
-        return await Workflow(script).run()
+        return await wf.workflow(script)
 
 
 def create_dialectic_engine(

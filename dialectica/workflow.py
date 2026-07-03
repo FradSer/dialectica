@@ -10,33 +10,15 @@ hardcoded into one fixed engine loop.
 The primitives:
 
   * ``agent(prompt, *, schema=None, tools=None, instructions="", label=None,
-    phase=None, model=None)`` — one LLM call; ``schema`` (a Pydantic model)
-    forces structured JSON output and returns the validated instance. ``tools``
-    wires plain callables into this call the same way the demoted agentic
-    pattern (``examples/patterns/agentic_pattern.py``) does, so
-    a stage can act (read a file, run a command) instead of only rearranging
-    the model's own text — ADK forbids combining ``tools`` with ``schema`` on
-    one call, so mix them across stages, not within one. ``instructions``
-    appends task-specific system-prompt framing (e.g. an "act, don't guess"
-    charter for a tool-using stage). ``model`` accepts a ``"provider:model"``
-    override, resolved the same way every other roster call site in this repo
-    resolves it. Returns ``None`` on terminal skip or unparseable output after
-    retry, so a failed agent never kills its batch (``.filter(None)`` the
-    results, as in the JS Workflow).
-  * ``parallel(thunks)`` — run a list of zero-arg coroutines concurrently and
-    WAIT for all (a barrier). Exceptions in any thunk -> ``None`` in the result
-    list; the call itself never rejects.
-  * ``pipeline(items, *stages)`` — run each item through every stage with NO
-    barrier between stages (item A can be in stage 3 while item B is still in
-    stage 1). A stage that throws drops that item to ``None`` and skips its
-    remaining stages. This is the DEFAULT multi-stage shape.
-  * ``phase(title)`` — mark a progress group (for rendering only; no gate).
-  * ``log(msg)`` — emit a progress line.
-  * ``budget`` — a ``Budget`` with ``total`` / ``spent()`` / ``remaining()``;
-    ``agent()`` raises ``BudgetExhausted`` if a total is set and exhausted.
-    ``Workflow(budget_total=..., budget_unit="tokens")`` gates on API-reported
-    output tokens (thinking included) instead of call counts; both meters
-    always accumulate — ``spent_calls()`` / ``spent_tokens()`` / ``usage()``.
+    phase=None, model=None, isolation=None, agent_type=None)`` — one LLM call.
+    ``isolation="worktree"`` runs in a fresh git worktree; ``agent_type`` (e.g.
+    ``"Explore"``) applies a preset charter. See module body for full semantics.
+  * ``workflow(script_or_name, *, args=None)`` — inline child workflow (one
+    nesting level) or registered name via ``register_workflow``.
+  * ``run_id()`` — current run id for resume/journaling.
+  * ``phase(title)`` / ``log(msg)`` / ``budget()`` / ``args()`` — progress and metering.
+  * ``parallel`` / ``pipeline`` — max 4,096 items per call; 1,000 ``agent()``
+    calls per run.
 
 HONEST SCOPE: on *self-contained result-quality* tasks, no multi-agent scaffold
 in this repo beats a prompt-matched single call (see README Evaluation — the
@@ -66,16 +48,21 @@ Example — a 3-angle research fan-out + synthesis (mocked in tests):
 
     result = await Workflow(script).run()
 
-Resume / journaling is NOT implemented in v1 (documented gap); nested
-``workflow()`` calls are single-level only, matching the Workflow tool rule.
+Resume / journaling replays the longest unchanged ``agent()`` prefix from a
+per-run journal (``.dialectica/workflows/<run_id>/``). Registry-backed
+``workflow("name")``, ``meta`` phase validation, lifetime/item caps, and
+``agent(isolation="worktree")`` match the Claude Code Workflow tool's
+programmatic surface (IDE host UI excluded).
 """
 
 import asyncio
 import logging
 import os
+from collections.abc import Awaitable, Callable, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Sequence, Type, TypeVar
+from pathlib import Path
+from typing import Any, Type, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -84,6 +71,17 @@ from .agent_factory import create_agent
 from .agent_runtime import TokenUsage
 from .json_repair import repair_json_escapes, strip_code_fence
 from .llm_config import _parse_model_config, get_model_config
+from .workflow_journal import (
+    _MAX_AGENT_CALLS,
+    _MAX_ITEM_CAP,
+    RunJournal,
+    agent_cache_key,
+    default_journal_dir,
+    deserialize_agent_result,
+    serialize_agent_result,
+)
+from .workflow_registry import get_workflow as _get_registered_workflow
+from .workflow_worktree import WorkflowWorktreeError, worktree_path, worktree_session
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +97,14 @@ _DEFAULT_CONCURRENCY = max(1, min(16, (os.cpu_count() or 4) - 2))
 
 class BudgetExhausted(RuntimeError):
     """Raised by ``agent()`` when a budget total is set and exhausted."""
+
+
+class WorkflowMetaError(ValueError):
+    """Raised when ``meta`` is invalid or phases do not match ``phase()`` calls."""
+
+
+class WorkflowAgentCapExceeded(RuntimeError):
+    """Raised when a run exceeds the lifetime agent() cap (1000)."""
 
 
 @dataclass
@@ -125,6 +131,7 @@ class Budget:
     _prompt_tokens: int = field(default=0, init=False, repr=False)
     _output_tokens: int = field(default=0, init=False, repr=False)
     _total_tokens: int = field(default=0, init=False, repr=False)
+    _cached_tokens: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.unit not in ("calls", "tokens"):
@@ -146,6 +153,7 @@ class Budget:
             prompt_tokens=self._prompt_tokens,
             output_tokens=self._output_tokens,
             total_tokens=self._total_tokens,
+            cached_tokens=self._cached_tokens,
         )
 
     def remaining(self) -> float:
@@ -163,6 +171,7 @@ class Budget:
         self._prompt_tokens += usage.prompt_tokens
         self._output_tokens += usage.output_tokens
         self._total_tokens += usage.total_tokens
+        self._cached_tokens += usage.cached_tokens
 
 
 # --- Run context (ContextVar so nested asyncio tasks see the same context) ---
@@ -171,11 +180,18 @@ class Budget:
 @dataclass
 class _RunCtx:
     budget: Budget
+    run_id: str
+    journal: RunJournal
+    journal_path: Path
     phases: list[str] = field(default_factory=list)
     log: list[str] = field(default_factory=list)
     concurrency: int = _DEFAULT_CONCURRENCY
     semaphore: asyncio.Semaphore | None = None
     args: Any = None
+    depth: int = 0
+    agent_sequence: int = 0
+    registry_name: str | None = None
+    meta: dict[str, Any] | None = None
 
 
 _current: ContextVar[_RunCtx | None] = ContextVar(
@@ -203,6 +219,32 @@ def _to_identifier(label: str) -> str:
     if not sanitized or not sanitized[0].isalpha() and sanitized[0] != "_":
         sanitized = "_" + sanitized
     return sanitized
+
+
+def _validate_meta(meta: dict[str, Any]) -> None:
+    if not meta.get("name") or not meta.get("description"):
+        raise WorkflowMetaError("meta requires 'name' and 'description'")
+
+
+def _check_meta_phases(ctx: _RunCtx) -> None:
+    if not ctx.meta:
+        return
+    declared = [
+        p.get("title")
+        for p in ctx.meta.get("phases", [])
+        if isinstance(p, dict) and p.get("title")
+    ]
+    if not declared:
+        return
+    if ctx.phases != declared:
+        raise WorkflowMetaError(
+            f"meta phases {declared!r} do not match phase() calls {ctx.phases!r}"
+        )
+
+
+def run_id() -> str:
+    """The current run's id (for resume/journaling)."""
+    return _ctx().run_id
 
 
 # --- Primitives -----------------------------------------------------------
@@ -252,6 +294,8 @@ async def agent(
     phase: str | None = None,  # noqa: A002 — mirrors the Workflow tool's opt name
     model: str | None = None,
     max_attempts: int = 3,
+    isolation: str | None = None,
+    agent_type: str | None = None,
 ) -> Any:
     """One LLM call. Returns the model's text, or a validated ``schema`` instance.
 
@@ -279,74 +323,119 @@ async def agent(
             "output_schema on one LlmAgent. Run a tool-using stage (no schema) "
             "first, then a separate schema-only stage to structure its result."
         )
+    if isolation is not None and isolation != "worktree":
+        raise ValueError(
+            f"unknown isolation {isolation!r}: only 'worktree' is supported"
+        )
 
     ctx = _ctx()
+    if ctx.agent_sequence >= _MAX_AGENT_CALLS:
+        raise WorkflowAgentCapExceeded(
+            f"Workflow agent cap exceeded: {_MAX_AGENT_CALLS} agent() calls per run."
+        )
+
+    cache_key = agent_cache_key(
+        prompt,
+        schema=schema,
+        tools=tools,
+        instructions=instructions,
+        label=label,
+        phase=phase,
+        model=model,
+        isolation=isolation,
+        agent_type=agent_type,
+    )
+    sequence = ctx.agent_sequence
+    cached = ctx.journal.lookup(sequence, cache_key)
+    if cached is not None:
+        ctx.agent_sequence += 1
+        return deserialize_agent_result(cached, schema)
+
     ctx.budget._charge()
     if phase:
         ctx.phases.append(phase)
 
-    # ADK requires LlmAgent.name to be a valid Python identifier; the user's
-    # ``label`` is free-form ("angle:skeptical", "verify:3") and is for
-    # logging/tracing, so sanitize it for the agent name and keep the label
-    # verbatim only where it surfaces to logs.
+    worktree_note = ""
+    if isolation == "worktree":
+        worktree_note = (
+            "\n\nYou are running in an isolated git worktree. "
+            "Confine file edits and commands to the current working directory."
+        )
+
     name = _to_identifier(label) if label else "WorkflowAgent"
-    agent_obj = create_agent(
-        role="Generator",
-        role_name=name,
-        additional_context=instructions,
-        model_config=_parse_model_config(model)
-        if model
-        else get_model_config("GENERATOR"),
-        tools=tools,
-        output_schema=schema,
-    )
 
-    # Some OpenAI-compatible backends (DashScope/qwen) reject `response_format:
-    # json_object` unless the word "json" appears in the prompt. The repo hits
-    # this same constraint in gan_evaluator's build_discriminator_instruction;
-    # mirror it here so `agent(schema=...)` works across backends.
-    if schema is not None and "json" not in prompt.lower():
-        prompt = prompt + "\n\nReturn your answer as a single JSON object."
+    async def _execute_agent() -> Any:
+        agent_obj = create_agent(
+            role="Generator",
+            role_name=name,
+            additional_context=instructions + worktree_note,
+            model_config=_parse_model_config(model)
+            if model
+            else get_model_config("GENERATOR"),
+            tools=tools,
+            output_schema=schema,
+            agent_type=agent_type,
+        )
 
-    # The run's concurrency cap gates each underlying LLM call here — not in
-    # parallel/pipeline — so a branch idling in non-LLM work holds no slot.
-    # Each response's API-reported usage (if the transport attached any) is
-    # metered onto the run's budget, re-asks included.
-    sem = ctx.semaphore
-
-    async def _call() -> str:
-        if sem is None:
-            response = await agent_runtime.run_agent(agent_obj, prompt)
-        else:
-            async with sem:
-                response = await agent_runtime.run_agent(agent_obj, prompt)
-        usage = getattr(response, "usage", None)
-        if usage is not None:
-            ctx.budget._record(usage)
-        return response
-
-    response = await _call()
-
-    if schema is None:
-        return response
-
-    # Structured-output path: validate, re-asking on transient parse failure.
-    for attempt in range(1, max_attempts + 1):
-        result = _parse_structured(response, schema)
-        if result is not None:
-            return result
-        if attempt < max_attempts:
-            logger.warning(
-                "agent(%s) unparseable structured output, re-asking %d/%d",
-                label or "agent",
-                attempt + 1,
-                max_attempts,
+        effective_prompt = prompt
+        if schema is not None and "json" not in prompt.lower():
+            effective_prompt = (
+                prompt + "\n\nReturn your answer as a single JSON object."
             )
-            response = await _call()
-    logger.warning(
-        "agent(%s) returning None after %d parse failures", label, max_attempts
-    )
-    return None
+
+        sem = ctx.semaphore
+
+        async def _call() -> str:
+            if sem is None:
+                response = await agent_runtime.run_agent(agent_obj, effective_prompt)
+            else:
+                async with sem:
+                    response = await agent_runtime.run_agent(
+                        agent_obj, effective_prompt
+                    )
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                ctx.budget._record(usage)
+            return response
+
+        response = await _call()
+
+        if schema is None:
+            return response
+
+        for attempt in range(1, max_attempts + 1):
+            result = _parse_structured(response, schema)
+            if result is not None:
+                return result
+            if attempt < max_attempts:
+                logger.warning(
+                    "agent(%s) unparseable structured output, re-asking %d/%d",
+                    label or "agent",
+                    attempt + 1,
+                    max_attempts,
+                )
+                response = await _call()
+        logger.warning(
+            "agent(%s) returning None after %d parse failures", label, max_attempts
+        )
+        return None
+
+    if isolation == "worktree":
+        async with worktree_session(label=name, run_id=ctx.run_id) as handle:
+            result = await _execute_agent()
+            if handle.dirty:
+                log(f"worktree kept (dirty): {handle.path}")
+    else:
+        result = await _execute_agent()
+
+    entry = serialize_agent_result(result, schema)
+    entry.sequence = sequence
+    entry.cache_key = cache_key
+    entry.prompt = prompt
+    ctx.journal.append(entry)
+    ctx.agent_sequence += 1
+    ctx.journal.persist(ctx.journal_path)
+    return result
 
 
 def _parse_structured(response: str, schema: Type[BaseModel]) -> BaseModel | None:
@@ -428,6 +517,10 @@ async def parallel(thunks: Sequence[Callable[[], Awaitable[Any]]]) -> list[Any]:
     ``agent()`` calls inside them.
     """
     _ctx()  # primitives are only valid inside a Workflow script
+    if len(thunks) > _MAX_ITEM_CAP:
+        raise ValueError(
+            f"parallel() accepts at most {_MAX_ITEM_CAP} thunks, got {len(thunks)}"
+        )
 
     async def _run(thunk: Callable[[], Awaitable[Any]]) -> Any:
         try:
@@ -454,6 +547,10 @@ async def pipeline(
     stage holds no slot.
     """
     _ctx()  # primitives are only valid inside a Workflow script
+    if len(items) > _MAX_ITEM_CAP:
+        raise ValueError(
+            f"pipeline() accepts at most {_MAX_ITEM_CAP} items, got {len(items)}"
+        )
 
     async def _chain(item: Any, index: int) -> Any:
         try:
@@ -466,6 +563,45 @@ async def pipeline(
             return None
 
     return await asyncio.gather(*(_chain(it, i) for i, it in enumerate(items)))
+
+
+async def workflow(
+    script_or_name: Callable[[], Awaitable[Any]] | str,
+    *,
+    args: Any = None,
+) -> Any:
+    """Run a workflow script, joining the parent run when already inside one.
+
+    ``script_or_name`` may be a coroutine function or a registered workflow name.
+    Standalone opens a fresh run; inside an outer script at depth 0 joins that
+    run's budget and concurrency cap. Nesting is limited to one level.
+    """
+    if isinstance(script_or_name, str):
+        script = _get_registered_workflow(script_or_name)
+        registry_name = script_or_name
+    else:
+        script = script_or_name
+        registry_name = None
+
+    ctx = _current.get()
+    if ctx is None:
+        return await Workflow(script, args=args, registry_name=registry_name).run()
+    if ctx.depth >= 1:
+        raise RuntimeError(
+            "workflow() nesting is limited to one level — workflow() cannot "
+            "be called inside a child workflow."
+        )
+    prev_args = ctx.args
+    prev_registry = ctx.registry_name
+    ctx.depth = 1
+    ctx.args = args
+    ctx.registry_name = registry_name
+    try:
+        return await script()
+    finally:
+        ctx.depth = 0
+        ctx.args = prev_args
+        ctx.registry_name = prev_registry
 
 
 # --- Entry point -----------------------------------------------------------
@@ -489,29 +625,54 @@ class Workflow:
         budget_total: int | None = None,
         budget_unit: str = "calls",
         concurrency: int | None = None,
+        meta: dict[str, Any] | None = None,
+        resume_run_id: str | None = None,
+        journal_dir: str | Path | None = None,
+        registry_name: str | None = None,
     ):
         self.script = script
         self._args = args
         self._budget_total = budget_total
         self._budget_unit = budget_unit
         self._concurrency = concurrency
+        self._meta = meta
+        self._resume_run_id = resume_run_id
+        self._journal_dir = Path(journal_dir) if journal_dir else default_journal_dir()
+        self._registry_name = registry_name
 
     async def run(self) -> Any:
+        if self._meta is not None:
+            _validate_meta(self._meta)
         cap = (
             self._concurrency
             or int(os.environ.get("DIALECTICA_WORKFLOW_CONCURRENCY", "0") or "0")
             or _DEFAULT_CONCURRENCY
         )
+        journal, journal_path = RunJournal.create(
+            script=self.script,
+            args=self._args,
+            registry_name=self._registry_name,
+            resume_run_id=self._resume_run_id,
+            journal_dir=self._journal_dir,
+        )
         ctx = _RunCtx(
             budget=Budget(total=self._budget_total, unit=self._budget_unit),
+            run_id=journal.run_id,
+            journal=journal,
+            journal_path=journal_path,
             concurrency=cap,
             semaphore=asyncio.Semaphore(cap),
             args=self._args,
+            registry_name=self._registry_name,
+            meta=self._meta,
         )
         token = _current.set(ctx)
         try:
-            return await self.script()
+            result = await self.script()
+            _check_meta_phases(ctx)
+            return result
         finally:
+            ctx.journal.persist(ctx.journal_path)
             _current.reset(token)
 
 
@@ -519,12 +680,22 @@ __all__ = [
     "Workflow",
     "Budget",
     "BudgetExhausted",
+    "WorkflowMetaError",
+    "WorkflowAgentCapExceeded",
+    "WorkflowWorktreeError",
     "agent",
     "parallel",
     "pipeline",
+    "workflow",
     "phase",
     "log",
     "budget",
     "args",
+    "run_id",
     "in_workflow",
+    "worktree_path",
 ]
+
+from .workflow_registry import list_workflows, register_workflow  # noqa: E402
+
+__all__ += ["register_workflow", "list_workflows"]
