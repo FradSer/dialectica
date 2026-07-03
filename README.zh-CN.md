@@ -1,6 +1,6 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.3+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
 
 [English](README.md) | **简体中文**
 
@@ -58,15 +58,48 @@ asyncio.run(main())
 ## Workflow 内核与 repair
 
 ### 🔗 `Workflow` / `agent` / `parallel` / `pipeline`——执行内核
-可组合的多 agent 运行时——与 Claude Code `Workflow` 工具相同的编排面：
-`agent()` / `parallel()` / `pipeline()` / `phase()` / `log()` / `budget()`。
-用于 *meta-task* 编排（研究、评审、规划、设计）——生成 → 对抗评审 → 综合
-真正有用的场景。
+可组合的多 agent 运行时——Claude Code `Workflow` 工具的**程序化**编排面（不含 IDE 宿主 UI）：
+`agent()` / `parallel()` / `pipeline()` / `workflow()` / `phase()` / `log()` / `budget()` / `run_id()`。
 
-- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None)`**——一次 LLM 调用。`schema`（Pydantic 模型）强制结构化 JSON 输出。**`tools` 是让一个 stage 变成真正能力加成、而非纯 LLM 重排的唯一杠杆**：注入可调用对象（读文件、跑测试、查服务），stage 就会 act → observe → iterate，与已验证真赢的 agentic 模式同理——在需通过工具采集信息的任务上测得 **8/8 vs 单次 0/8**（`evals/agentic_eval.py`）。ADK 禁止在同一次调用里同时给 `tools` 和 `schema`，所以要跨 stage 混用，而非在一次调用内。`instructions` 给系统提示追加任务专属框架（例如"行动而非猜测"的行事准则）。`model` 接受 `"provider:model"` 覆盖。
-- **`parallel(thunks)`**——并发跑协程，等待全部完成（一个 barrier）；失败的 thunk 解析为 `None`。
-- **`pipeline(items, *stages)`**——每个 item 依次流经所有 stage，stage 之间**无** barrier；抛异常的 stage 把该 item 变为 `None`。
-- **诚实的适用范围**：完全由 schema-only 评审/综合 stage 组成的工作流（没有 `tools`）仍是纯 LLM scaffold，仍受下方负向结论约束——在这些原语上组合工作流不会推翻它们。
+- **`agent(..., isolation="worktree", agent_type="Explore")`**——`tools` 是能力加成杠杆；`isolation="worktree"` 在独立 git worktree 中运行（无变更则自动清理）；`agent_type` 应用预设角色章程。
+- **`workflow(script_or_name)`**——子 workflow 内联执行（一层嵌套），共享外层 budget；可用 `register_workflow` 按名称调用。
+- **Resume**——`agent()` 调用记入 `.dialectica/workflows/<run_id>/`；`Workflow(..., resume_run_id=...)` 从缓存重放最长不变前缀。
+- **护栏**——每 run 最多 1000 次 `agent()`；`parallel`/`pipeline` 每次最多 4096 项。
+- **`Workflow(..., meta={...})`**——可选元数据；`phase()` 标题须与 `meta.phases` 一致。
+- **诚实适用范围**：无 `tools` 的纯 schema 工作流仍是纯 LLM scaffold，受下方负向结论约束。
+
+### 与 Claude Workflow 的对应——小模型能从这里得到什么
+
+`Workflow` 内核是 Claude Code `Workflow` 工具的**程序化**编排面（不含 IDE `/workflows` UI）。
+同样的 fan-out、分阶段 pipeline、子 workflow、resume、worktree 隔离，都可以用 Python 表达。
+
+| Claude Code Workflow | Dialectica |
+|---|---|
+| `agent` / `parallel` / `pipeline` / `phase` / `log` / `budget` | ✅ |
+| 子 workflow、`run_id`、resume/journal | ✅ |
+| `agent(isolation="worktree")` | ✅ |
+| `agent_type`（如只读 Explore） | ✅ 仅 Explore 预设 |
+| 命名 workflow 注册表 | ✅ `register_workflow` |
+| IDE `/workflows` UI、完整 agent 类型库（Plan 等） | ❌ 仅 API |
+| 宿主深度集成（终端、文件树） | 自行注入 `tools` |
+
+**这能让小参数模型「更强」吗？** 只有 workflow **加入了单次前向传播拿不到的信息** 时才行——与[评测](#评测)核心结论同一条定律。Workflow **形态本身不是智商放大器**。
+
+| 场景 | 用法 | 小模型收益 |
+|---|---|---|
+| 必须读代码、跑命令、探测 API | `agent(tools=[...])`，可选 `parallel` | ✅ **实测真赢**——hidden-oracle 小模型 + tools **8/8**，单次调用 **0/8** |
+| 输出可校验（测试、schema、linter） | `create_repair_engine` + verifier | ✅ **成本赢**——best-of-N 可靠性约 ⅓ 调用；通过率与 matched-cost 打平 |
+| 开放式 meta-task（调研、评审、设计） | `parallel` 多视角 → 综合 | ⚠️ 有时比一次长 prompt 更稳；纯 LLM scaffold 在质量上仍与 prompt-matched 单次打平 |
+| 自包含推理（无工具、无 verifier） | 强单次 prompt 或更大模型 | ❌ 多叠 `phase`/`parallel` 打不过一次精心 prompt 的单次调用 |
+
+**小模型实用配方：**
+
+1. **探索 / 调试** — `agent_type="Explore"` + `tools=[...]`，可选 `isolation="worktree"`。
+2. **可验证输出** — `create_repair_engine(verifier=...)`；失败时 `models=[小, 小, 中]` 轮换。
+3. **调研 / 评审** — `parallel` 多角色 prompt，最后一步 `agent()` 综合。
+4. **控成本** — `Workflow(..., budget_unit="tokens")`；fan-out 用小模型，综合或最后一跳 repair 再用大模型。
+
+`parallel` 与并发上限能降墙钟时间，不能抬高封闭式推理题的天花板。Context cache（见[配置](#配置)）在**单次 `agent()` 内的多轮 tool loop** 上省 token——独立 `agent()` 之间不会自动共享，除非自行管理 session。
 
 ### 🛠️ 执行制导修复——验证器在环（`create_repair_engine`）
 可验证任务：**生成 → 跑注入的验证器 → 据具体失败修复 → 重试**，直到通过或
@@ -218,6 +251,11 @@ export OPENAI_API_KEY="..."
 export OPENAI_API_BASE="http://localhost:8317/v1"
 # 关闭 qwen 族思考链以降评测延迟（可选）
 export DIALECTICA_DISABLE_THINKING=true
+
+# ADK 2.3+ 运行时（可选——见上文「与 Claude Workflow 的对应」）
+export DIALECTICA_CONTEXT_CACHE=true              # 经 ADK App 开启 Gemini context cache
+export DIALECTICA_CONTEXT_CACHE_MIN_TOKENS=4096   # Gemini 硬下限
+export DIALECTICA_ADK_TELEMETRY=true              # 或改设 OTEL_EXPORTER_OTLP_*
 ```
 
 只用 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`——没有稳定的
@@ -227,7 +265,8 @@ export DIALECTICA_DISABLE_THINKING=true
 
 ### 参数
 
-- **`agent()`**——`tools`（注入的可调用对象）、`instructions`（任务指引）、`schema`（结构化输出）、`model`（单次调用覆盖）。
+- **`agent()`**——`tools`、`instructions`、`schema`、`model`（单次覆盖）、`isolation="worktree"`、`agent_type`（如 `"Explore"`）。
+- **`Workflow`**——`budget_total` / `budget_unit`（`"calls"` 或 `"tokens"`）、`resume_run_id`、`meta`、`concurrency`；`budget().usage()` 在后端上报 cache hit 时含 `cached_tokens`。
 - **`create_repair_engine`**——`verifier`（必填）、`max_attempts`、`solution_format`、`models`（可选 roster）。
 - **模式**——见 `examples/patterns/` 里各模式自己的 docstring/工厂签名；它们保留了被降级引擎原本的参数（例如 ensemble 模式的 `scorer`/`policy`，dialectic 模式的 `criteria`/`rounds`）。
 
@@ -310,6 +349,7 @@ BDD 场景覆盖只留给 ship 出去的内核 + repair。
 
 ```
 dialectica/
+  adk_config.py        # ADK 2.3 context cache + OpenTelemetry 环境变量
   agent_factory.py    # 从 ROLE_TEMPLATES 构建 LlmAgent（只剩 Generator）
   agent_runtime.py    # 唯一 LLM 接缝：run_agent() + 重试/退避
   json_repair.py       # 共享的 fence/escape JSON 修复 helper

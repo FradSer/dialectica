@@ -1,6 +1,6 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.0+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.3+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -57,16 +57,73 @@ tasks, build a `Workflow` script and call `agent(task, tools=[...])` directly
 ## Workflow kernel & repair
 
 ### 🔗 `Workflow` / `agent` / `parallel` / `pipeline` — the execution kernel
-A composable multi-agent runtime — the same orchestration surface Claude
-Code's `Workflow` tool provides: `agent()` / `parallel()` / `pipeline()` /
-`phase()` / `log()` / `budget()`. For *meta-task* orchestration (research,
-review, planning, design) — the regime where generate → adversarial-judge →
-synthesize genuinely helps.
+A composable multi-agent runtime — the programmatic surface Claude Code's
+`Workflow` tool provides (IDE host UI excluded): `agent()` / `parallel()` /
+`pipeline()` / `workflow()` / `phase()` / `log()` / `budget()` / `run_id()`.
+For *meta-task* orchestration (research, review, planning, design).
 
-- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None)`** — one LLM call. `schema` (a Pydantic model) forces structured JSON output. **`tools` is the one lever that turns a stage into a genuine capability-add**, not a pure-LLM rearrangement: inject callables (read a file, run tests, query a service) and the stage acts → observes → iterates, the same way the proven-win agentic pattern does — measured **8/8 vs a single call's 0/8** on tasks that require gathering information through tools (`evals/agentic_eval.py`). ADK forbids combining `tools` with `schema` on one call, so mix them across stages, not within one. `instructions` appends task-specific system-prompt framing (e.g. an "act, don't guess" charter). `model` accepts a `"provider:model"` override.
-- **`parallel(thunks)`** — run coroutines concurrently, WAIT for all (a barrier); a failed thunk resolves to `None`.
-- **`pipeline(items, *stages)`** — run each item through every stage with NO barrier between stages; a throwing stage drops that item to `None`.
-- **Honest scope**: a workflow built entirely from schema-only judge/synthesize stages (no `tools`) is still a pure-LLM scaffold and still bound by the negative findings below — composing a workflow over these primitives does not repeal them.
+- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None, isolation=None, agent_type=None)`** — one LLM call. `schema` forces structured JSON; **`tools`** is the capability-add lever (8/8 vs 0/8 on hidden-oracle). `isolation="worktree"` runs in a fresh git worktree (auto-removed if clean). `agent_type` (e.g. `"Explore"`) applies a read-only exploration charter. ADK forbids `tools` + `schema` on one call — split across stages.
+- **`workflow(script_or_name, *, args=None)`** — inline child workflow (one nesting level); shares outer budget. Pass a registered name via `register_workflow`.
+- **`parallel(thunks)`** / **`pipeline(items, *stages)`** — concurrent barrier / per-item staged flow; max 4,096 items per call; 1,000 `agent()` calls per run.
+- **Resume** — each run journals `agent()` calls under `.dialectica/workflows/<run_id>/`; `Workflow(..., resume_run_id=...)` replays the longest unchanged prefix from cache.
+- **`Workflow(..., meta={...})`** — optional `name`/`description`/`phases` metadata; phase titles must match `phase()` calls.
+- **Honest scope**: schema-only judge/synthesize workflows (no `tools`) remain pure-LLM scaffolds bound by the negative findings below.
+
+```python
+from dialectica import Workflow
+from dialectica import workflow as wf
+from dialectica.workflow import register_workflow
+
+async def research(args):
+    wf.phase("Gather")
+    return await wf.agent(f"Research: {args['topic']}")
+
+register_workflow("research", research)
+result = await Workflow(research, args={"topic": "cache design"}, meta={
+    "name": "research", "description": "fan-out research",
+    "phases": [{"title": "Gather"}],
+}).run()
+```
+
+### Claude Workflow parity — and what small models can gain from it
+
+Dialectica's `Workflow` kernel is a **programmatic port** of Claude Code's
+`Workflow` tool surface (IDE host UI excluded). You can express the same
+orchestration patterns — fan-out, staged pipelines, child workflows, resume,
+worktree isolation — as plain Python instead of a host-managed workflow file.
+
+| Claude Code Workflow | Dialectica |
+|---|---|
+| `agent` / `parallel` / `pipeline` / `phase` / `log` / `budget` | ✅ |
+| Child workflow, `run_id`, resume/journal | ✅ |
+| `agent(isolation="worktree")` | ✅ |
+| `agent_type` (e.g. read-only Explore) | ✅ Explore preset only |
+| Named workflow registry | ✅ `register_workflow` |
+| IDE `/workflows` UI, full agent-type roster (Plan, …) | ❌ API-only |
+| Deep host integration (terminal, file tree) | Bring your own `tools` |
+
+**Can this make a small model perform better?** Only when the workflow adds
+information a single forward pass lacks — the same law as the [Evaluation](#evaluation)
+headlines. Workflow *shape* is not an IQ amplifier.
+
+| Situation | What to use | Small-model upside |
+|---|---|---|
+| Must read code, run commands, probe an API | `agent(tools=[...])`, optional `parallel` | ✅ **Measured win** — hidden-oracle **8/8 vs 0/8** for a small model with tools vs 0/8 single-call |
+| Output is checkable (tests, schema, linter) | `create_repair_engine` + verifier | ✅ **Cost win** — best-of-N reliability at ~⅓ the calls; ties matched-cost pass-rate |
+| Open-ended meta-task (research, review, design) | `parallel` angles → synthesize | ⚠️ Sometimes more robust than one long prompt; pure-LLM scaffolds still tie a prompt-matched single call on quality |
+| Self-contained reasoning (no tools, no verifier) | Strong single prompt or bigger model | ❌ More `phase`/`parallel` agents do not beat one well-prompted call |
+
+**Practical recipe for small models:**
+
+1. **Explore / debug** — `agent_type="Explore"` + `tools=[...]`, optionally `isolation="worktree"`.
+2. **Verifiable output** — `create_repair_engine(verifier=...)`; rotate `models=[small, small, medium]` on failure.
+3. **Research / review** — `parallel` over role prompts, one synthesis `agent()` at the end.
+4. **Cost control** — `Workflow(..., budget_unit="tokens")`; use a small model for fan-out, a larger one only for synthesis or the last repair attempt.
+
+`parallel` + concurrency caps cut wall-clock; they do not raise a model's
+reasoning ceiling on closed tasks. Context caching (below) saves tokens on
+multi-turn **tool loops inside one `agent()` call** — not across independent
+`agent()` stages unless you share session state yourself.
 
 ### 🛠️ Execution-guided repair — verifier-in-the-loop (`create_repair_engine`)
 For verifiable tasks: **generate → run an injected verifier → repair against the
@@ -199,6 +256,11 @@ export OPENAI_API_KEY="..."
 export OPENAI_API_BASE="http://localhost:8317/v1"
 # Disable qwen-family thinking trace for eval latency (optional)
 export DIALECTICA_DISABLE_THINKING=true
+
+# ADK 2.3+ runtime (optional — see "Claude Workflow parity" above)
+export DIALECTICA_CONTEXT_CACHE=true              # Gemini context cache via ADK App
+export DIALECTICA_CONTEXT_CACHE_MIN_TOKENS=4096   # Gemini hard floor
+export DIALECTICA_ADK_TELEMETRY=true              # or set OTEL_EXPORTER_OTLP_* instead
 ```
 
 Use `gemini-3.5-flash` (default) or `gemini-3.1-pro-preview` only — there is no
@@ -208,7 +270,8 @@ stable `gemini-3.1-pro` (404 on generateContent). Provider strings are
 
 ### Parameters
 
-- **`agent()`** — `tools` (injected callables), `instructions` (task-specific guidance), `schema` (structured output), `model` (per-call override).
+- **`agent()`** — `tools` (injected callables), `instructions` (task-specific guidance), `schema` (structured output), `model` (per-call override), `isolation="worktree"`, `agent_type` (e.g. `"Explore"`).
+- **`Workflow`** — `budget_total` / `budget_unit` (`"calls"` or `"tokens"`), `resume_run_id`, `meta`, `concurrency`; `budget().usage()` includes `cached_tokens` when the backend reports cache hits.
 - **`create_repair_engine`** — `verifier` (mandatory), `max_attempts`, `solution_format`, `models` (optional roster).
 - **Patterns** — see each pattern's own docstring/factory signature in `examples/patterns/`; they keep their demoted engine's original parameters (e.g. `scorer`/`policy` for the ensemble pattern, `criteria`/`rounds` for the dialectic pattern).
 
@@ -293,6 +356,7 @@ updating tests, update the matching `.feature` first. CI
 
 ```
 dialectica/
+  adk_config.py        # ADK 2.3 context cache + OpenTelemetry env wiring
   agent_factory.py    # builds LlmAgents from ROLE_TEMPLATES (Generator only)
   agent_runtime.py    # THE single LLM seam: run_agent() + retry/backoff
   json_repair.py       # shared fence/escape JSON-repair helpers
