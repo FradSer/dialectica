@@ -656,3 +656,293 @@ def reask_usage_metered(reask_budget):
 def test_budget_rejects_unknown_unit():
     with pytest.raises(ValueError, match="unit"):
         Budget(total=10, unit="dollars")
+
+
+# --- Scenario 19: workflow() standalone ------------------------------------
+
+
+@given("a mocked LLM", target_fixture="simple_llm")
+def simple_llm():
+    state = {"calls": 0}
+
+    async def fake(agent, instruction: str) -> str:
+        state["calls"] += 1
+        return "child-result"
+
+    return fake, state
+
+
+@when("workflow runs a script standalone", target_fixture="standalone_result")
+def run_workflow_standalone(simple_llm):
+    fake, state = simple_llm
+
+    async def child():
+        return await wf.agent("child-task")
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(wf.workflow(child))
+    return result, state
+
+
+@then("the script result is returned")
+def standalone_result_returned(standalone_result):
+    assert standalone_result[0] == "child-result"
+
+
+@then("the run used one agent call")
+def standalone_one_call(standalone_result):
+    assert standalone_result[1]["calls"] == 1
+
+
+# --- Scenario 20: workflow() joins outer budget ----------------------------
+
+
+@when(
+    "a child workflow runs inside an outer workflow with a budget of two calls",
+    target_fixture="nested_budget_result",
+)
+def run_nested_workflow(simple_llm):
+    fake, _ = simple_llm
+
+    async def child():
+        await wf.agent("child-one")
+        return await wf.agent("child-two")
+
+    async def outer():
+        result = await wf.workflow(child)
+        return result, wf.budget().spent()
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        return asyncio.run(Workflow(outer, budget_total=2).run())
+
+
+@then("the outer budget records 2 calls spent")
+def nested_budget_charged(nested_budget_result):
+    _, spent = nested_budget_result
+    assert spent == 2
+
+
+# --- Scenario 21: double workflow() nesting raises -------------------------
+
+
+@when("workflow is called inside a child workflow", target_fixture="nesting_error")
+def run_double_nested_workflow(simple_llm):
+    fake, _ = simple_llm
+
+    async def grandchild():
+        return await wf.workflow(lambda: wf.agent("too deep"))
+
+    async def child():
+        return await wf.workflow(grandchild)
+
+    async def outer():
+        return await wf.workflow(child)
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        try:
+            asyncio.run(Workflow(outer).run())
+            return None
+        except RuntimeError as e:
+            return e
+
+
+@then("it raises a nesting limit error")
+def nesting_limit_raised(nesting_error):
+    assert nesting_error is not None
+    assert "one level" in str(nesting_error).lower()
+
+
+# --- Scenario 22: workflow() passes args -----------------------------------
+
+
+@when(
+    "workflow runs with args inside an outer workflow",
+    target_fixture="workflow_args_result",
+)
+def run_workflow_with_args(simple_llm):
+    fake, _ = simple_llm
+    holder = {"seen": None}
+
+    async def child():
+        holder["seen"] = wf.args()
+        return "ok"
+
+    async def outer():
+        await wf.workflow(child, args={"key": "value"})
+        return holder["seen"]
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        return asyncio.run(Workflow(outer).run())
+
+
+@then("the child script reads the passed args")
+def workflow_args_visible(workflow_args_result):
+    assert workflow_args_result == {"key": "value"}
+
+
+# --- Scenario 23: parallel item cap ----------------------------------------
+
+
+@when("parallel runs 4097 thunks", target_fixture="item_cap_error")
+def run_parallel_cap():
+    async def script():
+        return await wf.parallel([lambda: None for _ in range(4097)])
+
+    try:
+        asyncio.run(Workflow(script).run())
+        return None
+    except ValueError as e:
+        return e
+
+
+@then("it raises an item cap error")
+def item_cap_raised(item_cap_error):
+    assert item_cap_error is not None
+    assert "4096" in str(item_cap_error)
+
+
+# --- Scenario 24: lifetime agent cap ---------------------------------------
+
+
+@when("agent is called 1001 times in one run", target_fixture="agent_cap_error")
+def run_agent_cap():
+    async def fake(agent, instruction: str) -> str:
+        return "ok"
+
+    async def script():
+        for i in range(1001):
+            await wf.agent(f"call-{i}")
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        try:
+            asyncio.run(Workflow(script).run())
+            return None
+        except wf.WorkflowAgentCapExceeded as e:
+            return e
+
+
+@then("it raises WorkflowAgentCapExceeded")
+def agent_cap_raised(agent_cap_error):
+    assert agent_cap_error is not None
+    assert "1000" in str(agent_cap_error)
+
+
+# --- Scenario 25: registered workflow name --------------------------------
+
+
+@given('a mocked LLM and a registered workflow "demo"', target_fixture="registered_llm")
+def registered_llm():
+    async def fake(agent, instruction: str) -> str:
+        return "ok"
+
+    wf.register_workflow("demo", _demo_script)
+    return fake
+
+
+async def _demo_script():
+    return await wf.agent("registered-task")
+
+
+@when("workflow runs the registered name", target_fixture="registered_result")
+def run_registered(registered_llm):
+    with patch("dialectica.agent_runtime.run_agent", registered_llm):
+        return asyncio.run(wf.workflow("demo"))
+
+
+@then("the registered script result is returned")
+def registered_ok(registered_result):
+    assert registered_result == "ok"
+
+
+# --- Scenario 26: meta phase mismatch --------------------------------------
+
+
+@given("a mocked LLM and mismatched meta phases", target_fixture="meta_llm")
+def meta_llm():
+    async def fake(agent, instruction: str) -> str:
+        return "ok"
+
+    return fake
+
+
+@when("the meta workflow runs", target_fixture="meta_error")
+def run_meta_mismatch(meta_llm):
+    meta = {
+        "name": "demo",
+        "description": "demo workflow",
+        "phases": [{"title": "Wrong"}],
+    }
+
+    async def script():
+        wf.phase("Gather")
+        await wf.agent("x")
+
+    with patch("dialectica.agent_runtime.run_agent", meta_llm):
+        try:
+            asyncio.run(Workflow(script, meta=meta).run())
+            return None
+        except wf.WorkflowMetaError as e:
+            return e
+
+
+@then("it raises WorkflowMetaError")
+def meta_mismatch(meta_error):
+    assert meta_error is not None
+
+
+# --- Scenario 27: worktree isolation ---------------------------------------
+
+
+@given("a mocked LLM and a git repository", target_fixture="git_repo")
+def git_repo(tmp_path, monkeypatch):
+    async def fake(agent, instruction: str) -> str:
+        return "ok"
+
+    monkeypatch.chdir(tmp_path)
+    subprocess = __import__("subprocess")
+    subprocess.run(["git", "init"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test"], check=True, capture_output=True
+    )
+    (tmp_path / "README").write_text("hi\n")
+    subprocess.run(["git", "add", "README"], check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "init"], check=True, capture_output=True)
+    return fake, tmp_path
+
+
+@when(
+    "agent runs with worktree isolation and no file changes",
+    target_fixture="worktree_paths",
+)
+def run_worktree_agent(git_repo):
+    fake, root = git_repo
+    worktrees_before = (
+        set((root / ".git/worktrees").iterdir())
+        if (root / ".git/worktrees").exists()
+        else set()
+    )
+
+    async def script():
+        await wf.agent("inspect", isolation="worktree", label="inspect")
+        return None
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        asyncio.run(Workflow(script, journal_dir=root / "journals").run())
+
+    worktrees_after = (
+        set((root / ".git/worktrees").iterdir())
+        if (root / ".git/worktrees").exists()
+        else set()
+    )
+    return worktrees_before, worktrees_after
+
+
+@then("the worktree directory is removed")
+def worktree_removed(worktree_paths):
+    before, after = worktree_paths
+    assert len(after) <= len(before)

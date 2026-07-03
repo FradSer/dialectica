@@ -98,3 +98,49 @@ Feature: Workflow orchestration primitives
     Given a mocked LLM that returns unparseable JSON with token usage
     When agent retries a schema on usage-reporting responses
     Then the budget records the token usage of every re-ask
+
+  Scenario: workflow standalone opens a fresh run context
+    Given a mocked LLM
+    When workflow runs a script standalone
+    Then the script result is returned
+    And the run used one agent call
+
+  Scenario: workflow inside an outer script charges the outer budget
+    Given a mocked LLM
+    When a child workflow runs inside an outer workflow with a budget of two calls
+    Then the outer budget records 2 calls spent
+
+  Scenario: nested workflow inside a child raises
+    Given a mocked LLM
+    When workflow is called inside a child workflow
+    Then it raises a nesting limit error
+
+  Scenario: workflow passes args to the child script
+    Given a mocked LLM
+    When workflow runs with args inside an outer workflow
+    Then the child script reads the passed args
+
+  Scenario: parallel rejects more than 4096 thunks
+    When parallel runs 4097 thunks
+    Then it raises an item cap error
+
+  Scenario: the lifetime agent cap rejects the 1001st agent call
+    Given a mocked LLM
+    When agent is called 1001 times in one run
+    Then it raises WorkflowAgentCapExceeded
+
+  Scenario: a registered workflow name resolves through workflow
+    Given a mocked LLM and a registered workflow "demo"
+    When workflow runs the registered name
+    Then the registered script result is returned
+
+  Scenario: meta phase titles must match phase calls
+    Given a mocked LLM and mismatched meta phases
+    When the meta workflow runs
+    Then it raises WorkflowMetaError
+
+  Scenario: worktree isolation removes a clean worktree after the agent
+    Given a mocked LLM and a git repository
+    When agent runs with worktree isolation and no file changes
+    Then the worktree directory is removed
+
