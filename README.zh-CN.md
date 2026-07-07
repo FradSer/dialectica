@@ -129,6 +129,7 @@ asyncio.run(main())
 | `agentic_pattern.py`（`create_agentic_engine`） | `agent(tools=[...], instructions=...)` 作为独立的工具使用 stage | 与内核原语相同的 8/8 vs 0/8 胜绩——保留只是因为它是个带定制系统提示词的可直接复制的范例，不是因为这个能力需要一个类。 |
 | `dialectic_pattern.py`（`create_dialectic_engine`） | 正 → 反 → 合螺旋，经 `agent(schema=Verdict)` 打分 | 与 prompt-matched 单次调用打平/输掉（**0-3-2**）；仅可审计轨迹，不是质量赢。 |
 | `ensemble_pattern.py`（`create_ensemble_engine`） | 异构 roster 上的 AB-MCTS-lite 自适应搜索（Thompson 采样 bandit） | 被 honesty gate **CUT**——blind-pick roster（scorer 换成常数）打平了真实 scorer 的健壮性增益；信号相对异构性本身无额外贡献。 |
+| `reflection_pattern.py`（`create_reflection_engine`） | 异构多视角 gather → frame → critique → synthesize，基于 `Workflow` | 开放式 meta-task 的推荐参考实现；异构性可能优于单次调用（见 ensemble meta 结论 #5）；无 LLM scorer / AB-MCTS——用 `evals/reflection_ablation.py` 测量。 |
 | `tot_gan_pattern.py`（`create_engine`/`create_coordinator`） | beam search + GAN 风格对抗精修，`parallel()` 用于兄弟展开/评估 | **实测被压制**——matched-cost 下从未赢过对单次/best-of-N/self-refine 的任何一场；在 24 点游戏上以约 34× 成本输给单次调用。 |
 
 每个模式的 docstring 都写明其确切评测判决。它们按内核自身的组合风格编写
@@ -140,6 +141,7 @@ asyncio.run(main())
 from examples.patterns.agentic_pattern import create_agentic_engine
 from examples.patterns.dialectic_pattern import create_dialectic_engine
 from examples.patterns.ensemble_pattern import create_ensemble_engine
+from examples.patterns.reflection_pattern import create_reflection_engine
 from examples.patterns.tot_gan_pattern import create_engine
 ```
 
@@ -157,6 +159,8 @@ uv run python -m evals.agentic_eval             # agentic 模式 vs 单次（隐
 uv run python -m evals.quality_ablation         # ToT+GAN / dialectic 模式 vs 单次/best-of-N/self-refine
 uv run python -m evals.ensemble_ablation        # ensemble 模式三臂 honesty gate（代码）
 uv run python -m evals.ensemble_meta_ablation   # ensemble 模式 honesty gate（open-ended，LLM 评判）
+uv run python -m evals.reflection_ablation      # reflection 模式：异构 vs 同构 vs 单次（open-ended）
+uv run python -m evals.workflow_ablation      # 同构 reflection vs 单次（open-ended）
 ```
 
 ### 核心结论（实测，无预设结论）
@@ -360,6 +364,7 @@ examples/patterns/     # 被降级引擎的参考实现（不随包发布）
   agentic_pattern.py
   dialectic_pattern.py
   ensemble_pattern.py
+  reflection_pattern.py
   tot_gan_pattern.py
 evals/                # 仅开发的评测工具（不随 wheel 发布）
 tests/                # BDD 特性 + 步骤定义 + helpers

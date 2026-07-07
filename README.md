@@ -153,6 +153,7 @@ them keep working unchanged.
 | `agentic_pattern.py` (`create_agentic_engine`) | `agent(tools=[...], instructions=...)` as a standalone tool-using stage | Same 8/8 vs 0/8 win as the kernel primitive — kept only as a copy-pasteable recipe with the tailored system prompt, not because the capability needs a class. |
 | `dialectic_pattern.py` (`create_dialectic_engine`) | thesis → antithesis → synthesis spiral, scored via `agent(schema=Verdict)` | Ties/loses a prompt-matched single call (**0-3-2**); auditable trace only, not a quality win. |
 | `ensemble_pattern.py` (`create_ensemble_engine`) | AB-MCTS-lite adaptive search (Thompson-sampling bandit) over a heterogeneous roster | **CUT** by the honesty gate — a blind-pick roster (scorer replaced by a constant) matched the real scorer's robustness gain; the signal adds nothing over heterogeneity alone. |
+| `reflection_pattern.py` (`create_reflection_engine`) | Heterogeneous multi-angle gather → frame → critique → synthesize on `Workflow` | Recommended reference for open-ended meta-tasks; heterogeneity may beat single call (see ensemble meta finding #5); no LLM scorer / AB-MCTS — measure with `evals/reflection_ablation.py`. |
 | `tot_gan_pattern.py` (`create_engine`/`create_coordinator`) | beam search + GAN-style adversarial refinement, `parallel()` for sibling expand/evaluate | **Measured dominated** — never wins a matchup against single/best-of-N/self-refine at matched compute; loses to a single call on Game-of-24 at ~34× the cost. |
 
 Each pattern's docstring cites its exact eval verdict. They're written in the
@@ -165,6 +166,7 @@ Import them the same way the evals do:
 from examples.patterns.agentic_pattern import create_agentic_engine
 from examples.patterns.dialectic_pattern import create_dialectic_engine
 from examples.patterns.ensemble_pattern import create_ensemble_engine
+from examples.patterns.reflection_pattern import create_reflection_engine
 from examples.patterns.tot_gan_pattern import create_engine
 ```
 
@@ -184,6 +186,8 @@ uv run python -m evals.agentic_eval             # agentic pattern vs single (hid
 uv run python -m evals.quality_ablation         # ToT+GAN / dialectic patterns vs single/best-of-N/self-refine
 uv run python -m evals.ensemble_ablation        # ensemble pattern 3-arm honesty gate (code)
 uv run python -m evals.ensemble_meta_ablation   # ensemble pattern honesty gate (open-ended, LLM judge)
+uv run python -m evals.reflection_ablation      # reflection pattern: hetero vs homo vs single (open-ended)
+uv run python -m evals.workflow_ablation        # homogeneous reflection vs single (open-ended)
 ```
 
 ### Headline findings (measured, no preset conclusion)
@@ -367,6 +371,7 @@ examples/patterns/     # reference implementations of demoted engines (not shipp
   agentic_pattern.py
   dialectic_pattern.py
   ensemble_pattern.py
+  reflection_pattern.py
   tot_gan_pattern.py
 evals/                # dev-only eval harness (not shipped in the wheel)
 tests/                # BDD features + step defs + helpers

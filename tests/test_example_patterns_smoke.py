@@ -84,6 +84,46 @@ def test_verdict_coerces_objectshaped_flaws_and_suggestions():
     assert verdict.suggestions == ["add numbers", "plain string ok"]
 
 
+def test_reflection_pattern_runs_gather_frame_critique_synthesize():
+    from examples.patterns.reflection_pattern import create_reflection_engine
+
+    fake, _counter = make_ensemble_fake(
+        {
+            "g_broad": "broad analysis",
+            "g_critical": "critical analysis",
+            "g_practitioner": "practitioner analysis",
+            "g_stakeholder_opposition": "stakeholder analysis",
+            "tension": "speed vs safety",
+            "c_0": "critique zero",
+            "c_1": "critique one",
+            "c_2": "critique two",
+            "c_3": "critique three",
+            "synth": "final reflected answer",
+        }
+    )
+
+    engine = create_reflection_engine(
+        "Should we ship?",
+        angle_models={
+            "broad": "google:gemini-3.5-flash",
+            "critical": "openai:qwen3.6-flash",
+            "practitioner": "google:gemini-3.5-flash",
+            "stakeholder-opposition": "openai:glm-5.2",
+        },
+        frame_model="google:gemini-3.5-flash",
+        critique_model="openai:qwen3.6-flash",
+        synthesize_model="openai:glm-5.2",
+    )
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(engine.run())
+
+    assert result["final_answer"] == "final reflected answer"
+    assert result["heterogeneous"] is True
+    stages = {entry["stage"] for entry in result["history"]}
+    assert stages == {"gather", "frame", "critique", "synthesize"}
+    assert len(result["history"]) >= 6
+
+
 def test_tot_gan_pattern_runs_a_singledepth_beam():
     from examples.patterns.tot_gan_pattern import create_engine
 
