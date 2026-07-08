@@ -3,7 +3,7 @@
 Gather (parallel angles) → Frame (core tension) → Critique → Synthesize.
 Each gather angle may use a different model from a heterogeneous roster —
 the measured lever for open-ended meta-tasks (see README Evaluation finding
-#5 and ``evals/reflection_ablation.py``).
+#6 and ``evals/reflection_ablation.py``).
 
 NOT shipped API. Prior ensemble work showed that on open-ended tasks
 **roster heterogeneity** improves robustness vs a prompt-matched single call,
@@ -94,18 +94,27 @@ def _default_angle_models(roster: list[str]) -> dict[str, str]:
     return {angle: roster[i % len(roster)] for i, angle in enumerate(DEFAULT_ANGLES)}
 
 
+def _model_key(model: Any) -> str:
+    """Normalize a model config string or LiteLlm instance to a hashable key."""
+    if isinstance(model, str):
+        return model
+    litellm_model = getattr(model, "model", None)
+    if litellm_model:
+        return str(litellm_model)
+    return repr(model)
+
+
 def _is_heterogeneous(
-    angle_models: dict[str, str],
-    frame_model: str,
-    critique_model: str,
-    synthesize_model: str,
+    angle_models: dict[str, Any],
+    frame_model: Any,
+    critique_model: Any,
+    synthesize_model: Any,
 ) -> bool:
-    models = set(angle_models.values()) | {
-        frame_model,
-        critique_model,
-        synthesize_model,
-    }
-    return len(models) > 1
+    keys = {_model_key(v) for v in angle_models.values()}
+    keys.update(
+        _model_key(m) for m in (frame_model, critique_model, synthesize_model)
+    )
+    return len(keys) > 1
 
 
 class ReflectionEngine:
