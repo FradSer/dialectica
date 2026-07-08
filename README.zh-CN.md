@@ -207,20 +207,36 @@ uv run python -m evals.workflow_ablation      # 同构 reflection vs 单次（op
      `OPENAI_API_KEY` 的多 provider roster，如暴露 qwen+glm 的 cliproxy；
      `DIALECTICA_DISABLE_THINKING=true` 以降 qwen 族延迟）。
 
+6. **异构 reflection——诚实的 meta-task 杠杆（2026-07-08）。** `reflection_pattern.py`
+   实现 gather → frame → critique → synthesize 结构化 pipeline，各视角分配不同
+   模型——无 AB-MCTS、无 LLM scorer。在完整 **5 题 meta 集**上（盲位置交换评判、
+   cliproxy roster `openai:qwen3.6-flash` + `openai:glm-5.2`、
+   `JUDGE_MODEL_CONFIG=openai:glm-5.2`、`DIALECTICA_DISABLE_THINKING=true`）：
+   - **`evals/reflection_ablation.py`——异构 vs 同构 vs 单次：** 异构 reflection
+     以 **5-0-0** 打败 prompt-matched 单次，以 **5-0-0** 打败同 pipeline 单模型
+     ——增益**归因于 roster 异构性**，不只是多 stage 形状。
+   - **`evals/workflow_ablation.py`——同构 vs 单次（对照）：** 同构 reflection pipeline
+     以 **4-0-1** 打败单次（NET **+4**）——pipeline 形状在 meta-task 上*确实*有帮助，
+     异构性补上剩余边际（含一题同构与单次 tie 但异构赢）。
+   - **要点：** open-ended 反思/meta-task 用异构 multi-angle reflection；勿复活
+     ensemble float-scorer 排序。复现：`uv run python -m evals.reflection_ablation`
+     与 `uv run python -m evals.workflow_ablation`（cliproxy 环境同 #5）。
+
 ### 这些结论共同指向的定律
 
 scaffold 打败一次前向传播，**当且仅当**它加入了单次传播无法获得的信息——**工具**
-（`agent(tools=...)`）、**ground-truth 验证**（repair），或**独立样本**（ensemble 健壮性，
-但只经异构性，非学习到的排序）。对一个模型在单上下文上的纯重排（ToT、GAN、辩证、
-对同族候选的 LLM-judge scorer）与单次打平。Sakana AI 的研究合集从另一侧收敛到同
-一定律：那里每个真正的赢也都由模型外部的 ground-truth oracle 支撑。这条定律正是
-为什么 ship 出去的 API 现在只剩两样东西——能加能力的内核原语，和能加 ground truth
-的那一个引擎——以及为什么其余全部搬去了 `examples/patterns/`。
+（`agent(tools=...)`）、**ground-truth 验证**（repair），或**独立样本**（meta-task
+上的异构模型——#6；经异构性的 ensemble 健壮性——#5）。对一个模型在单上下文上的纯
+重排（ToT、GAN、辩证、对同族候选的 LLM-judge scorer）在自包含质量上与单次打平。
+Sakana AI 的研究合集从另一侧收敛到同一定律：那里每个真正的赢也都由模型外部的
+ground-truth oracle 支撑。这条定律正是为什么 ship 出去的 API 现在只剩两样东西——
+能加能力的内核原语，和能加 ground truth 的那一个引擎——以及为什么其余全部搬去了
+`examples/patterns/`（`reflection_pattern.py` 为经实测的 meta-task 参考）。
 
 ### 早期 advice 矩阵（2026-06-10/11）——已被取代
 
 首轮矩阵将 ToT+GAN 模式与*较弱*的单次基线（无 prompt 匹配对照）和"Innovation"
-判别准则（偏向过度复杂的答案）比较。已被上方 #2–#5 取代。保留在 `evals/results/`
+判别准则（偏向过度复杂的答案）比较。已被上方 #2–#6 取代。保留在 `evals/results/`
 以供复现：V1（Innovation 准则）技术上 7-1-1 赢、组织上 0-4-2 输；V2（Feasibility
 准则）合计 20-8-2 vs V1 的 7-5-3——证明判别准则引导答案*内容*而非仅选择，但都未
 打败 prompt-matched 强基线。

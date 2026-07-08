@@ -205,25 +205,32 @@ uv run python -m evals.workflow_ablation        # homogeneous reflection vs sing
    - **Open-ended meta (blind LLM-judge, 5 problems, budget 6, position-swap):** ensemble+signal beat a prompt-matched single call **3-1-2** — *the pattern does improve answer robustness on open-ended tasks* (the code axis couldn't measure this). But the **blind-pick arm** (signal replaced by a constant) also beat single **3-1**: the gain is **attributable to roster heterogeneity, not the scorer's ranking signal**. Per H1's signal-attribution clause: **CUT**.
    - **Takeaway:** a *no-scorer* multi-model best-of-N (sample N heterogeneous models, keep one) captures the robustness gain the ensemble shows on open-ended tasks; the float scorer adds no measurable lift over blind-pick. The repair sub-criterion was also **CUT** (multi-model-repair@6 vs single@6: 6/6 vs 6/6, **0 model-switch rescues**). Reproduce: `uv run python -m evals.ensemble_ablation` and `uv run python -m evals.ensemble_meta_ablation` (need a live multi-provider roster via `OPENAI_API_BASE`/`OPENAI_API_KEY`, e.g. a cliproxy exposing qwen + glm; `DIALECTICA_DISABLE_THINKING=true` for qwen-family latency).
 
+6. **Heterogeneous reflection — the honest meta-task lever (2026-07-08).** `reflection_pattern.py` implements the structured gather → frame → critique → synthesize pipeline with per-angle model assignment — no AB-MCTS, no LLM scorer. On the full **5-problem meta set** (blind position-swap judge, cliproxy roster `openai:qwen3.6-flash` + `openai:glm-5.2`, `JUDGE_MODEL_CONFIG=openai:glm-5.2`, `DIALECTICA_DISABLE_THINKING=true`):
+   - **`evals/reflection_ablation.py` — hetero vs homo vs single:** heterogeneous reflection beat a prompt-matched single call **5-0-0** and beat the same pipeline on one model **5-0-0** — the gain is **attributable to roster heterogeneity**, not merely multi-stage shape.
+   - **`evals/workflow_ablation.py` — homo vs single (control):** the homogeneous reflection pipeline beat single **4-0-1** (NET **+4**) — the pipeline shape *does* help on meta-tasks, but heterogeneity adds the remaining edge (including the one problem where homo tied single but hetero won).
+   - **Takeaway:** for open-ended reflection/meta-tasks, use heterogeneous multi-angle reflection; do not resurrect ensemble float-scorer ranking. Reproduce: `uv run python -m evals.reflection_ablation` and `uv run python -m evals.workflow_ablation` (same cliproxy env as finding #5).
+
 ### The law these findings all point to
 
 A scaffold beats one forward pass **iff** it adds information a single pass
 lacks — **tools** (`agent(tools=...)`), **ground-truth verification** (repair), or
-**independent samples** (ensemble robustness, but only via heterogeneity, not a
-learned ranking). Pure rearrangement of one model's thinking on one context
-(ToT, GAN, dialectic, an LLM-judge scorer over same-family candidates) ties a
-single call. Sakana AI's portfolio converges on the same law from the other
-side: every genuine win there is also backed by a ground-truth oracle external
-to the model. This law is exactly why the shipped API is now two things —
-the kernel primitive that can add capability, and the one engine that adds
-ground truth — and why everything else moved to `examples/patterns/`.
+**independent samples** (heterogeneous models on meta-tasks — finding #6; ensemble
+robustness via heterogeneity alone, finding #5). Pure rearrangement of one model's
+thinking on one context (ToT, GAN, dialectic, an LLM-judge scorer over
+same-family candidates) ties a single call on self-contained quality. Sakana AI's
+portfolio converges on the same law from the other side: every genuine win there
+is also backed by a ground-truth oracle external to the model. This law is
+exactly why the shipped API is now two things — the kernel primitive that can add
+capability, and the one engine that adds ground truth — and why everything else
+moved to `examples/patterns/` (with `reflection_pattern.py` as the measured
+meta-task reference).
 
 ### Earlier advice-suite matrices (2026-06-10/11) — superseded
 
 The first-round matrices compared the ToT+GAN pattern against a *weaker*
 single-call baseline (no matched-prompt control) and an "Innovation"
 discriminator criterion that steered toward over-complex answers. They are
-superseded by findings #2–#5 above. Kept in `evals/results/` for reproducibility:
+superseded by findings #2–#6 above. Kept in `evals/results/` for reproducibility:
 V1 (Innovation criterion) won technical problems 7-1-1 but lost organizational
 ones 0-4-2; V2 (Feasibility criterion) pooled to 20-8-2 vs V1's 7-5-3 —
 evidence that discriminator criteria steer answer *content*, not just selection,
