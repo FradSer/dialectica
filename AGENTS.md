@@ -16,4 +16,7 @@
 - `evals/reflection_ablation.py` compares hetero vs homo vs single on meta; `evals/workflow_ablation.py` is homogeneous reflection vs single; `evals/quality_workflow_ablation.py` compares modes on meta+default (10 problems).
 - `workflow()` is exported from `dialectica.workflow` (not top-level `dialectica`) to avoid submodule name collision; patterns import `from dialectica import workflow as wf`.
 - `wf.parallel()` expects a list of thunks, not a bare generator comprehension.
+- Passing `get_model_config()`'s `LiteLlm` object into roster maps is fine for `wf.agent(model=...)`, but heterogeneity checks must normalize via a hashable key (see `reflection_pattern._model_key`).
 - Cliproxy live eval defaults: `GENERATOR_MODEL_CONFIG=openai:qwen3.6-flash`, `JUDGE_MODEL_CONFIG=openai:glm-5.2` (or `qwen3.6-max-preview`), `DIALECTICA_WORKFLOW_CONCURRENCY=4`, `DIALECTICA_DISABLE_THINKING=true`.
+- ADK 2.3 runtime toggles: `DIALECTICA_CONTEXT_CACHE=true` for multi-turn tool-loop caching within one `agent()` call; `DIALECTICA_ADK_TELEMETRY=true` or `OTEL_EXPORTER_OTLP_*` for OpenTelemetry; `TokenUsage.cached_tokens` surfaces cache hits.
+- Workflow parity modules: `workflow_journal.py` (resume via `.dialectica/workflows/<run_id>/`), `workflow_registry.py` (`register_workflow`), `workflow_worktree.py` (`agent(isolation="worktree")`).
