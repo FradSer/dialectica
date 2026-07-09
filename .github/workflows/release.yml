@@ -13,8 +13,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           python-version: "3.11"
       - run: uv sync
@@ -29,8 +29,8 @@ jobs:
       id-token: write   # OIDC token for PyPI Trusted Publishing (no secret needed)
       contents: write   # create the GitHub Release
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v6
 
       - name: Verify tag matches package version
         run: |
