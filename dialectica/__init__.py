@@ -18,14 +18,15 @@ The evals collapsed the public surface to what the data actually justifies:
   besides the kernel's tool-using capability.
 
 Everything else this project measured — the agentic engine as its own class,
-the heterogeneous ensemble, the dialectic spiral, the legacy ToT+GAN beam
-search — either needs nothing beyond ``agent(tools=...)`` or was measured to
-tie/lose a prompt-matched single call as a pure-LLM scaffold (dialectic:
-0-3-2; ToT+GAN: dominated; ensemble: CUT per the honesty gate — the roster's
-robustness gain is heterogeneity, not the scorer's signal). They are kept as
-runnable reference patterns in ``examples/patterns/`` (not shipped in the
-wheel, same as ``evals/``) — see README "Patterns (not shipped, for
-reference)" for the exact verdicts and how to reproduce them.
+the heterogeneous ensemble + float scorer, the dialectic spiral, the legacy
+ToT+GAN beam search — either needs nothing beyond ``agent(tools=...)`` or was
+measured to tie/lose a prompt-matched single call as a pure-LLM scaffold
+(dialectic: 0-3-2; ToT+GAN: dominated; ensemble: CUT — roster heterogeneity
+helps, the scorer does not). They live in ``examples/patterns/`` (not shipped,
+same as ``evals/``). For open-ended meta-tasks the measured recipe is hetero
+reflection (``examples.patterns.reflection_pattern.create_reflection_engine``)
+composed on this kernel — still not a third shipped engine. See README
+"Patterns" and Evaluation findings #6 / #7.
 
 Example:
     from dialectica import Workflow, agent

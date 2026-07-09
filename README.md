@@ -323,27 +323,28 @@ result = await Workflow(script).run()   # tools do the acting; check the outcome
 
 ### Patterns (illustrative only — not shipped API)
 
+Open-ended meta-tasks — canonical hetero reflection (finding #6 / #7):
+
 ```python
-from examples.patterns.ensemble_pattern import create_ensemble_engine
+from examples.patterns.reflection_pattern import create_reflection_engine
 
-def scorer(answer: str) -> float: ...      # your ground-truth-grade rank
-
-engine = create_ensemble_engine(
+engine = create_reflection_engine(
     "Design the pricing tier",
-    scorer=scorer,
-    models=["google:gemini-3.5-flash", "openrouter:qwen3.6-32b"],
-    max_calls=8,
+    # default roster: openai:qwen3.6-flash + openai:glm-5.2
 )
 result = await engine.run()
-# {"final_answer", "passed", "attempts", "history", "best_score"}
+# {"final_answer", "history", "heterogeneous"}
 ```
+
+Ensemble + float scorer is **CUT** (finding #5) — kept only for historical
+ablation; prefer reflection above for open-ended quality.
 
 ### Inspecting the result
 
 `create_repair_engine` and every pattern in `examples/patterns/` return a
-`dict` with `final_answer`, `passed` (or implicit), `attempts`, and `history`.
-The repair and ensemble-pattern `history` entries carry the producing model
-per attempt, so you can attribute wins to a specific arm or to model-switching.
+`dict` with `final_answer` plus a trace (`history` / `attempts`). Repair and
+ensemble-pattern `history` entries carry the producing model per attempt;
+reflection `history` records stage, label, and model.
 
 ## Development
 
