@@ -1,10 +1,17 @@
-"""Reference implementations of demoted engines, expressed as ``Workflow`` scripts.
+"""Reference implementations expressed as ``Workflow`` scripts.
 
-Agentic, dialectic, ensemble, and ToT+GAN were each measured (see README
-"Evaluation") to either tie/lose a prompt-matched single call as pure-LLM
-scaffolds, or — for agentic — to need nothing beyond ``workflow.agent(tools=...)``,
-already a first-class primitive. None of them earn a place in the shipped
-public API (``dialectica.__all__`` is now just the ``Workflow`` kernel plus
-``create_repair_engine``). These scripts are kept as runnable, honest
-reference code — not shipped in the wheel, same as ``evals/``.
+Shipped API stays ``Workflow`` + ``create_repair_engine``. This package holds:
+
+- **Canonical open-ended recipe** — ``reflection_pattern``
+  (``create_reflection_engine``): hetero gather → frame → critique →
+  synthesize. Measured win on meta / meta+default (README findings #6 / #7).
+- **Mode ablation switcher** — ``quality_workflow_pattern``
+  (``reflection`` / ``adversarial`` / ``dialectic``). Prefer reflection unless
+  comparing modes.
+- **Demoted engines** — agentic (folded into ``agent(tools=...)``), dialectic,
+  ensemble (CUT: scorer adds nothing over heterogeneity), ToT+GAN (dominated).
+
+Not shipped in the wheel, same as ``evals/``. Import like the evals do::
+
+    from examples.patterns.reflection_pattern import create_reflection_engine
 """
