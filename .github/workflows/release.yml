@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v8.3.2
         with:
           python-version: "3.11"
       - run: uv sync
@@ -30,7 +30,7 @@ jobs:
       contents: write   # create the GitHub Release
     steps:
       - uses: actions/checkout@v5
-      - uses: astral-sh/setup-uv@v8
+      - uses: astral-sh/setup-uv@v8.3.2
 
       - name: Verify tag matches package version
         run: |
