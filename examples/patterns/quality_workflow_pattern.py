@@ -141,7 +141,9 @@ class QualityWorkflowEngine:
 
         if self.mode == "adversarial":
             return await self._run_adversarial()
-        return await self._run_dialectic()
+        if self.mode == "dialectic":
+            return await self._run_dialectic()
+        raise ValueError(f"unknown quality mode: {self.mode!r}")
 
     async def _run_adversarial(self) -> dict[str, Any]:
         history: list[dict[str, Any]] = []
@@ -160,7 +162,18 @@ class QualityWorkflowEngine:
                     for a in DEFAULT_ANGLES
                 ]
             )
-            findings = [t for t in findings_raw if t]
+            findings: list[str] = []
+            for angle, text in zip(DEFAULT_ANGLES, findings_raw, strict=True):
+                if text:
+                    findings.append(text)
+                    history.append(
+                        {
+                            "stage": "gather",
+                            "label": f"g_{angle}",
+                            "model": self.angle_models[angle],
+                            "text": text,
+                        }
+                    )
 
             wf.phase("Frame")
             tension = (
@@ -170,6 +183,14 @@ class QualityWorkflowEngine:
                     label="tension",
                 )
             ).strip()
+            history.append(
+                {
+                    "stage": "frame",
+                    "label": "tension",
+                    "model": self.stages["frame"],
+                    "text": tension,
+                }
+            )
 
             wf.phase("Critique")
             critiques_raw = await wf.pipeline(
@@ -180,7 +201,18 @@ class QualityWorkflowEngine:
                     label=f"c_{i}",
                 ),
             )
-            critiques = [c for c in critiques_raw if c]
+            critiques: list[str] = []
+            for i, text in enumerate(critiques_raw):
+                if text:
+                    critiques.append(text)
+                    history.append(
+                        {
+                            "stage": "critique",
+                            "label": f"c_{i}",
+                            "model": self.stages["critique"],
+                            "text": text,
+                        }
+                    )
 
             wf.phase("Rival")
             rival = (
@@ -213,6 +245,14 @@ class QualityWorkflowEngine:
                     label="synth",
                 )
             ).strip()
+            history.append(
+                {
+                    "stage": "synthesize",
+                    "label": "synth",
+                    "model": self.stages["synthesize"],
+                    "text": final,
+                }
+            )
             return final
 
         final_answer = await Workflow(script).run()
@@ -255,6 +295,14 @@ class QualityWorkflowEngine:
                         label="thesis",
                     )
                 ).strip()
+                history.append(
+                    {
+                        "stage": "thesis",
+                        "label": "thesis",
+                        "model": self.stages["thesis"],
+                        "text": thesis,
+                    }
+                )
                 return thesis
 
             wf.phase("Thesis")
@@ -266,6 +314,14 @@ class QualityWorkflowEngine:
                     label="thesis",
                 )
             ).strip()
+            history.append(
+                {
+                    "stage": "thesis",
+                    "label": "thesis",
+                    "model": self.stages["thesis"],
+                    "text": thesis,
+                }
+            )
 
             wf.phase("Antithesis")
             antithesis = (
@@ -284,6 +340,14 @@ class QualityWorkflowEngine:
                     label="antithesis",
                 )
             ).strip()
+            history.append(
+                {
+                    "stage": "antithesis",
+                    "label": "antithesis",
+                    "model": self.stages["antithesis"],
+                    "text": antithesis,
+                }
+            )
 
             wf.phase("Synthesize")
             final = (
@@ -300,27 +364,13 @@ class QualityWorkflowEngine:
                     label="synth",
                 )
             ).strip()
-            history.extend(
-                [
-                    {
-                        "stage": "thesis",
-                        "label": "thesis",
-                        "model": self.stages["thesis"],
-                        "text": thesis,
-                    },
-                    {
-                        "stage": "antithesis",
-                        "label": "antithesis",
-                        "model": self.stages["antithesis"],
-                        "text": antithesis,
-                    },
-                    {
-                        "stage": "synthesize",
-                        "label": "synth",
-                        "model": self.stages["synthesize"],
-                        "text": final,
-                    },
-                ]
+            history.append(
+                {
+                    "stage": "synthesize",
+                    "label": "synth",
+                    "model": self.stages["synthesize"],
+                    "text": final,
+                }
             )
             return final
 

@@ -149,6 +149,9 @@ def test_quality_workflow_adversarial_mode_runs():
         result = asyncio.run(engine.run())
     assert result["mode"] == "adversarial"
     assert result["final_answer"] == "adversarial final"
+    stages = {entry["stage"] for entry in result["history"]}
+    assert stages == {"gather", "frame", "critique", "rival", "synthesize"}
+    assert len(result["history"]) >= 7
 
 
 def test_quality_workflow_dialectic_mode_runs():
@@ -169,6 +172,20 @@ def test_quality_workflow_dialectic_mode_runs():
         result = asyncio.run(engine.run())
     assert result["mode"] == "dialectic"
     assert result["final_answer"] == "dialectic final"
+    stages = {entry["stage"] for entry in result["history"]}
+    assert stages == {"tension", "thesis", "antithesis", "synthesize"}
+
+
+def test_quality_workflow_unknown_mode_raises():
+    from examples.patterns.quality_workflow_pattern import QualityWorkflowEngine
+
+    engine = QualityWorkflowEngine("test", mode="not-a-mode")  # type: ignore[arg-type]
+    try:
+        asyncio.run(engine.run())
+    except ValueError as exc:
+        assert "unknown quality mode" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for unknown mode")
 
 
 def test_tot_gan_pattern_runs_a_singledepth_beam():
