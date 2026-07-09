@@ -1,17 +1,18 @@
-"""Reference pattern: heterogeneous multi-angle reflection workflow.
+"""Canonical open-ended recipe: heterogeneous multi-angle reflection.
 
 Gather (parallel angles) → Frame (core tension) → Critique → Synthesize.
 Each gather angle may use a different model from a heterogeneous roster —
-the measured lever for open-ended meta-tasks (see README Evaluation finding
-#6 and ``evals/reflection_ablation.py``).
+the measured lever for open-ended meta-tasks (README Evaluation #6 / #7).
 
-NOT shipped API. Prior ensemble work showed that on open-ended tasks
-**roster heterogeneity** improves robustness vs a prompt-matched single call,
-while an LLM float scorer / AB-MCTS scheduling signal adds no measurable lift
-over blind-pick. This pattern captures the honest version: parallel independent
-models + structured critique + synthesis — no scorer, no bandit.
+NOT shipped API — composed on ``Workflow`` / ``agent(model=...)``. Measured:
+**5-0-0** vs single and vs homo on meta; **10-0-0** vs single on meta+default.
+Roster heterogeneity is the lever; LLM float scorers / AB-MCTS / extra
+adversarial stages add no consistent lift (see ``quality_workflow_pattern``).
+
+Prefer this over ``create_quality_workflow_engine`` unless comparing modes.
 
 Reproduce: ``uv run python -m evals.reflection_ablation``
+             ``uv run python -m evals.quality_workflow_ablation``
 """
 
 import logging
@@ -111,9 +112,7 @@ def _is_heterogeneous(
     synthesize_model: Any,
 ) -> bool:
     keys = {_model_key(v) for v in angle_models.values()}
-    keys.update(
-        _model_key(m) for m in (frame_model, critique_model, synthesize_model)
-    )
+    keys.update(_model_key(m) for m in (frame_model, critique_model, synthesize_model))
     return len(keys) > 1
 
 
@@ -160,11 +159,13 @@ class ReflectionEngine:
             wf.phase("Gather")
             findings_raw = await wf.parallel(
                 [
-                    (lambda a=a: wf.agent(
-                        GATHER_PROMPT.format(angle=a, problem=self.problem),
-                        model=self.angle_models[a],
-                        label=f"g_{a}",
-                    ))
+                    (
+                        lambda a=a: wf.agent(
+                            GATHER_PROMPT.format(angle=a, problem=self.problem),
+                            model=self.angle_models[a],
+                            label=f"g_{a}",
+                        )
+                    )
                     for a in self.angles
                 ]
             )

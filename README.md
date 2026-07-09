@@ -6,7 +6,7 @@
 
 **Dialectica** is a reasoning-engine toolbox on Google ADK, built and measured the hard way: every engine is run against a matched-cost baseline and a blind judge, and only the wins the data supports are kept. The rest are documented as negative results. The whole point is to answer one question — *does a scaffold beat a single well-prompted call?* — with numbers, not vibes.
 
-> **The one-sentence finding.** On self-contained tasks, *no* pure-LLM scaffold (ToT, GAN, dialectic, heterogeneous ensemble) beats a prompt-matched single call on result quality — they only rearrange the model's own thinking, adding no information. An engine wins only by doing what one forward pass cannot: **acting on the world** (tools), **running ground-truth verification** (repair), or — measured, partial — **sampling independent models** (ensemble robustness, but the signal is heterogeneity, not the scorer). See [Evaluation](#evaluation).
+> **The one-sentence finding.** On self-contained tasks, *no* pure-LLM scaffold (ToT, GAN, dialectic, AB-MCTS scorer) beats a prompt-matched single call on result quality — they only rearrange the model's own thinking. An engine wins only by adding what one forward pass lacks: **tools**, **ground-truth verification**, or — on open-ended meta-tasks — **heterogeneous model independence** (measured: hetero reflection **10-0-0** vs single on a 10-problem pool; the lever is the roster, not a float scorer or extra adversarial stage). See [Evaluation](#evaluation).
 
 Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch), Sakana AI's AB-MCTS / collective-intelligence line, and Claude Code's composable workflows.
 
@@ -19,7 +19,7 @@ The evals collapsed the shipped surface to exactly what the data supports:
 | **`Workflow` / `agent(tools=...)`** | **capability** — tools let a stage act → observe → iterate | ✅ genuine win (8/8 vs 0/8 on hidden-oracle) |
 | **`create_repair_engine`** | **ground truth** — verifier-in-the-loop, short-circuits on pass | ✅ cost win (best-of-N reliability at ~1/3 the calls) |
 
-Everything else this project built — a dedicated agentic-engine class, the heterogeneous ensemble, the dialectic spiral, the legacy ToT+GAN beam search — either needs nothing beyond `agent(tools=...)` or was measured to tie/lose a prompt-matched single call as a pure-LLM scaffold. They're kept as runnable **reference patterns**, not shipped API — see [Patterns](#patterns-not-shipped-for-reference).
+Everything else this project built — a dedicated agentic-engine class, the heterogeneous ensemble + scorer, the dialectic spiral, the legacy ToT+GAN beam search — either needs nothing beyond `agent(tools=...)` or was measured to tie/lose a prompt-matched single call as a pure-LLM scaffold. They're kept as runnable **reference patterns**, not shipped API. For open-ended meta-tasks the measured recipe is hetero reflection (`examples/patterns/reflection_pattern.py`) composed on the kernel — still not a third shipped engine. See [Patterns](#patterns-not-shipped-for-reference).
 
 ## Install
 
@@ -110,14 +110,14 @@ headlines. Workflow *shape* is not an IQ amplifier.
 |---|---|---|
 | Must read code, run commands, probe an API | `agent(tools=[...])`, optional `parallel` | ✅ **Measured win** — hidden-oracle **8/8 vs 0/8** for a small model with tools vs 0/8 single-call |
 | Output is checkable (tests, schema, linter) | `create_repair_engine` + verifier | ✅ **Cost win** — best-of-N reliability at ~⅓ the calls; ties matched-cost pass-rate |
-| Open-ended meta-task (research, review, design) | `parallel` angles → synthesize | ⚠️ Sometimes more robust than one long prompt; pure-LLM scaffolds still tie a prompt-matched single call on quality |
-| Self-contained reasoning (no tools, no verifier) | Strong single prompt or bigger model | ❌ More `phase`/`parallel` agents do not beat one well-prompted call |
+| Open-ended meta-task (research, review, design) | Hetero reflection: `create_reflection_engine` (or `create_quality_workflow_engine(..., mode="reflection")`) | ✅ **Measured win** — hetero reflection **10-0-0** vs single on meta+default (finding #7); lever is roster heterogeneity |
+| Self-contained reasoning (no tools, no verifier) | Strong single prompt or bigger model | ❌ Same-model `phase`/`parallel` / adversarial scaffolds do not beat one well-prompted call |
 
 **Practical recipe for small models:**
 
 1. **Explore / debug** — `agent_type="Explore"` + `tools=[...]`, optionally `isolation="worktree"`.
 2. **Verifiable output** — `create_repair_engine(verifier=...)`; rotate `models=[small, small, medium]` on failure.
-3. **Research / review** — `parallel` over role prompts, one synthesis `agent()` at the end.
+3. **Research / review / open-ended reflection** — `create_reflection_engine(problem)` with a heterogeneous roster (default `qwen` + `glm` via cliproxy). Do **not** default to adversarial/dialectic modes — finding #7 found no consistent lift over hetero reflection.
 4. **Cost control** — `Workflow(..., budget_unit="tokens")`; use a small model for fan-out, a larger one only for synthesis or the last repair attempt.
 
 `parallel` + concurrency caps cut wall-clock; they do not raise a model's
@@ -153,7 +153,8 @@ them keep working unchanged.
 | `agentic_pattern.py` (`create_agentic_engine`) | `agent(tools=[...], instructions=...)` as a standalone tool-using stage | Same 8/8 vs 0/8 win as the kernel primitive — kept only as a copy-pasteable recipe with the tailored system prompt, not because the capability needs a class. |
 | `dialectic_pattern.py` (`create_dialectic_engine`) | thesis → antithesis → synthesis spiral, scored via `agent(schema=Verdict)` | Ties/loses a prompt-matched single call (**0-3-2**); auditable trace only, not a quality win. |
 | `ensemble_pattern.py` (`create_ensemble_engine`) | AB-MCTS-lite adaptive search (Thompson-sampling bandit) over a heterogeneous roster | **CUT** by the honesty gate — a blind-pick roster (scorer replaced by a constant) matched the real scorer's robustness gain; the signal adds nothing over heterogeneity alone. |
-| `reflection_pattern.py` (`create_reflection_engine`) | Heterogeneous multi-angle gather → frame → critique → synthesize on `Workflow` | Recommended reference for open-ended meta-tasks; heterogeneity may beat single call (see ensemble meta finding #5); no LLM scorer / AB-MCTS — measure with `evals/reflection_ablation.py`. |
+| `reflection_pattern.py` (`create_reflection_engine`) | **Canonical** open-ended recipe: hetero gather → frame → critique → synthesize on `Workflow` | ✅ Measured win — **5-0-0** vs single/homo on meta (finding #6); **10-0-0** vs single on meta+default via quality ablation (finding #7). No LLM scorer / AB-MCTS. |
+| `quality_workflow_pattern.py` (`create_quality_workflow_engine`) | Mode switcher over the same roster: `reflection` (default, delegates to reflection_pattern) / `adversarial` / `dialectic` | Ablation harness — adversarial/dialectic add no consistent lift over hetero reflection (finding #7). Prefer `create_reflection_engine` unless comparing modes. |
 | `tot_gan_pattern.py` (`create_engine`/`create_coordinator`) | beam search + GAN-style adversarial refinement, `parallel()` for sibling expand/evaluate | **Measured dominated** — never wins a matchup against single/best-of-N/self-refine at matched compute; loses to a single call on Game-of-24 at ~34× the cost. |
 
 Each pattern's docstring cites its exact eval verdict. They're written in the
@@ -167,6 +168,7 @@ from examples.patterns.agentic_pattern import create_agentic_engine
 from examples.patterns.dialectic_pattern import create_dialectic_engine
 from examples.patterns.ensemble_pattern import create_ensemble_engine
 from examples.patterns.reflection_pattern import create_reflection_engine
+from examples.patterns.quality_workflow_pattern import create_quality_workflow_engine
 from examples.patterns.tot_gan_pattern import create_engine
 ```
 
@@ -187,6 +189,7 @@ uv run python -m evals.quality_ablation         # ToT+GAN / dialectic patterns v
 uv run python -m evals.ensemble_ablation        # ensemble pattern 3-arm honesty gate (code)
 uv run python -m evals.ensemble_meta_ablation   # ensemble pattern honesty gate (open-ended, LLM judge)
 uv run python -m evals.reflection_ablation      # reflection pattern: hetero vs homo vs single (open-ended)
+uv run python -m evals.quality_workflow_ablation  # multi-model modes vs single (meta+default, 10 problems)
 uv run python -m evals.workflow_ablation        # homogeneous reflection vs single (open-ended)
 ```
 
@@ -210,6 +213,11 @@ uv run python -m evals.workflow_ablation        # homogeneous reflection vs sing
    - **`evals/workflow_ablation.py` — homo vs single (control):** the homogeneous reflection pipeline beat single **4-0-1** (NET **+4**) — the pipeline shape *does* help on meta-tasks, but heterogeneity adds the remaining edge (including the one problem where homo tied single but hetero won).
    - **Takeaway:** for open-ended reflection/meta-tasks, use heterogeneous multi-angle reflection; do not resurrect ensemble float-scorer ranking. Reproduce: `uv run python -m evals.reflection_ablation` and `uv run python -m evals.workflow_ablation` (same cliproxy env as finding #5).
 
+7. **Multi-model quality workflow modes — expanded pool (2026-07-09).** `quality_workflow_pattern.py` unifies three hetero compositions on **10 problems** (5 meta + 5 default; blind judge, same cliproxy roster as #6):
+   - **vs single:** homo reflection **4-0-6** (NET +4); hetero reflection **10-0-0** (NET +10); hetero adversarial **9-0-1** (NET +9); hetero dialectic **9-0-1** (NET +9).
+   - **vs hetero reflection (does the extra stage help?):** adversarial **2-0-8** (NET +2); dialectic **0-1-9** (NET −1).
+   - **Takeaway:** hetero `reflection` is the default — it sweeps the expanded pool. Extra adversarial-rival or one-round dialectic stages add no consistent lift over hetero reflection (mostly ties; dialectic loses one head-to-head). Prefer `create_reflection_engine`; keep `quality_workflow_pattern` for mode comparison only. Reproduce: `uv run python -m evals.quality_workflow_ablation`.
+
 ### The law these findings all point to
 
 A scaffold beats one forward pass **iff** it adds information a single pass
@@ -230,7 +238,7 @@ meta-task reference).
 The first-round matrices compared the ToT+GAN pattern against a *weaker*
 single-call baseline (no matched-prompt control) and an "Innovation"
 discriminator criterion that steered toward over-complex answers. They are
-superseded by findings #2–#6 above. Kept in `evals/results/` for reproducibility:
+superseded by findings #2–#7 above. Kept in `evals/results/` for reproducibility:
 V1 (Innovation criterion) won technical problems 7-1-1 but lost organizational
 ones 0-4-2; V2 (Feasibility criterion) pooled to 20-8-2 vs V1's 7-5-3 —
 evidence that discriminator criteria steer answer *content*, not just selection,
@@ -378,7 +386,8 @@ examples/patterns/     # reference implementations of demoted engines (not shipp
   agentic_pattern.py
   dialectic_pattern.py
   ensemble_pattern.py
-  reflection_pattern.py
+  reflection_pattern.py       # canonical open-ended recipe (hetero)
+  quality_workflow_pattern.py # mode ablation switcher
   tot_gan_pattern.py
 evals/                # dev-only eval harness (not shipped in the wheel)
 tests/                # BDD features + step defs + helpers

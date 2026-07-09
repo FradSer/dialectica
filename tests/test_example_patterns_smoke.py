@@ -124,6 +124,53 @@ def test_reflection_pattern_runs_gather_frame_critique_synthesize():
     assert len(result["history"]) >= 6
 
 
+def test_quality_workflow_adversarial_mode_runs():
+    from examples.patterns.quality_workflow_pattern import (
+        create_quality_workflow_engine,
+    )
+
+    fake, _ = make_ensemble_fake(
+        {
+            "g_broad": "broad",
+            "g_critical": "critical",
+            "g_practitioner": "practitioner",
+            "g_stakeholder_opposition": "stakeholder",
+            "tension": "A vs B",
+            "c_0": "c0",
+            "c_1": "c1",
+            "c_2": "c2",
+            "c_3": "c3",
+            "rival": "rival solution",
+            "synth": "adversarial final",
+        }
+    )
+    engine = create_quality_workflow_engine("test", "adversarial")
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(engine.run())
+    assert result["mode"] == "adversarial"
+    assert result["final_answer"] == "adversarial final"
+
+
+def test_quality_workflow_dialectic_mode_runs():
+    from examples.patterns.quality_workflow_pattern import (
+        create_quality_workflow_engine,
+    )
+
+    fake, _ = make_ensemble_fake(
+        {
+            "tension": "speed vs safety — tradeoff",
+            "thesis": "thesis answer",
+            "antithesis": "rival thesis",
+            "synth": "dialectic final",
+        }
+    )
+    engine = create_quality_workflow_engine("test", "dialectic")
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(engine.run())
+    assert result["mode"] == "dialectic"
+    assert result["final_answer"] == "dialectic final"
+
+
 def test_tot_gan_pattern_runs_a_singledepth_beam():
     from examples.patterns.tot_gan_pattern import create_engine
 
