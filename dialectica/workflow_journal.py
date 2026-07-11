@@ -50,6 +50,7 @@ def agent_cache_key(
     model: str | None,
     isolation: str | None,
     agent_type: str | None,
+    sees: list[str] | None = None,
 ) -> str:
     tool_ids = tuple(id(t) for t in (tools or ()))
     schema_name = schema.__name__ if schema is not None else ""
@@ -63,6 +64,7 @@ def agent_cache_key(
         model or "",
         isolation or "",
         agent_type or "",
+        tuple(sees or ()),
     )
     payload = json.dumps(parts, default=repr)
     return hashlib.sha256(payload.encode()).hexdigest()

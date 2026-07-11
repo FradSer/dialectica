@@ -10,9 +10,11 @@ hardcoded into one fixed engine loop.
 The primitives:
 
   * ``agent(prompt, *, schema=None, tools=None, instructions="", label=None,
-    phase=None, model=None, isolation=None, agent_type=None)`` — one LLM call.
-    ``isolation="worktree"`` runs in a fresh git worktree; ``agent_type`` (e.g.
-    ``"Explore"``) applies a preset charter. See module body for full semantics.
+    phase=None, model=None, isolation=None, agent_type=None, sees=None)`` —
+    one LLM call. ``isolation="worktree"`` runs in a fresh git worktree;
+    ``agent_type`` (e.g. ``"Explore"``) applies a preset charter; ``sees``
+    is a per-step access list (Fugu-Ultra-style isolation — see below).
+    See module body for full semantics.
   * ``workflow(script_or_name, *, args=None)`` — inline child workflow (one
     nesting level) or registered name via ``register_workflow``.
   * ``run_id()`` — current run id for resume/journaling.
@@ -32,6 +34,21 @@ real file or runs a real command is grounded the way the agentic pattern is, not
 pure-LLM rearrangement — but only if the caller actually injects tools. A
 workflow built entirely from schema-only judge/synthesize stages is still
 pure-LLM and still bound by the findings above.
+
+PER-STEP ACCESS LISTS (``sees=``): a direct port of the anti-"orchestration
+collapse" mechanism Sakana's Fugu-Ultra uses. In a multi-step workflow the
+default is *isolation* — an agent sees only its own prompt, never another
+agent's transcript, so the first agent can't silently set the trajectory for
+all later ones. ``sees=["gather", "critique"]`` is the opt-in access list:
+the outputs of the named prior steps (looked up by their ``label=``) are
+appended to this agent's prompt as prior context, and *only* those. This is
+the capability-add lever for multi-step independence — it lets a later stage
+build on designated earlier outputs without letting every stage see every
+prior transcript (which Fugu-Ultra's report shows causes collapse to the
+first agent). Unknown labels are ignored, not errors, so an access list
+survives conditional branches. Does not require any training (unlike
+Fugu-Ultra's learned router); it is a pure context-visibility primitive
+over the existing ``parallel``/``pipeline``/``agent`` surface.
 
 Example — a 3-angle research fan-out + synthesis (mocked in tests):
 
@@ -192,6 +209,11 @@ class _RunCtx:
     agent_sequence: int = 0
     registry_name: str | None = None
     meta: dict[str, Any] | None = None
+    # Per-step access-list store: label -> str(result). Populated by agent()
+    # after each call so a later agent(sees=[label]) can read its output as
+    # prior context. Fugu-Ultra-style isolation: default is "own transcript
+    # only"; sees= opts in to designated prior step outputs.
+    step_outputs: dict[str, str] = field(default_factory=dict)
 
 
 _current: ContextVar[_RunCtx | None] = ContextVar(
@@ -296,6 +318,7 @@ async def agent(
     max_attempts: int = 3,
     isolation: str | None = None,
     agent_type: str | None = None,
+    sees: list[str] | None = None,
 ) -> Any:
     """One LLM call. Returns the model's text, or a validated ``schema`` instance.
 
@@ -315,7 +338,14 @@ async def agent(
     prompt plays, without needing a separate engine class. ``model`` overrides the
     model for this call only (``"openai:qwen3.6-flash"`` style, resolved the
     same way every other roster call site in this repo resolves it; ``None``
-    inherits the session default).
+    inherits the session default). ``sees`` is a per-step access list of prior
+    step labels (``sees=["gather", "critique"]``): the *outputs* of those
+    prior steps (looked up by their ``label=``) are appended to this call's
+    prompt as prior context, and only those — the default (``None``) is full
+    isolation, an agent never sees another agent's transcript. Unknown labels
+    are ignored, so an access list survives conditional branches. This is the
+    Fugu-Ultra anti-collapse lever (see module docstring): selective context
+    visibility, opt-in, no training required.
     """
     if tools and schema is not None:
         raise ValueError(
@@ -344,6 +374,7 @@ async def agent(
         model=model,
         isolation=isolation,
         agent_type=agent_type,
+        sees=sees,
     )
     sequence = ctx.agent_sequence
     cached = ctx.journal.lookup(sequence, cache_key)
@@ -378,9 +409,33 @@ async def agent(
         )
 
         effective_prompt = prompt
+        if sees:
+            prior = ctx.step_outputs
+            # Only steps that have *already finished* contribute; a label not
+            # yet written (a concurrent parallel() sibling that hasn't
+            # completed, or one that never ran) is skipped, not an error.
+            # This keeps access lists resilient to conditional branches and
+            # avoids a partial-read race under concurrency: the write happens
+            # after this agent's own LLM call returns, so a sees= reference
+            # to a not-yet-finished sibling is treated as absent rather than
+            # reading a half-written value. Callers wanting a guaranteed
+            # visible dependency should run the producer before the consumer
+            # (await it sequentially, not as a parallel() sibling).
+            blocks = [prior[s] for s in sees if s in prior]
+            if blocks:
+                effective_prompt = (
+                    "Prior context from named steps:\n"
+                    + "\n---\n".join(blocks)
+                    + "\n---\n\nTask:\n"
+                    + prompt
+                )
+        # The JSON-format instruction is gated on the *task* prompt (not the
+        # prior-context-augmented effective_prompt): an injected prior output
+        # that happens to mention "json" must not suppress the schema
+        # formatting instruction and risk prose -> parse failure.
         if schema is not None and "json" not in prompt.lower():
             effective_prompt = (
-                prompt + "\n\nReturn your answer as a single JSON object."
+                effective_prompt + "\n\nReturn your answer as a single JSON object."
             )
 
         sem = ctx.semaphore
@@ -433,6 +488,15 @@ async def agent(
     entry.cache_key = cache_key
     entry.prompt = prompt
     ctx.journal.append(entry)
+    # Record this step's output (by label) so a later agent(sees=[label])
+    # can read it as prior context. Pydantic models are serialized to their
+    # JSON form — the same representation the journal stores — so a schema
+    # step is consumable the same way a text step is.
+    if label is not None and result is not None:
+        if isinstance(result, BaseModel):
+            ctx.step_outputs[label] = result.model_dump_json()
+        else:
+            ctx.step_outputs[label] = str(result)
     ctx.agent_sequence += 1
     ctx.journal.persist(ctx.journal_path)
     return result
