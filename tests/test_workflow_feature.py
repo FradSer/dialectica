@@ -946,3 +946,136 @@ def run_worktree_agent(git_repo):
 def worktree_removed(worktree_paths):
     before, after = worktree_paths
     assert len(after) <= len(before)
+
+
+# --- Scenario 28-31: per-step access lists (Fugu-Ultra-style isolation) ----
+
+
+@given(
+    "a mocked LLM that echoes the instruction it received",
+    target_fixture="echo_instructions",
+)
+def echo_instructions():
+    seen: list[str] = []
+
+    async def fake(agent, instruction: str) -> str:
+        seen.append(instruction)
+        return instruction
+
+    return fake, seen
+
+
+def _run_two_agents_with_access(fake, sees):
+    async def script():
+        await wf.agent("first step secret: ROSEBUD", label="first")
+        return await wf.agent("second step task", label="second", sees=sees)
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        return asyncio.run(Workflow(script).run())
+
+
+@when(
+    "a second agent runs after a first without an access list",
+    target_fixture="echo_seen",
+)
+def second_agent_isolated(echo_instructions):
+    fake, seen = echo_instructions
+    _run_two_agents_with_access(fake, sees=None)
+    return seen
+
+
+@then("the second agent's instruction does not contain the first agent's output")
+def second_isolated(echo_seen):
+    assert "ROSEBUD" in echo_seen[0]
+    assert "ROSEBUD" not in echo_seen[1]
+
+
+@when(
+    "a second agent runs after a first with the first's label in its access list",
+    target_fixture="echo_seen",
+)
+def second_agent_sees_first(echo_instructions):
+    fake, seen = echo_instructions
+    _run_two_agents_with_access(fake, sees=["first"])
+    return seen
+
+
+@then("the second agent's instruction contains the first agent's output")
+def second_sees_first(echo_seen):
+    assert "ROSEBUD" in echo_seen[1]
+
+
+@when(
+    "a third agent runs seeing the first but not the second step",
+    target_fixture="echo_seen",
+)
+def third_agent_sees_first_only(echo_instructions):
+    fake, seen = echo_instructions
+
+    async def script():
+        await wf.agent("first step secret: ROSEBUD", label="first")
+        await wf.agent("second step secret: LILAC", label="second")
+        return await wf.agent("third step task", label="third", sees=["first"])
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        asyncio.run(Workflow(script).run())
+    return seen
+
+
+@then("the third agent's instruction contains the first agent's output")
+def third_sees_first(echo_seen):
+    assert "ROSEBUD" in echo_seen[-1]
+
+
+@then("the third agent's instruction does not contain the second agent's output")
+def third_isolated_from_second(echo_seen):
+    assert "LILAC" not in echo_seen[-1]
+
+
+@when(
+    "an agent runs with an access list naming a step that never ran",
+    target_fixture="unknown_access_result",
+)
+def agent_unknown_access_label(echo_instructions):
+    fake, _ = echo_instructions
+
+    async def script():
+        return await wf.agent("do it", label="solo", sees=["ghost"])
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        return asyncio.run(Workflow(script).run())
+
+
+@then("it runs and returns its own prompt without error")
+def unknown_access_ok(unknown_access_result):
+    assert unknown_access_result == "do it"
+
+
+# --- Scenario 32: regression — JSON instruction not suppressed by sees= context ---
+
+
+class _Decision(BaseModel):
+    choice: str
+
+
+@when(
+    "a schema agent sees a prior step whose output contains the word json",
+    target_fixture="schema_sees_seen",
+)
+def schema_agent_sees_json_step(echo_instructions):
+    fake, seen = echo_instructions
+
+    async def script():
+        await wf.agent("Explain json parsing libraries", label="gather")
+        return await wf.agent(
+            "Decide", schema=_Decision, label="decide", sees=["gather"]
+        )
+
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        asyncio.run(Workflow(script).run())
+    return seen
+
+
+@then("the schema agent's instruction contains the JSON-format directive")
+def schema_agent_has_json_directive(schema_sees_seen):
+    assert "Return your answer as a single JSON object." in schema_sees_seen[-1]

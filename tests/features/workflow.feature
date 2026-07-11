@@ -144,3 +144,29 @@ Feature: Workflow orchestration primitives
     When agent runs with worktree isolation and no file changes
     Then the worktree directory is removed
 
+  Scenario: an agent is isolated from prior steps by default
+    Given a mocked LLM that echoes the instruction it received
+    When a second agent runs after a first without an access list
+    Then the second agent's instruction does not contain the first agent's output
+
+  Scenario: an agent can see a designated prior step's output via an access list
+    Given a mocked LLM that echoes the instruction it received
+    When a second agent runs after a first with the first's label in its access list
+    Then the second agent's instruction contains the first agent's output
+
+  Scenario: an agent only sees the steps named in its access list, not others
+    Given a mocked LLM that echoes the instruction it received
+    When a third agent runs seeing the first but not the second step
+    Then the third agent's instruction contains the first agent's output
+    And the third agent's instruction does not contain the second agent's output
+
+  Scenario: an access list referencing an unknown step label is ignored
+    Given a mocked LLM that echoes the instruction it received
+    When an agent runs with an access list naming a step that never ran
+    Then it runs and returns its own prompt without error
+
+  Scenario: a schema agent gets the JSON instruction even if a seen step mentions json
+    Given a mocked LLM that echoes the instruction it received
+    When a schema agent sees a prior step whose output contains the word json
+    Then the schema agent's instruction contains the JSON-format directive
+
