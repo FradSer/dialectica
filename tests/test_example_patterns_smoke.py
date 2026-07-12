@@ -124,6 +124,69 @@ def test_reflection_pattern_runs_gather_frame_critique_synthesize():
     assert len(result["history"]) >= 6
 
 
+def test_reflection_pattern_access_list_mode_routes_prior_context_via_sees():
+    """Access-list mode: critique/synthesize pull prior context through sees=.
+
+    Verifies the kernel ``agent(sees=[...])`` primitive is actually wired into
+    the shipped reflection recipe: each critique's instruction carries the
+    corresponding gather angle's output as injected prior context, and the
+    synthesize instruction carries the tension + a critique's output. The
+    default (inlined-prompt) mode would instead bake those into the prompt via
+    .format() — these assertions fail under the default mode, proving the two
+    code paths diverge exactly where the access-list lever lives.
+    """
+    from examples.patterns.reflection_pattern import create_reflection_engine
+
+    outputs = {
+        "g_broad": "BROAD-FINDING-X",
+        "g_critical": "CRITICAL-FINDING-Y",
+        "g_practitioner": "PRACT-FINDING-Z",
+        "g_stakeholder_opposition": "STAKE-FINDING-W",
+        "tension": "TENSION-T",
+        "c_0": "critique-zero",
+        "c_1": "critique-one",
+        "c_2": "critique-two",
+        "c_3": "critique-three",
+        "synth": "final reflected answer",
+    }
+    fake, _counter = make_ensemble_fake(outputs)
+    instructions: list[str] = []
+
+    async def spy(agent, instruction):
+        instructions.append(instruction)
+        return await fake(agent, instruction)
+
+    engine = create_reflection_engine(
+        "Should we ship?",
+        angle_models={
+            "broad": "google:gemini-3.5-flash",
+            "critical": "openai:qwen3.6-flash",
+            "practitioner": "google:gemini-3.5-flash",
+            "stakeholder-opposition": "openai:glm-5.2",
+        },
+        frame_model="google:gemini-3.5-flash",
+        critique_model="openai:qwen3.6-flash",
+        synthesize_model="openai:glm-5.2",
+        use_access_lists=True,
+    )
+    with patch("dialectica.agent_runtime.run_agent", spy):
+        result = asyncio.run(engine.run())
+
+    assert result["final_answer"] == "final reflected answer"
+    # Critique 0's instruction must carry ONLY the broad gather finding as
+    # injected prior context (sees=["g_broad"]), not the others.
+    c0_instr = instructions[5]  # 4 gather + 1 frame, then critiques 0..3
+    assert "BROAD-FINDING-X" in c0_instr
+    assert "CRITICAL-FINDING-Y" not in c0_instr
+    assert "PRACT-FINDING-Z" not in c0_instr
+    assert "Prior context from named steps" in c0_instr
+    # Synthesize's instruction must carry the tension + every critique output.
+    synth_instr = instructions[-1]
+    assert "TENSION-T" in synth_instr
+    assert "critique-zero" in synth_instr
+    assert "critique-three" in synth_instr
+
+
 def test_quality_workflow_adversarial_mode_runs():
     from examples.patterns.quality_workflow_pattern import (
         create_quality_workflow_engine,

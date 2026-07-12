@@ -13,6 +13,16 @@ Prefer this over ``create_quality_workflow_engine`` unless comparing modes.
 
 Reproduce: ``uv run python -m evals.reflection_ablation``
              ``uv run python -m evals.quality_workflow_ablation``
+
+ACCESS-LIST MODE (``use_access_lists=True``): instead of inlining prior-stage
+outputs into each stage's prompt via ``.format()``, critique and synthesize
+pull their prior context through the kernel ``agent(sees=[...])`` primitive
+(Fugu-Ultra-style selective visibility): each critique sees *only* its own
+gather angle, and synthesize sees the tension + the set of critiques — never
+the full transcript. This is structurally cleaner (shorter task prompts,
+kernel-enforced isolation) and exercises ``sees=`` on a shipped-recipe code
+path; the measured results above were taken with inlined prompts, so this mode
+is opt-in until an ablation shows it lifts or ties on the same matrices.
 """
 
 import logging
@@ -59,6 +69,22 @@ PROBLEM:
 ANALYSIS:
 {analysis}"""
 
+# Access-list variant: the gather angle's output arrives via agent(sees=...),
+# so the prompt names it as prior context rather than inlining it. Mirrors
+# CRITIQUE_PROMPT minus the ANALYSIS block.
+CRITIQUE_PROMPT_SEES = """Critique the prior-context analysis of this problem. \
+Be the smartest skeptic in the room:
+- Name the single most important concrete thing this analysis gets WRONG or LEAVES OUT.
+- State the one question a decision-maker would ask that this analysis cannot answer.
+- State the ONE specific contrarian position a stronger final answer MUST defend \
+taking (the unpopular-but-correct call the analysis avoided).
+- Give the specific correction the synthesis MUST make to not repeat this flaw.
+
+PROBLEM:
+{problem}
+
+The analysis to critique is in the prior context above."""
+
 SYNTHESIZE_PROMPT = """You are the lead decision-maker. Write the final answer to:
 {problem}
 
@@ -86,6 +112,27 @@ ANALYSES:
 
 CRITIQUES (address the weaknesses, do not repeat them):
 {critiques}"""
+
+# Access-list variant: tension + critiques arrive via agent(sees=[...]) as
+# prior context, so the prompt references them there rather than inlining.
+SYNTHESIZE_PROMPT_SEES = """You are the lead decision-maker. Write the final answer to:
+{problem}
+
+The core tension and the critiques are in the prior context above. Your \
+synthesis must be BETTER than a single expert's first pass: concrete, \
+specific, actionable, and free of generic consultant prose.
+
+Rules:
+- Pick ONE binding decision and commit to it. Do NOT enumerate every option — \
+  a single-pass answer already does that. Yours wins by sharpness, not coverage.
+- Lead with the single sharpest recommendation and the precise trigger that \
+  decides it (a measurable condition, not 'when ready').
+- Resolve the core tension explicitly: name the condition under which each side wins, \
+  and make a decisive recommendation for THIS problem's context.
+- Name the non-obvious failure mode a naive answer misses — the one the critiques \
+  flagged — and how this answer structurally avoids it.
+- Carry forward the specific numbers, sequencing, and trade-offs from the prior \
+  context; do NOT abstract them into vagueness."""
 
 
 def _default_angle_models(roster: list[str]) -> dict[str, str]:
@@ -129,6 +176,7 @@ class ReflectionEngine:
         critique_model: str | None = None,
         synthesize_model: str | None = None,
         angles: list[str] | None = None,
+        use_access_lists: bool = False,
     ):
         self.problem = problem
         self.angles = angles if angles is not None else list(DEFAULT_ANGLES)
@@ -150,6 +198,11 @@ class ReflectionEngine:
             self.critique_model,
             self.synthesize_model,
         )
+        # When True, critique/synthesize pull prior-stage outputs through the
+        # kernel agent(sees=[...]) primitive (Fugu-Ultra-style selective
+        # visibility) instead of inlining them via .format(). See module
+        # docstring for why this is opt-in.
+        self.use_access_lists = use_access_lists
 
     async def run(self) -> dict[str, Any]:
         """Execute gather → frame → critique → synthesize and return trace + answer."""
@@ -170,9 +223,13 @@ class ReflectionEngine:
                 ]
             )
             findings: list[str] = []
+            # (gather label, finding text) pairs so the access-list critique
+            # can name its producer via sees=["g_<angle>"].
+            labeled_findings: list[tuple[str, str]] = []
             for angle, text in zip(self.angles, findings_raw, strict=True):
                 if text:
                     findings.append(text)
+                    labeled_findings.append((f"g_{angle}", text))
                     history.append(
                         {
                             "stage": "gather",
@@ -200,18 +257,34 @@ class ReflectionEngine:
             )
 
             wf.phase("Critique")
-            critiques_raw = await wf.pipeline(
-                findings,
-                lambda f, _, i: wf.agent(
-                    CRITIQUE_PROMPT.format(problem=self.problem, analysis=f),
-                    model=self.critique_model,
-                    label=f"c_{i}",
-                ),
-            )
+            if self.use_access_lists:
+                # Each critique sees ONLY its own gather angle's output via
+                # the kernel sees= primitive — selective visibility, not a
+                # full transcript dump (Fugu-Ultra anti-collapse).
+                critiques_raw = await wf.pipeline(
+                    labeled_findings,
+                    lambda lf, _, i: wf.agent(
+                        CRITIQUE_PROMPT_SEES.format(problem=self.problem),
+                        model=self.critique_model,
+                        label=f"c_{i}",
+                        sees=[lf[0]],
+                    ),
+                )
+            else:
+                critiques_raw = await wf.pipeline(
+                    labeled_findings,
+                    lambda lf, _, i: wf.agent(
+                        CRITIQUE_PROMPT.format(problem=self.problem, analysis=lf[1]),
+                        model=self.critique_model,
+                        label=f"c_{i}",
+                    ),
+                )
             critiques: list[str] = []
+            critique_labels: list[str] = []
             for i, text in enumerate(critiques_raw):
                 if text:
                     critiques.append(text)
+                    critique_labels.append(f"c_{i}")
                     history.append(
                         {
                             "stage": "critique",
@@ -222,18 +295,33 @@ class ReflectionEngine:
                     )
 
             wf.phase("Synthesize")
-            final = (
-                await wf.agent(
-                    SYNTHESIZE_PROMPT.format(
-                        problem=self.problem,
-                        tension=tension,
-                        findings="\n\n".join(findings),
-                        critiques="\n\n".join(critiques),
-                    ),
-                    model=self.synthesize_model,
-                    label="synth",
-                )
-            ).strip()
+            if self.use_access_lists:
+                # Synthesize sees the tension + every critique's output via
+                # sees= — gathered analyses remain visible through the
+                # critiques that reference them, but the raw gather
+                # transcripts are not re-injected, preserving the
+                # selective-visibility discipline.
+                final = (
+                    await wf.agent(
+                        SYNTHESIZE_PROMPT_SEES.format(problem=self.problem),
+                        model=self.synthesize_model,
+                        label="synth",
+                        sees=["tension", *critique_labels],
+                    )
+                ).strip()
+            else:
+                final = (
+                    await wf.agent(
+                        SYNTHESIZE_PROMPT.format(
+                            problem=self.problem,
+                            tension=tension,
+                            findings="\n\n".join(findings),
+                            critiques="\n\n".join(critiques),
+                        ),
+                        model=self.synthesize_model,
+                        label="synth",
+                    )
+                ).strip()
             history.append(
                 {
                     "stage": "synthesize",
@@ -266,6 +354,7 @@ def create_reflection_engine(
     critique_model: str | None = None,
     synthesize_model: str | None = None,
     angles: list[str] | None = None,
+    use_access_lists: bool = False,
 ) -> ReflectionEngine:
     """Wire a ReflectionEngine for open-ended multi-angle reflection.
 
@@ -280,6 +369,11 @@ def create_reflection_engine(
             critique_model=MODEL,
             synthesize_model=MODEL,
         )
+
+    Set ``use_access_lists=True`` to route critique/synthesize prior context
+    through the kernel ``agent(sees=[...])`` primitive (Fugu-Ultra-style
+    selective visibility) instead of inlining via ``.format()``. Opt-in: the
+    measured results were taken with inlined prompts.
     """
     return ReflectionEngine(
         problem,
@@ -289,4 +383,5 @@ def create_reflection_engine(
         critique_model=critique_model,
         synthesize_model=synthesize_model,
         angles=angles,
+        use_access_lists=use_access_lists,
     )

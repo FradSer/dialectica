@@ -97,3 +97,45 @@ async def test_default_isolation_holds_against_a_live_model():
     assert secret not in result.upper(), (
         f"isolation leaked prior output to the live model; got: {result!r}"
     )
+
+
+async def test_reflection_recipe_access_list_mode_runs_against_live_models():
+    """The shipped reflection recipe in access-list mode works on real models.
+
+    Runs the canonical open-ended recipe (examples.patterns.reflection_pattern)
+    with ``use_access_lists=True`` against a heterogeneous cliproxy roster, so
+    critique/synthesize pull prior context through the kernel ``sees=``
+    primitive rather than inlined prompts. This proves the Fugu-style
+    selective-visibility wiring composes with the measured reflection recipe
+    end-to-end — the primitive isn't just exercised by synthetic kernel tests,
+    it carries a real multi-stage meta-task to a coherent answer.
+    """
+    from examples.patterns.reflection_pattern import create_reflection_engine
+
+    engine = create_reflection_engine(
+        "A 12-person engineering team is deciding whether to migrate a stable "
+        "monolith to microservices. They have 6 months and one senior architect. "
+        "What is the binding recommendation?",
+        angle_models={
+            "broad": "openai:qwen3.6-flash",
+            "critical": "openai:glm-5.2",
+            "practitioner": "openai:qwen3.6-flash",
+            "stakeholder-opposition": "openai:glm-5.2",
+        },
+        frame_model="openai:glm-5.2",
+        critique_model="openai:qwen3.6-flash",
+        synthesize_model="openai:glm-5.2",
+        use_access_lists=True,
+    )
+    result = await engine.run()
+
+    final = result["final_answer"]
+    assert isinstance(final, str)
+    assert len(final) > 120, f"final answer too short; got: {final!r}"
+    # The recipe's synthesize instruction commits to ONE binding decision, so a
+    # faithful live run must produce a non-empty, substantive answer — not a
+    # refusal, not a generic hedge.
+    assert final.strip(), "final answer is empty"
+    stages = {entry["stage"] for entry in result["history"]}
+    assert stages == {"gather", "frame", "critique", "synthesize"}
+    assert len(result["history"]) >= 6
