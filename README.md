@@ -62,7 +62,7 @@ A composable multi-agent runtime — the programmatic surface Claude Code's
 `pipeline()` / `workflow()` / `phase()` / `log()` / `budget()` / `run_id()`.
 For *meta-task* orchestration (research, review, planning, design).
 
-- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None, isolation=None, agent_type=None)`** — one LLM call. `schema` forces structured JSON; **`tools`** is the capability-add lever (8/8 vs 0/8 on hidden-oracle). `isolation="worktree"` runs in a fresh git worktree (auto-removed if clean). `agent_type` (e.g. `"Explore"`) applies a read-only exploration charter. ADK forbids `tools` + `schema` on one call — split across stages.
+- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None, isolation=None, agent_type=None, sees=None)`** — one LLM call. `schema` forces structured JSON; **`tools`** is the capability-add lever (8/8 vs 0/8 on hidden-oracle). `isolation="worktree"` runs in a fresh git worktree (auto-removed if clean). `agent_type` (e.g. `"Explore"`) applies a read-only exploration charter. ADK forbids `tools` + `schema` on one call — split across stages. **`sees`** is a per-step access list (inspired by Sakana Fugu-Ultra's anti-"orchestration-collapse" mechanism): default is full isolation (an agent never sees another agent's transcript); `sees=["gather","critique"]` injects only the named prior steps' outputs into this call's prompt. Unknown/unfinished labels are skipped, not errors, so access lists survive conditional branches.
 - **`workflow(script_or_name, *, args=None)`** — inline child workflow (one nesting level); shares outer budget. Pass a registered name via `register_workflow`.
 - **`parallel(thunks)`** / **`pipeline(items, *stages)`** — concurrent barrier / per-item staged flow; max 4,096 items per call; 1,000 `agent()` calls per run.
 - **Resume** — each run journals `agent()` calls under `.dialectica/workflows/<run_id>/`; `Workflow(..., resume_run_id=...)` replays the longest unchanged prefix from cache.
@@ -153,7 +153,7 @@ them keep working unchanged.
 | `agentic_pattern.py` (`create_agentic_engine`) | `agent(tools=[...], instructions=...)` as a standalone tool-using stage | Same 8/8 vs 0/8 win as the kernel primitive — kept only as a copy-pasteable recipe with the tailored system prompt, not because the capability needs a class. |
 | `dialectic_pattern.py` (`create_dialectic_engine`) | thesis → antithesis → synthesis spiral, scored via `agent(schema=Verdict)` | Ties/loses a prompt-matched single call (**0-3-2**); auditable trace only, not a quality win. |
 | `ensemble_pattern.py` (`create_ensemble_engine`) | AB-MCTS-lite adaptive search (Thompson-sampling bandit) over a heterogeneous roster | **CUT** by the honesty gate — a blind-pick roster (scorer replaced by a constant) matched the real scorer's robustness gain; the signal adds nothing over heterogeneity alone. |
-| `reflection_pattern.py` (`create_reflection_engine`) | **Canonical** open-ended recipe: hetero gather → frame → critique → synthesize on `Workflow` | ✅ Measured win — **5-0-0** vs single/homo on meta (finding #6); **10-0-0** vs single on meta+default via quality ablation (finding #7). No LLM scorer / AB-MCTS. |
+| `reflection_pattern.py` (`create_reflection_engine`) | **Canonical** open-ended recipe: hetero gather → frame → critique → synthesize on `Workflow`. Opt-in `use_access_lists=True` routes critique/synthesize prior context through the kernel `sees=` primitive (Fugu-Ultra-style selective visibility) instead of inlining via `.format()`. | ✅ Measured win — **5-0-0** vs single/homo on meta (finding #6); **10-0-0** vs single on meta+default via quality ablation (finding #7). No LLM scorer / AB-MCTS. Access-list mode is opt-in; the measured numbers above used inlined prompts. |
 | `quality_workflow_pattern.py` (`create_quality_workflow_engine`) | Mode switcher over the same roster: `reflection` (default, delegates to reflection_pattern) / `adversarial` / `dialectic` | Ablation harness — adversarial/dialectic add no consistent lift over hetero reflection (finding #7). Prefer `create_reflection_engine` unless comparing modes. |
 | `tot_gan_pattern.py` (`create_engine`/`create_coordinator`) | beam search + GAN-style adversarial refinement, `parallel()` for sibling expand/evaluate | **Measured dominated** — never wins a matchup against single/best-of-N/self-refine at matched compute; loses to a single call on Game-of-24 at ~34× the cost. |
 
@@ -191,6 +191,7 @@ uv run python -m evals.ensemble_meta_ablation   # ensemble pattern honesty gate 
 uv run python -m evals.reflection_ablation      # reflection pattern: hetero vs homo vs single (open-ended)
 uv run python -m evals.quality_workflow_ablation  # multi-model modes vs single (meta+default, 10 problems)
 uv run python -m evals.workflow_ablation        # homogeneous reflection vs single (open-ended)
+uv run python -m evals.access_list_scale        # high-concurrency throughput/latency of access-list reflection (any OpenAI-compatible endpoint)
 ```
 
 ### Headline findings (measured, no preset conclusion)
@@ -217,6 +218,8 @@ uv run python -m evals.workflow_ablation        # homogeneous reflection vs sing
    - **vs single:** homo reflection **4-0-6** (NET +4); hetero reflection **10-0-0** (NET +10); hetero adversarial **9-0-1** (NET +9); hetero dialectic **9-0-1** (NET +9).
    - **vs hetero reflection (does the extra stage help?):** adversarial **2-0-8** (NET +2); dialectic **0-1-9** (NET −1).
    - **Takeaway:** hetero `reflection` is the default — it sweeps the expanded pool. Extra adversarial-rival or one-round dialectic stages add no consistent lift over hetero reflection (mostly ties; dialectic loses one head-to-head). Prefer `create_reflection_engine`; keep `quality_workflow_pattern` for mode comparison only. Reproduce: `uv run python -m evals.quality_workflow_ablation`.
+
+8. **Access lists — a context-visibility lever, ported from Sakana Fugu (2026-07-12).** A study of Sakana's Fugu/Fugu-Ultra orchestrators (TRINITY + The Conductor, ICLR 2026) confirmed the law above from the other direction: Fugu's win over each single worker comes from **model independence + a learned router**, not tools the workers lack, and a learned communication topology with per-step access lists. The one mechanism portable to a no-training kernel is the **access list** — `agent(sees=[...])` now ships as a kernel primitive: default full isolation, opt-in to inject only designated prior steps' outputs. It is wired into the reflection recipe via `use_access_lists=True` (each critique sees only its own gather angle; synthesize sees the tension + critiques, not the full transcript), and verified against a live model (`glm-5.2` via an OpenAI-compatible endpoint). The measured reflection numbers above used inlined prompts, so access-list mode stays opt-in until an ablation shows it lifts or ties on the same matrices. Reproduce the live check: `uv run pytest -m e2e_access`; scale it: `uv run python -m evals.access_list_scale`.
 
 ### The law these findings all point to
 
@@ -289,7 +292,7 @@ stable `gemini-3.1-pro` (404 on generateContent). Provider strings are
 
 ### Parameters
 
-- **`agent()`** — `tools` (injected callables), `instructions` (task-specific guidance), `schema` (structured output), `model` (per-call override), `isolation="worktree"`, `agent_type` (e.g. `"Explore"`).
+- **`agent()`** — `tools` (injected callables), `instructions` (task-specific guidance), `schema` (structured output), `model` (per-call override), `isolation="worktree"`, `agent_type` (e.g. `"Explore"`), `sees` (per-step access list of prior step labels for selective context visibility).
 - **`Workflow`** — `budget_total` / `budget_unit` (`"calls"` or `"tokens"`), `resume_run_id`, `meta`, `concurrency`; `budget().usage()` includes `cached_tokens` when the backend reports cache hits.
 - **`create_repair_engine`** — `verifier` (mandatory), `max_attempts`, `solution_format`, `models` (optional roster).
 - **Patterns** — see each pattern's own docstring/factory signature in `examples/patterns/`; they keep their demoted engine's original parameters (e.g. `scorer`/`policy` for the ensemble pattern, `criteria`/`rounds` for the dialectic pattern).
@@ -331,6 +334,7 @@ from examples.patterns.reflection_pattern import create_reflection_engine
 engine = create_reflection_engine(
     "Design the pricing tier",
     # default roster: openai:qwen3.6-flash + openai:glm-5.2
+    # use_access_lists=True  # route prior context through sees= instead of inlining
 )
 result = await engine.run()
 # {"final_answer", "history", "heterogeneous"}
@@ -352,6 +356,7 @@ reflection `history` records stage, label, and model.
 uv sync                                         # install deps
 uv run pytest                                   # mocked, fast, no API key
 uv run pytest -m e2e                            # live E2E (needs GOOGLE_API_KEY)
+uv run pytest -m e2e_access                     # live access-list tests (needs OPENAI_API_BASE + OPENAI_API_KEY + DEFAULT_MODEL_CONFIG=openai:...)
 uv run ruff format && uv run ruff check         # format / lint
 ```
 
@@ -382,15 +387,16 @@ dialectica/
   json_repair.py       # shared fence/escape JSON-repair helpers
   llm_config.py        # provider:model parsing (google/openrouter/openai)
   repair.py            # create_repair_engine (cost win)
-  workflow.py           # Workflow + agent/parallel/pipeline/phase/log/budget (the kernel)
+  workflow.py           # Workflow + agent/parallel/pipeline/phase/log/budget + sees= access lists (the kernel)
 examples/patterns/     # reference implementations of demoted engines (not shipped)
   agentic_pattern.py
   dialectic_pattern.py
   ensemble_pattern.py
-  reflection_pattern.py       # canonical open-ended recipe (hetero)
+  reflection_pattern.py       # canonical open-ended recipe (hetero); opt-in use_access_lists
   quality_workflow_pattern.py # mode ablation switcher
   tot_gan_pattern.py
 evals/                # dev-only eval harness (not shipped in the wheel)
+  access_list_scale.py       # high-concurrency throughput/latency harness for sees= reflection
 tests/                # BDD features + step defs + helpers
 docs/plans/            # design + plan folders (brainstorming/writing-plans)
 ```
@@ -430,8 +436,10 @@ result = await Workflow(lambda: agent(task, tools=[...])).run()
 
 `create_repair_engine`'s signature and return shape are unchanged.
 `workflow.agent()` gained `instructions=` (task-specific system-prompt
-framing) and now correctly resolves `provider:model`-style `model=`
-overrides (previously passed through unresolved). `dialectica.gan_evaluator`
+framing), now correctly resolves `provider:model`-style `model=` overrides
+(previously passed through unresolved), and gained `sees=` (a per-step
+access list for selective context visibility — Fugu-Ultra-inspired
+anti-collapse; opt-in, default unchanged). `dialectica.gan_evaluator`
 is renamed `dialectica.json_repair` (only the shared fence/escape helpers
 survive; the GAN-specific classes moved to `examples/patterns/tot_gan_pattern.py`).
 
@@ -453,6 +461,7 @@ MIT — see `LICENSE`.
 
 - [Tree of Thoughts](https://arxiv.org/abs/2305.10601) — Yao et al., 2023 (the ToT+GAN pattern's lineage; now reference-only).
 - [Sakana AB-MCTS / "Wider or Deeper?"](https://arxiv.org/abs/2503.04412) — the ensemble pattern's lineage (independence + ground-truth signal).
+- [Sakana Fugu](https://sakana.ai/fugu/) — the multi-model coordinator whose per-step access-list mechanism inspired the kernel's `sees=` primitive (finding #8).
 - [karpathy/autoresearch](https://github.com/karpathy/autoresearch) — inspiration.
 
 ## Acknowledgments
