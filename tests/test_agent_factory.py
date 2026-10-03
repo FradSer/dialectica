@@ -24,15 +24,20 @@ def test_unknown_role_falls_back_to_generator():
     assert "generating high-quality thoughts" in agent.instruction
 
 
-def test_output_schema_forces_structured_output_and_drops_tools():
+def test_output_schema_preserves_tools_for_adk_capability_handling():
+    """Given a schema and a tool, creating the agent preserves both for ADK."""
+
+    def lookup() -> int:
+        return 1
+
     agent = create_agent(
         role="Generator",
         role_name="Generator",
-        tools=[lambda: None],
+        tools=[lookup],
         output_schema=_Schema,
     )
     assert agent.output_schema is _Schema
-    assert agent.tools == []
+    assert agent.tools == [lookup]
 
 
 def test_additional_context_is_injected():

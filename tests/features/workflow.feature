@@ -55,9 +55,9 @@ Feature: Workflow orchestration primitives
     When agent runs with a tool injected
     Then the underlying agent carries that tool
 
-  Scenario: agent rejects combining tools with schema
+  Scenario: agent combines tools with schema using ADK model capabilities
     When agent runs with both tools and a schema
-    Then it raises ValueError naming the ADK conflict
+    Then the tool is preserved and the result is a validated schema
 
   Scenario: agent injects instructions into the underlying agent's system prompt
     Given a mocked LLM that records the agent it receives
@@ -169,4 +169,3 @@ Feature: Workflow orchestration primitives
     Given a mocked LLM that echoes the instruction it received
     When a schema agent sees a prior step whose output contains the word json
     Then the schema agent's instruction contains the JSON-format directive
-

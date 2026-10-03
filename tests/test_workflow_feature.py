@@ -373,29 +373,31 @@ def tools_wired(tools_result):
     assert _noop_tool in tools_result["agent"].tools
 
 
-# --- Scenario 10: tools + schema is rejected ------------------------------
+# --- Scenario 10: tools + schema is delegated to ADK ----------------------
 
 
-@when("agent runs with both tools and a schema", target_fixture="conflict_error")
-def run_agent_conflict():
+@when("agent runs with both tools and a schema", target_fixture="combined_result")
+def run_agent_combined():
+    captured = {}
+
     async def fake(agent, instruction: str) -> str:
-        return "ok"
+        captured["agent"] = agent
+        return '{"label": "combined", "score": 42}'
 
     async def script():
-        await wf.agent("do it", tools=[_noop_tool], schema=_Item)
+        return await wf.agent("do it", tools=[_noop_tool], schema=_Item)
 
     with patch("dialectica.agent_runtime.run_agent", fake):
-        try:
-            asyncio.run(Workflow(script).run())
-            return None
-        except ValueError as e:
-            return e
+        captured["result"] = asyncio.run(Workflow(script).run())
+    return captured
 
 
-@then("it raises ValueError naming the ADK conflict")
-def conflict_raised(conflict_error):
-    assert conflict_error is not None
-    assert "tools" in str(conflict_error) and "schema" in str(conflict_error)
+@then("the tool is preserved and the result is a validated schema")
+def combined_validated(combined_result):
+    assert _noop_tool in combined_result["agent"].tools
+    assert combined_result["agent"].output_schema is _Item
+    assert isinstance(combined_result["result"], _Item)
+    assert combined_result["result"].score == 42
 
 
 # --- Scenario 11: agent(instructions=...) reaches the system prompt -------

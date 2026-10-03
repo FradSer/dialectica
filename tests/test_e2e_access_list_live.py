@@ -112,19 +112,21 @@ async def test_reflection_recipe_access_list_mode_runs_against_live_models():
     """
     from examples.patterns.reflection_pattern import create_reflection_engine
 
+    fast_model = os.getenv("E2E_REFLECTION_FAST_MODEL", "openai:qwen3.6-flash")
+    strong_model = os.getenv("E2E_REFLECTION_STRONG_MODEL", "openai:glm-5.2")
     engine = create_reflection_engine(
         "A 12-person engineering team is deciding whether to migrate a stable "
         "monolith to microservices. They have 6 months and one senior architect. "
         "What is the binding recommendation?",
         angle_models={
-            "broad": "openai:qwen3.6-flash",
-            "critical": "openai:glm-5.2",
-            "practitioner": "openai:qwen3.6-flash",
-            "stakeholder-opposition": "openai:glm-5.2",
+            "broad": fast_model,
+            "critical": strong_model,
+            "practitioner": fast_model,
+            "stakeholder-opposition": strong_model,
         },
-        frame_model="openai:glm-5.2",
-        critique_model="openai:qwen3.6-flash",
-        synthesize_model="openai:glm-5.2",
+        frame_model=strong_model,
+        critique_model=fast_model,
+        synthesize_model=strong_model,
         use_access_lists=True,
     )
     result = await engine.run()
@@ -138,4 +140,111 @@ async def test_reflection_recipe_access_list_mode_runs_against_live_models():
     assert final.strip(), "final answer is empty"
     stages = {entry["stage"] for entry in result["history"]}
     assert stages == {"gather", "frame", "critique", "synthesize"}
-    assert len(result["history"]) >= 6
+    assert len(result["history"]) == 10, (
+        "all four gather and critique calls must succeed"
+    )
+    assert all(entry["text"].strip() for entry in result["history"])
+
+
+async def test_parallel_resume_preserves_context_and_usage_with_live_model(tmp_path):
+    """Real calls populate the journal; resume only calls a changed consumer."""
+    from unittest.mock import patch
+    from uuid import uuid4
+
+    from dialectica import agent_runtime
+    from dialectica.workflow_journal import RunJournal
+
+    secret = "RESUME-" + uuid4().hex
+    holder = {}
+    changed = False
+    calls = []
+    real_run_agent = agent_runtime.run_agent
+
+    async def observed_call(agent, instruction, **kwargs):
+        calls.append(instruction)
+        return await real_run_agent(agent, instruction, **kwargs)
+
+    async def script():
+        holder["id"] = wf.run_id()
+        await wf.parallel(
+            [
+                lambda: wf.agent(
+                    f"Output this value verbatim and nothing else: {secret}",
+                    label="producer",
+                ),
+                lambda: wf.agent("Output READY and nothing else.", label="other"),
+            ]
+        )
+        return await wf.agent(
+            "Output the value beginning RESUME- from prior context verbatim and nothing else."
+            + (" Do not add punctuation." if changed else ""),
+            label="consumer",
+            sees=["producer"],
+        )
+
+    with patch("dialectica.agent_runtime.run_agent", observed_call):
+        first = await Workflow(script, journal_dir=tmp_path).run()
+        assert secret in first
+        journal = RunJournal.load(holder["id"], tmp_path)
+        assert [entry.sequence for entry in journal.entries] == [0, 1, 2]
+        assert all(entry.usage.total_tokens > 0 for entry in journal.entries)
+        changed = True
+        calls.clear()
+        resumed = await Workflow(
+            script, journal_dir=tmp_path, resume_run_id=holder["id"]
+        ).run()
+        assert secret in resumed
+        assert len(calls) == 1
+        assert secret in calls[0]
+        calls.clear()
+        replayed = await Workflow(
+            script, journal_dir=tmp_path, resume_run_id=holder["id"]
+        ).run()
+        assert replayed == resumed
+        assert calls == []
+        assert len(RunJournal.load(holder["id"], tmp_path).entries) == 3
+
+
+@pytest.mark.parametrize("recover", [True, False])
+async def test_live_response_failure_before_event_keeps_usage(tmp_path, recover):
+    """Real model metadata survives a local callback error before event creation."""
+    from unittest.mock import patch
+
+    from dialectica.workflow_journal import RunJournal
+
+    original_factory = wf.create_agent
+    totals = []
+    holder = {}
+    budget_holder = {}
+
+    def after_model(callback_context, llm_response):
+        usage = llm_response.usage_metadata
+        assert usage is not None and usage.total_token_count > 0
+        totals.append(usage.total_token_count)
+        if not recover or len(totals) == 1:
+            raise ConnectionError("intentional local failure before ADK event")
+
+    def factory(*args, **kwargs):
+        agent = original_factory(*args, **kwargs)
+        agent.after_model_callback = after_model
+        return agent
+
+    async def script():
+        holder["id"] = wf.run_id()
+        budget_holder["budget"] = wf.budget()
+        return await wf.agent("Reply with READY and nothing else.")
+
+    with patch("dialectica.workflow.create_agent", factory):
+        if recover:
+            result = await Workflow(script, journal_dir=tmp_path).run()
+            assert "READY" in result.upper()
+        else:
+            with pytest.raises(ConnectionError) as caught:
+                await Workflow(script, journal_dir=tmp_path).run()
+            assert caught.value.dialectica_usage.total_tokens == sum(totals)
+    assert len(totals) == (2 if recover else 3)
+    journal = RunJournal.load(holder["id"], tmp_path)
+    assert journal.entries[0].usage.total_tokens == sum(totals)
+    assert journal.entries[0].usage.unknown_calls == 0
+    assert journal.entries[0].result_kind == ("text" if recover else "error")
+    assert budget_holder["budget"].usage().total_tokens == sum(totals)
