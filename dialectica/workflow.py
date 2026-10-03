@@ -149,6 +149,7 @@ class Budget:
     _output_tokens: int = field(default=0, init=False, repr=False)
     _total_tokens: int = field(default=0, init=False, repr=False)
     _cached_tokens: int = field(default=0, init=False, repr=False)
+    _unknown_calls: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.unit not in ("calls", "tokens"):
@@ -171,6 +172,7 @@ class Budget:
             output_tokens=self._output_tokens,
             total_tokens=self._total_tokens,
             cached_tokens=self._cached_tokens,
+            unknown_calls=self._unknown_calls,
         )
 
     def remaining(self) -> float:
@@ -189,6 +191,7 @@ class Budget:
         self._output_tokens += usage.output_tokens
         self._total_tokens += usage.total_tokens
         self._cached_tokens += usage.cached_tokens
+        self._unknown_calls += usage.unknown_calls
 
 
 # --- Run context (ContextVar so nested asyncio tasks see the same context) ---
@@ -329,10 +332,9 @@ async def agent(
     the raw text is returned. ``tools`` wires plain callables (or ADK
     ``FunctionTool``s) into this call's agent so it can act — read a file, run
     a command, query a service — the same wiring the demoted agentic pattern
-    (``examples/patterns/agentic_pattern.py``) uses; ADK forbids combining
-    ``tools`` with ``schema`` on one ``LlmAgent``, so passing both raises
-    ``ValueError`` (run a tool-using stage first, then a separate
-    ``schema``-only stage to structure its result). ``instructions`` appends
+    (``examples/patterns/agentic_pattern.py``) uses. ``tools`` and ``schema``
+    can be combined: ADK uses model capabilities to select native structured
+    output or a response-tool fallback. ``instructions`` appends
     task-specific framing to the agent's system prompt (e.g. "act, don't
     guess — verify with tools"), the same role the agentic pattern's system
     prompt plays, without needing a separate engine class. ``model`` overrides the
@@ -347,12 +349,6 @@ async def agent(
     Fugu-Ultra anti-collapse lever (see module docstring): selective context
     visibility, opt-in, no training required.
     """
-    if tools and schema is not None:
-        raise ValueError(
-            "agent() cannot combine tools with schema — ADK forbids tools + "
-            "output_schema on one LlmAgent. Run a tool-using stage (no schema) "
-            "first, then a separate schema-only stage to structure its result."
-        )
     if isolation is not None and isolation != "worktree":
         raise ValueError(
             f"unknown isolation {isolation!r}: only 'worktree' is supported"
@@ -380,9 +376,14 @@ async def agent(
     cached = ctx.journal.lookup(sequence, cache_key)
     if cached is not None:
         ctx.agent_sequence += 1
-        return deserialize_agent_result(cached, schema)
+        result = deserialize_agent_result(cached, schema)
+        _store_step_output(ctx, label, result)
+        return result
 
     ctx.budget._charge()
+    # Reserve before yielding so parallel calls get stable, distinct positions.
+    ctx.agent_sequence += 1
+    step_usage = Budget()
     if phase:
         ctx.phases.append(phase)
 
@@ -441,16 +442,32 @@ async def agent(
         sem = ctx.semaphore
 
         async def _call() -> str:
-            if sem is None:
-                response = await agent_runtime.run_agent(agent_obj, effective_prompt)
-            else:
-                async with sem:
+            try:
+                if sem is None:
                     response = await agent_runtime.run_agent(
                         agent_obj, effective_prompt
                     )
+                else:
+                    async with sem:
+                        response = await agent_runtime.run_agent(
+                            agent_obj, effective_prompt
+                        )
+            except BaseException as error:
+                usage = getattr(error, "dialectica_usage", None)
+                if usage is not None:
+                    ctx.budget._record(usage)
+                    step_usage._record(usage)
+                    ctx.journal.record_usage(
+                        ctx.journal_path, sequence, usage, failed=True
+                    )
+                raise
             usage = getattr(response, "usage", None)
             if usage is not None:
                 ctx.budget._record(usage)
+                step_usage._record(usage)
+                ctx.journal.record_usage(
+                    ctx.journal_path, sequence, usage, failed=False
+                )
             return response
 
         response = await _call()
@@ -475,31 +492,42 @@ async def agent(
         )
         return None
 
-    if isolation == "worktree":
-        async with worktree_session(label=name, run_id=ctx.run_id) as handle:
+    try:
+        if isolation == "worktree":
+            async with worktree_session(label=name, run_id=ctx.run_id) as handle:
+                result = await _execute_agent()
+                if handle.dirty:
+                    log(f"worktree kept (dirty): {handle.path}")
+        else:
             result = await _execute_agent()
-            if handle.dirty:
-                log(f"worktree kept (dirty): {handle.path}")
-    else:
-        result = await _execute_agent()
+    except BaseException:
+        entry = serialize_agent_result(None, schema)
+        entry.result_kind = "error"
+        entry.sequence = sequence
+        entry.cache_key = cache_key
+        entry.prompt = prompt
+        entry.usage = step_usage.usage()
+        ctx.journal.append(entry)
+        ctx.journal.persist(ctx.journal_path)
+        raise
 
     entry = serialize_agent_result(result, schema)
     entry.sequence = sequence
     entry.cache_key = cache_key
     entry.prompt = prompt
+    entry.usage = step_usage.usage()
     ctx.journal.append(entry)
-    # Record this step's output (by label) so a later agent(sees=[label])
-    # can read it as prior context. Pydantic models are serialized to their
-    # JSON form — the same representation the journal stores — so a schema
-    # step is consumable the same way a text step is.
-    if label is not None and result is not None:
-        if isinstance(result, BaseModel):
-            ctx.step_outputs[label] = result.model_dump_json()
-        else:
-            ctx.step_outputs[label] = str(result)
-    ctx.agent_sequence += 1
+    _store_step_output(ctx, label, result)
     ctx.journal.persist(ctx.journal_path)
     return result
+
+
+def _store_step_output(ctx: _RunCtx, label: str | None, result: Any) -> None:
+    """Restore the same visibility for both live and cached results."""
+    if label is not None and result is not None:
+        ctx.step_outputs[label] = (
+            result.model_dump_json() if isinstance(result, BaseModel) else str(result)
+        )
 
 
 def _parse_structured(response: str, schema: type[BaseModel]) -> BaseModel | None:

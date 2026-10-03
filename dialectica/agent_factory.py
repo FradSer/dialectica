@@ -67,8 +67,8 @@ def create_agent(
         tools: Optional list of tools to give the agent
         model_config: Optional model config string (defaults to role-based config)
         output_schema: Optional Pydantic model forcing structured JSON output.
-            ADK disallows combining ``output_schema`` with tools, so tools are
-            dropped when a schema is supplied.
+            Tools are preserved: ADK selects native structured output or its
+            response-tool fallback according to the model's capabilities.
 
     Returns:
         LlmAgent configured for the specified role
@@ -104,10 +104,7 @@ def create_agent(
         .strip()
     )
 
-    # output_schema and tools are mutually exclusive in ADK.
-    effective_tools = (
-        [] if output_schema else (tools if tools is not None else template["tools"])
-    )
+    effective_tools = tools if tools is not None else template["tools"]
 
     # Get model config (use role-specific override if available)
     effective_model = model_config if model_config else get_model_config(role)

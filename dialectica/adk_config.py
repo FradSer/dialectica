@@ -1,4 +1,4 @@
-"""ADK 2.3+ runtime configuration — context caching and OpenTelemetry.
+"""ADK runtime configuration — caching, tool execution and OpenTelemetry.
 
 Parsed from environment; consuming apps set these before calling
 ``agent_runtime.run_agent``. The test suite resets module state via
@@ -10,10 +10,11 @@ from __future__ import annotations
 import os
 
 from google.adk.agents.context_cache_config import ContextCacheConfig
+from google.adk.agents.run_config import RunConfig, ToolThreadPoolConfig
 from google.genai import types
 
 _context_cache_configured = False
-_context_cache_config: ContextCacheConfig | None | object = object()
+_context_cache_config: ContextCacheConfig | None = None
 
 _otel_configured = False
 
@@ -39,12 +40,11 @@ def get_context_cache_config() -> ContextCacheConfig | None:
     """
     global _context_cache_configured, _context_cache_config
     if _context_cache_configured:
-        assert _context_cache_config is not object()
-        return _context_cache_config  # type: ignore[return-value]
+        return _context_cache_config
 
-    _context_cache_configured = True
     if not _env_truthy("DIALECTICA_CONTEXT_CACHE"):
         _context_cache_config = None
+        _context_cache_configured = True
         return None
 
     create_http_options: types.HttpOptions | None = None
@@ -58,7 +58,40 @@ def get_context_cache_config() -> ContextCacheConfig | None:
         min_tokens=_env_int("DIALECTICA_CONTEXT_CACHE_MIN_TOKENS", 4096),
         create_http_options=create_http_options,
     )
+    _context_cache_configured = True
     return _context_cache_config
+
+
+def _positive_env_int(name: str, default: int) -> int:
+    try:
+        value = _env_int(name, default)
+    except ValueError as error:
+        raise ValueError(f"{name} must be a positive integer") from error
+    if value < 1:
+        raise ValueError(f"{name} must be a positive integer")
+    return value
+
+
+def get_run_config() -> RunConfig:
+    """Configure per-invocation limits and opt-in sync tool offloading.
+
+    ADK 2.11 honors ``tool_thread_pool_config`` for ordinary sync tools.
+    Offloading remains opt-in: tools tied to the calling thread may require
+    execution on the event loop. The LLM limit covers one invocation, not the
+    outer Workflow's budget.
+    """
+    workers = None
+    if os.environ.get("DIALECTICA_TOOL_WORKERS"):
+        workers = ToolThreadPoolConfig(
+            max_workers=_positive_env_int("DIALECTICA_TOOL_WORKERS", 4)
+        )
+    if os.environ.get("DIALECTICA_MAX_LLM_CALLS"):
+        return RunConfig(
+            max_llm_calls=_positive_env_int("DIALECTICA_MAX_LLM_CALLS", 500),
+            tool_thread_pool_config=workers,
+        )
+    # Preserve ADK's native ADK_MAX_LLM_CALLS env resolution when not overridden.
+    return RunConfig(tool_thread_pool_config=workers)
 
 
 def telemetry_should_setup() -> bool:
@@ -93,5 +126,5 @@ def reset_adk_config_state() -> None:
     """Re-read env on next access (tests only)."""
     global _context_cache_configured, _context_cache_config, _otel_configured
     _context_cache_configured = False
-    _context_cache_config = object()
+    _context_cache_config = None
     _otel_configured = False

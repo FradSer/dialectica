@@ -75,7 +75,7 @@ class AgentJournalEntry:
     sequence: int
     cache_key: str
     prompt: str
-    result_kind: str  # "text" | "schema" | "none"
+    result_kind: str  # "text" | "schema" | "none" | "error"
     result_text: str | None = None
     schema_name: str | None = None
     usage: TokenUsage = field(default_factory=TokenUsage)
@@ -103,16 +103,30 @@ class RunJournal:
     def lookup(self, sequence: int, cache_key: str) -> AgentJournalEntry | None:
         if self._live_from is not None and sequence >= self._live_from:
             return None
-        if sequence >= len(self.entries):
-            return None
-        entry = self.entries[sequence]
-        if entry.cache_key != cache_key:
+        entry = next((e for e in self.entries if e.sequence == sequence), None)
+        if entry is None:
             self._live_from = sequence
+            self.entries = [e for e in self.entries if e.sequence < sequence]
+            return None
+        if entry.result_kind == "error" or entry.cache_key != cache_key:
+            self._live_from = sequence
+            self.entries = [e for e in self.entries if e.sequence < sequence]
             return None
         return entry
 
     def append(self, entry: AgentJournalEntry) -> None:
+        self.entries = [e for e in self.entries if e.sequence != entry.sequence]
         self.entries.append(entry)
+        self.entries.sort(key=lambda e: e.sequence)
+
+    def record_usage(
+        self, path: Path, sequence: int, usage: TokenUsage, *, failed: bool
+    ) -> None:
+        """Keep billing receipts even when resume replaces a failed cache entry."""
+        path.parent.mkdir(parents=True, exist_ok=True)
+        receipt = {"sequence": sequence, "failed": failed, "usage": asdict(usage)}
+        with path.with_name("usage.jsonl").open("a", encoding="utf-8") as stream:
+            stream.write(json.dumps(receipt) + "\n")
 
     def persist(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -136,12 +150,17 @@ class RunJournal:
             for line in journal_path.read_text(encoding="utf-8").splitlines():
                 if line.strip():
                     entries.append(AgentJournalEntry.from_json(line))
-        return cls(
+        journal = cls(
             run_id=meta["run_id"],
             script_fingerprint=meta["script_fingerprint"],
             args_fingerprint=meta["args_fingerprint"],
             entries=entries,
         )
+        # Old parallel journals used duplicate positions; safely recompute them.
+        if len({e.sequence for e in entries}) != len(entries):
+            journal.entries.clear()
+            journal._live_from = 0
+        return journal
 
     @classmethod
     def create(
@@ -163,6 +182,9 @@ class RunJournal:
                 or journal.args_fingerprint != fp_args
             ):
                 journal._live_from = 0
+                journal.entries.clear()
+                journal.script_fingerprint = fp_script
+                journal.args_fingerprint = fp_args
             return journal, root / journal.run_id / "journal.jsonl"
         run_id = str(uuid.uuid4())
         journal = cls(

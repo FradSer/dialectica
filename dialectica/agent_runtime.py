@@ -14,17 +14,28 @@ import logging
 import os
 import random
 from collections.abc import Iterable
-from dataclasses import dataclass
+from contextvars import ContextVar
+from dataclasses import dataclass, field, fields
 from typing import Self
+from uuid import uuid4
 
 from google.adk.agents import LlmAgent
+from google.adk.agents.callback_context import CallbackContext
+from google.adk.agents.invocation_context import (
+    InvocationContext,
+    LlmCallsLimitExceededError,
+)
 from google.adk.apps.app import App
-from google.adk.events import Event
+from google.adk.events import Event, EventActions
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
+from google.adk.plugins.base_plugin import BasePlugin
 from google.adk.runners import InMemoryRunner
 
 from .adk_config import (
     ensure_otel_setup,
     get_context_cache_config,
+    get_run_config,
     reset_adk_config_state,
 )
 
@@ -35,14 +46,16 @@ logger = logging.getLogger(__name__)
 class TokenUsage:
     """API-reported token counts for one or more LLM calls.
 
-    ``output_tokens`` includes thinking tokens (billed as output). All zeros
-    when the backend reports no usage metadata.
+    ``output_tokens`` includes thinking tokens (billed as output). Token counts
+    include only reported usage; ``unknown_calls`` counts model attempts with
+    no final usage metadata, so missing reports are not presented as known zero cost.
     """
 
     prompt_tokens: int = 0
     output_tokens: int = 0
     total_tokens: int = 0
     cached_tokens: int = 0
+    unknown_calls: int = 0
 
 
 class AgentResponse(str):
@@ -101,6 +114,89 @@ def _usage_from_events(events: Iterable[Event]) -> TokenUsage:
     )
 
 
+def _combine_usage(*usages: TokenUsage) -> TokenUsage:
+    return TokenUsage(
+        **{f.name: sum(getattr(u, f.name) for u in usages) for f in fields(TokenUsage)}
+    )
+
+
+@dataclass
+class _UsageTracker:
+    events: list[Event | None] = field(default_factory=list)
+    slots: dict[int, int] = field(default_factory=dict)
+    actions: list[EventActions] = field(default_factory=list)
+    complete: set[int] = field(default_factory=set)
+
+    @property
+    def calls(self) -> int:
+        return len(self.events)
+
+    def usage(self) -> TokenUsage:
+        return _combine_usage(
+            _usage_from_events(event for event in self.events if event is not None),
+            TokenUsage(unknown_calls=self.calls - len(self.complete)),
+        )
+
+    def reconcile(self, events: Iterable[Event]) -> None:
+        """Short-circuit before-model responses bypass the after-model hook."""
+        for event in events:
+            slot = self.slots.get(id(event.actions))
+            if (
+                slot is not None
+                and self.events[slot] is None
+                and event.usage_metadata is not None
+            ):
+                self.events[slot] = event
+                if not event.partial:
+                    self.complete.add(slot)
+
+
+_active_usage: ContextVar[_UsageTracker | None] = ContextVar(
+    "dialectica_usage", default=None
+)
+
+
+class _UsagePlugin(BasePlugin):
+    """Observe reported usage before ADK builds events or executes tools."""
+
+    def __init__(self) -> None:
+        super().__init__(name="dialectica_usage")
+
+    async def before_model_callback(
+        self, *, callback_context: CallbackContext, llm_request: LlmRequest
+    ) -> None:
+        tracker = _active_usage.get()
+        if tracker is not None:
+            key = id(callback_context.actions)
+            tracker.slots[key] = tracker.calls
+            tracker.events.append(None)
+            # Keep actions alive so later turns cannot reuse their object IDs.
+            tracker.actions.append(callback_context.actions)
+
+    async def after_model_callback(
+        self, *, callback_context: CallbackContext, llm_response: LlmResponse
+    ) -> None:
+        tracker = _active_usage.get()
+        if tracker is not None and llm_response.usage_metadata is not None:
+            key = id(callback_context.actions)
+            slot = tracker.slots.get(key)
+            if slot is not None:
+                # A final cumulative report replaces partials for the same request.
+                tracker.events[slot] = Event(
+                    author="usage", usage_metadata=llm_response.usage_metadata
+                )
+                if not llm_response.partial:
+                    tracker.complete.add(slot)
+
+    async def on_event_callback(
+        self, *, invocation_context: InvocationContext, event: Event
+    ) -> None:
+        tracker = _active_usage.get()
+        if tracker is not None:
+            # Cache short circuits skip after_model; observe their events eagerly.
+            tracker.reconcile([event])
+
+
 # Optional global cap on concurrent LLM calls, for tightly-quota'd backends
 # (e.g. gemma-4-31b allows only 16k input tokens/minute — unbounded gather
 # self-collides on the quota). 0 or unset = unlimited.
@@ -126,21 +222,31 @@ def _get_concurrency_limiter() -> asyncio.Semaphore | None:
 
 
 def _make_runner(agent: LlmAgent) -> InMemoryRunner:
-    """Build an ADK runner, optionally wiring ADK 2.3 context caching via ``App``."""
+    """Build an ADK runner, optionally wiring context caching via ``App``."""
     cache_config = get_context_cache_config()
-    if cache_config is not None:
-        app = App(
-            name="dialectica",
-            root_agent=agent,
-            context_cache_config=cache_config,
-        )
-        return InMemoryRunner(app=app, app_name="dialectica")
-    return InMemoryRunner(agent=agent, app_name="dialectica")
+    app = App(
+        name="dialectica",
+        root_agent=agent,
+        context_cache_config=cache_config,
+        plugins=[_UsagePlugin()],
+    )
+    return InMemoryRunner(app=app, app_name="dialectica")
 
 
 def _reset_adk_runtime_state() -> None:
     """Re-read ADK env config on next call (tests only)."""
     reset_adk_config_state()
+
+
+@dataclass
+class _RunnerScope:
+    runner: InMemoryRunner | None = None
+    usage: TokenUsage = field(default_factory=TokenUsage)
+
+
+_runner_scope: ContextVar[_RunnerScope | None] = ContextVar(
+    "dialectica_runner_scope", default=None
+)
 
 
 async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
@@ -150,9 +256,36 @@ async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
     summed ``TokenUsage`` for metering callers.
     """
     ensure_otel_setup()
-    runner = _make_runner(agent)
-    events = await runner.run_debug(instruction, quiet=True)
+    run_config = get_run_config()
+    scope = _runner_scope.get()
+    runner = scope.runner if scope else None
+    if runner is None:
+        runner = _make_runner(agent)
+        if scope is not None:
+            scope.runner = runner
+    tracker = _UsageTracker()
+    usage_token = _active_usage.set(tracker)
+    try:
+        events = await runner.run_debug(
+            instruction,
+            session_id=uuid4().hex,
+            quiet=True,
+            run_config=run_config,
+        )
+    except BaseException as error:
+        error.dialectica_usage = tracker.usage()
+        raise
+    finally:
+        _active_usage.reset(usage_token)
+        # run_agent owns the runner across retries; standalone calls own it here.
+        if scope is None:
+            try:
+                await runner.close()
+            except BaseException as error:
+                error.dialectica_usage = tracker.usage()
+                raise
 
+    tracker.reconcile(events)
     response_text = ""
     for event in events:
         if event.content and event.content.parts:
@@ -160,7 +293,10 @@ async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
                 if part.text and not part.thought:
                     response_text += part.text
 
-    return AgentResponse(response_text.strip(), _usage_from_events(events))
+    return AgentResponse(
+        response_text.strip(),
+        tracker.usage() if tracker.calls else _usage_from_events(events),
+    )
 
 
 # Rate-limit quotas (e.g. tokens-per-minute) need the window to roll over;
@@ -174,6 +310,27 @@ _RATE_LIMIT_MARKERS = ("429", "RESOURCE_EXHAUSTED", "rate limit", "RateLimit")
 def _is_rate_limited(error: Exception) -> bool:
     text = str(error)
     return any(marker in text for marker in _RATE_LIMIT_MARKERS)
+
+
+def _is_permanent_failure(error: Exception) -> bool:
+    """Separate rejected requests/billing from recoverable capacity limits."""
+    status = getattr(error, "status_code", None) or getattr(error, "code", None)
+    if status in {400, 401, 402, 403, 404, 405, 422}:
+        return True
+    text = str(error).lower()
+    return any(
+        marker in text
+        for marker in (
+            "api_key_invalid",
+            "invalid api key",
+            "unknown provider for model",
+            "insufficient_quota",
+            "billing_hard_limit_reached",
+            "subscription expired",
+            "coding plan expired",
+            "subscription has expired",
+        )
+    )
 
 
 async def run_agent(
@@ -192,20 +349,63 @@ async def run_agent(
     backoff. ``DIALECTICA_MAX_CONCURRENCY`` caps overlapping calls globally.
     From the real transport the returned str is an ``AgentResponse`` whose
     ``.usage`` carries API-reported token counts; a plain str (e.g. from a
-    test fake) simply meters as zero. Usage covers the returned attempt only —
-    an attempt that raises partway (even after billable turns) discards its
-    events, so those tokens are not metered.
+    test fake) simply meters as zero. Reported usage includes failed attempts;
+    final exceptions expose ``dialectica_usage``. ``unknown_calls`` counts
+    model attempts for which no final usage metadata was received.
     """
+    scope = _RunnerScope()
+    token = _runner_scope.set(scope)
+    try:
+        return await _run_agent_with_retries(
+            agent, instruction, max_attempts=max_attempts, base_delay=base_delay
+        )
+    except BaseException as error:
+        error.dialectica_usage = scope.usage
+        raise
+    finally:
+        try:
+            if scope.runner is not None:
+                await scope.runner.close()
+        except BaseException as error:
+            error.dialectica_usage = scope.usage
+            raise
+        finally:
+            _runner_scope.reset(token)
+
+
+async def _run_agent_with_retries(
+    agent: LlmAgent, instruction: str, *, max_attempts: int, base_delay: float
+) -> str:
     limiter = _get_concurrency_limiter()
     failures = 0
     rate_limit_hits = 0
+    accumulated = TokenUsage()
     while True:
         try:
             if limiter is not None:
                 async with limiter:
-                    return await _call_agent_once(agent, instruction)
-            return await _call_agent_once(agent, instruction)
-        except Exception as e:
+                    response = await _call_agent_once(agent, instruction)
+            else:
+                response = await _call_agent_once(agent, instruction)
+            usage = _combine_usage(
+                accumulated, getattr(response, "usage", TokenUsage())
+            )
+            if scope := _runner_scope.get():
+                scope.usage = usage
+            return AgentResponse(str(response), usage)
+        except BaseException as e:
+            accumulated = _combine_usage(
+                accumulated, getattr(e, "dialectica_usage", TokenUsage())
+            )
+            e.dialectica_usage = accumulated
+            if scope := _runner_scope.get():
+                scope.usage = accumulated
+            if not isinstance(e, Exception) or isinstance(
+                e, LlmCallsLimitExceededError
+            ):
+                raise
+            if _is_permanent_failure(e):
+                raise
             if _is_rate_limited(e):
                 rate_limit_hits += 1
                 if rate_limit_hits > MAX_RATE_LIMIT_RETRIES:
