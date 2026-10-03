@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.32.4"]
 build-backend = "hatchling.build"
 
 [project]
@@ -12,19 +12,19 @@ license-files = ["LICENSE"]
 authors = [{ name = "Frad LEE", email = "fradser@gmail.com" }]
 requires-python = ">=3.11"
 dependencies = [
-    "google-adk>=2.3.0",
-    "litellm>=1.66.0",
-    "pydantic>=2.11.3",
+    "google-adk>=2.11.0",
+    "litellm>=1.103.2",
+    "pydantic>=2.13.5",
 ]
 
 [dependency-groups]
 dev = [
-    "huggingface-hub>=1.17.0",
-    "pytest>=9.0.3",
+    "huggingface-hub>=1.33.0",
+    "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
-    "pytest-bdd>=8.1.0",
-    "python-dotenv>=1.2.2",
-    "ruff>=0.15.16",
+    "pytest-bdd>=9.0.0",
+    "python-dotenv>=1.2.4",
+    "ruff>=0.16.10",
 ]
 
 [tool.pytest.ini_options]
@@ -32,20 +32,20 @@ testpaths = ["tests"]
 pythonpath = ["."]
 asyncio_mode = "auto"
 # Skip the live-API E2E tests by default; opt in with `uv run pytest -m e2e`
-# (Gemini) or `uv run pytest -m e2e_access` (cliproxy access-list verification).
+# (configured model) or `uv run pytest -m e2e_access` (cliproxy access lists).
 addopts = "-m 'not e2e and not e2e_access'"
 markers = [
-    "e2e: end-to-end test that calls the real Gemini API (requires GOOGLE_API_KEY)",
+    "e2e: end-to-end tests against the configured real model (Gemini by default)",
     "e2e_access: end-to-end access-list test against a cliproxy/OpenAI-compatible endpoint (requires OPENAI_API_BASE + OPENAI_API_KEY + DEFAULT_MODEL_CONFIG=openai:...)",
 ]
 filterwarnings = [
-    # ADK 2.6.x: BaseAgentConfig deprecation — frozen by ADK's pin on
+    # ADK: BaseAgentConfig deprecation — frozen by ADK's pin on
     # opentelemetry-api<1.43; cannot upgrade until ADK does.
     'ignore:BaseAgentConfig is deprecated:DeprecationWarning',
     # OpenTelemetry 1.42.x: SelectableGroups deprecation — same constraint.
     'ignore:SelectableGroups dict interface is deprecated:DeprecationWarning',
-    # ADK 2.6.x: experimental feature UserWarning (benign).
-    'ignore::UserWarning',
+    # Suppress only ADK's experimental API notices.
+    'ignore:.*EXPERIMENTAL.*:UserWarning:google.adk.*',
 ]
 
 [tool.ruff]
