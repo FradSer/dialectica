@@ -1,6 +1,6 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.3+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.11+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
 
 [English](README.md) | **简体中文**
 
@@ -292,11 +292,45 @@ export OPENAI_API_BASE="http://localhost:8317/v1"
 # 关闭 qwen 族思考链以降评测延迟（可选）
 export DIALECTICA_DISABLE_THINKING=true
 
-# ADK 2.3+ 运行时（可选——见上文「与 Claude Workflow 的对应」）
+# ADK 2.11+ 运行时（可选——见上文「与 Claude Workflow 的对应」）
 export DIALECTICA_CONTEXT_CACHE=true              # 经 ADK App 开启 Gemini context cache
 export DIALECTICA_CONTEXT_CACHE_MIN_TOKENS=4096   # Gemini 硬下限
 export DIALECTICA_ADK_TELEMETRY=true              # 或改设 OTEL_EXPORTER_OTLP_*
+export DIALECTICA_TOOL_WORKERS=4                 # 将阻塞同步工具移入线程池（可选）
+export DIALECTICA_MAX_LLM_CALLS=50               # 限制每次 ADK 调用内的模型轮数
 ```
+
+运行时以 [ADK 2.11](https://github.com/google/adk-python/releases/tag/v2.11.0) 为基线。
+`tools` 与 `schema` 可同时使用：ADK 根据模型声明的能力选择原生结构化输出，
+或通过响应工具回退。具体服务端的支持仍有差异；离线测试覆盖两条 ADK 路径，
+不代表所有远端模型都已验证。传输失败重试期间复用同一 Runner，每次尝试使用
+独立的新 session；整体调用成功、失败或任务取消后统一关闭工具集与插件。
+任务取消会直接传播，不会重试。无效请求、认证失败、模型不存在，以及明确的
+订阅过期或计费额度错误会立即返回；临时网络和容量错误仍会重试。
+
+日志保存每步上报的用量，包括结构化输出重新询问时成功返回的调用。并行步骤在
+模型调用前分配唯一编号，按调用顺序恢复；缓存中的具名输出也会恢复 `sees=` 上下文。
+变更后的后缀会替换旧记录；含重复并行编号的历史日志会在恢复时重新计算。
+缓存重放不增加本次 token 预算。ADK 模型回调会在事件生成前捕获已上报的 token，
+失败尝试纳入重试合计，最终异常通过 `dialectica_usage` 暴露用量。失败步骤会记录，
+但不会作为成功结果重放；只追加的 `usage.jsonl` 收据在恢复替换缓存后仍保留用量。
+`TokenUsage.unknown_calls` 表示未收到最终用量报告的模型尝试；中断前的部分报告
+会保留，收到最终累计报告时则替换中间值，避免重复计算。非零时 token 合计只是
+已知部分，不能理解为这些调用免费。
+
+`DIALECTICA_TOOL_WORKERS` 使用 ADK 对普通调用新增的同步工具线程池支持。
+依赖调用线程的工具应保持未设置；Python 无法强制停止已经在线程中运行的同步工具。
+两项设置均要求正整数。`DIALECTICA_MAX_LLM_CALLS` 设置后覆盖原生 `ADK_MAX_LLM_CALLS`；
+未设置时由 ADK 自行解析上限（两者均未设置时为每次调用 500 轮）。
+达到上限后直接失败，不会重启工具循环。它与外层 Workflow 按 `agent()` 步骤或
+上报 token 计量的预算分别生效。
+
+`uv.lock` 已将全部依赖更新至能够共同解析的最新版本。部分上游约束仍会阻止
+采用绝对最新版：tokenizers 要求 Hugging Face Hub <2；LiteLLM 要求 OpenAI <3
+及 importlib-metadata <9；ADK 将 OpenTelemetry 限制为至多 1.42.1、websockets <16。
+FastAPI 0.142.2 要求 OpenTelemetry >=1.44，因此保留可兼容的 0.141.1。
+aiohttp 要求 multidict <7，Pydantic 则精确绑定 pydantic-core 的版本。
+使用 `uv sync --locked` 可复现该依赖组合。
 
 只用 `gemini-3.5-flash`（默认）或 `gemini-3.1-pro-preview`——没有稳定的
 `gemini-3.1-pro`（generateContent 返回 404）。provider 串为 `provider:model_name`；
@@ -372,10 +406,29 @@ label 与 model。
 ```bash
 uv sync                                         # 安装依赖
 uv run pytest                                   # 模拟，快，无需 API key
-uv run pytest -m e2e                            # 实时 E2E（需 GOOGLE_API_KEY）
+uv run pytest -m e2e                            # 真实 repair 与工具/schema/线程池测试（需所选模型凭据）
 uv run pytest -m e2e_access                     # 实时访问列表测试（需 OPENAI_API_BASE + OPENAI_API_KEY + DEFAULT_MODEL_CONFIG=openai:...）
+uv run pytest -m 'e2e or e2e_access'             # 通过已配置的 OpenAI 兼容服务运行全部六项
 uv run ruff format && uv run ruff check         # 格式化 / lint
 ```
+
+使用 cliproxy 时先加载 shell 环境，将 `CLIPROXYAPI_BASE_URL`（含 `/v1`）映射到
+`OPENAI_API_BASE`、`CLIPROXYAPI_TOKEN` 映射到 `OPENAI_API_KEY`，再将
+`DEFAULT_MODEL_CONFIG` 和 `GENERATOR_MODEL_CONFIG` 设为可用的 `openai:` 模型；
+Qwen 可设 `DIALECTICA_DISABLE_THINKING=true`。反思测试通过
+`E2E_REFLECTION_FAST_MODEL` 和 `E2E_REFLECTION_STRONG_MODEL` 指定两个不同的
+可用模型，历史默认值为 Qwen 3.6 Flash 和 GLM 5.2。工具/schema 测试要求模型
+通过工具获取提示中没有的随机值，验证结构化结果、同步工具实际执行线程和
+服务端上报的 token 用量。缺少凭据时会跳过；跳过的用例不能视为真实验收通过。
+
+ADK 2.11 真实验收（2026-10-03）：经 cliproxy **9 项通过、0 项跳过，耗时 145.37 秒**。
+默认、generator 和 fast 模型为 `openai:qwen3.8-flash`，反思的第二个模型为
+`openai:gemini-3.5-flash-lite`。覆盖访问列表、默认隔离、异构反思全部 10 次调用、
+repair、关闭/开启同步工具线程池时的 tools + schema，以及并行恢复时的
+缓存上下文、真实用量和零调用重放，以及真实模型响应在事件生成前报错时的
+用量保留（重试后成功和最终失败均核对上报 token 的精确合计）。最终缓存事件
+计量修复后，重新运行这两项真实失败场景：**2 项通过，耗时 21.17 秒**。
+结果适用于 OpenAI 兼容路由；Gemini 直连凭据已失效，当前 GLM 路由受套餐/路由问题阻断。
 
 库不调用 `logging.basicConfig`——日志配置由消费应用负责。在唯一接缝
 `agent_runtime.run_agent()` 处 mock LLM——绝不 patch ADK 内部或各阶段 agent
@@ -396,7 +449,7 @@ BDD 场景覆盖只留给 ship 出去的内核 + repair。
 
 ```
 dialectica/
-  adk_config.py        # ADK 2.3 context cache + OpenTelemetry 环境变量
+  adk_config.py        # ADK 缓存、工具线程池、调用上限与 OpenTelemetry
   agent_factory.py    # 从 ROLE_TEMPLATES 构建 LlmAgent（只剩 Generator）
   agent_runtime.py    # 唯一 LLM 接缝：run_agent() + 重试/退避
   json_repair.py       # 共享的 fence/escape JSON 修复 helper

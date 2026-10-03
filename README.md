@@ -1,6 +1,6 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.3+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.11+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -65,7 +65,7 @@ A composable multi-agent runtime — the programmatic surface Claude Code's
 `pipeline()` / `workflow()` / `phase()` / `log()` / `budget()` / `run_id()`.
 For *meta-task* orchestration (research, review, planning, design).
 
-- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None, isolation=None, agent_type=None, sees=None)`** — one LLM call. `schema` forces structured JSON; **`tools`** is the capability-add lever (8/8 vs 0/8 on hidden-oracle). `isolation="worktree"` runs in a fresh git worktree (auto-removed if clean). `agent_type` (e.g. `"Explore"`) applies a read-only exploration charter. ADK forbids `tools` + `schema` on one call — split across stages. **`sees`** is a per-step access list (inspired by Sakana Fugu-Ultra's anti-"orchestration-collapse" mechanism): default is full isolation (an agent never sees another agent's transcript); `sees=["gather","critique"]` injects only the named prior steps' outputs into this call's prompt. Unknown/unfinished labels are skipped, not errors, so access lists survive conditional branches.
+- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None, isolation=None, agent_type=None, sees=None)`** — one LLM call. `schema` forces structured JSON; **`tools`** is the capability-add lever (8/8 vs 0/8 on hidden-oracle). `isolation="worktree"` runs in a fresh git worktree (auto-removed if clean). `agent_type` (e.g. `"Explore"`) applies a read-only exploration charter. ADK supports `tools` + `schema` through model capabilities and a response-tool fallback. **`sees`** is a per-step access list (inspired by Sakana Fugu-Ultra's anti-"orchestration-collapse" mechanism): default is full isolation (an agent never sees another agent's transcript); `sees=["gather","critique"]` injects only the named prior steps' outputs into this call's prompt. Unknown/unfinished labels are skipped, not errors, so access lists survive conditional branches.
 - **`workflow(script_or_name, *, args=None)`** — inline child workflow (one nesting level); shares outer budget. Pass a registered name via `register_workflow`.
 - **`parallel(thunks)`** / **`pipeline(items, *stages)`** — concurrent barrier / per-item staged flow; max 4,096 items per call; 1,000 `agent()` calls per run.
 - **Resume** — each run journals `agent()` calls under `.dialectica/workflows/<run_id>/`; `Workflow(..., resume_run_id=...)` replays the longest unchanged prefix from cache.
@@ -291,11 +291,53 @@ export OPENAI_API_BASE="http://localhost:8317/v1"
 # Disable qwen-family thinking trace for eval latency (optional)
 export DIALECTICA_DISABLE_THINKING=true
 
-# ADK 2.3+ runtime (optional — see "Claude Workflow parity" above)
+# ADK 2.11+ runtime (optional — see "Claude Workflow parity" above)
 export DIALECTICA_CONTEXT_CACHE=true              # Gemini context cache via ADK App
 export DIALECTICA_CONTEXT_CACHE_MIN_TOKENS=4096   # Gemini hard floor
 export DIALECTICA_ADK_TELEMETRY=true              # or set OTEL_EXPORTER_OTLP_* instead
+export DIALECTICA_TOOL_WORKERS=4                 # offload blocking sync tools (opt-in)
+export DIALECTICA_MAX_LLM_CALLS=50               # bound each ADK invocation's tool loop
 ```
+
+The runtime targets [ADK 2.11](https://github.com/google/adk-python/releases/tag/v2.11.0).
+`tools` and `schema` can be used together: ADK selects native structured output
+or its response-tool fallback from the model's declared capabilities. Provider
+support still varies; the offline suite covers both ADK paths, not every hosted
+model. A runner stays open across transport retries, with a fresh session per attempt,
+and closes its toolsets and plugins once after overall success, failure or task
+cancellation. Task cancellation propagates without retry. Invalid requests,
+authentication failures, missing models and explicit expired-subscription or
+billing-quota errors fail immediately; transient network/capacity errors retry.
+
+Journals store per-step reported usage, including successful structured-output
+re-asks. Parallel steps reserve unique positions before model calls and replay
+in invocation order; cached labeled results restore `sees=` context. Changed
+suffixes replace stale entries. Legacy journals with duplicate parallel positions
+are recomputed on resume. Cached replay incurs no new token budget charges;
+ADK model callbacks capture reported tokens before event creation, so failed
+attempts are included in retry totals and final exceptions expose
+`dialectica_usage`. Failed steps are journaled but never replayed as successful
+results. Append-only `usage.jsonl` receipts retain usage when resume replaces
+cache entries. `TokenUsage.unknown_calls` marks model attempts without a final
+usage report; interrupted partial reports are retained and replaced by a final
+cumulative report when available, avoiding double counting; reported totals are partial when it is nonzero, not a claim of
+zero billing.
+
+`DIALECTICA_TOOL_WORKERS` uses ADK's sync tool thread pool support for ordinary
+invocations. Leave it unset for tools that depend on the calling thread. Python
+cannot stop a sync tool already running in a worker thread. Both settings require
+positive integers. `DIALECTICA_MAX_LLM_CALLS` overrides native `ADK_MAX_LLM_CALLS` when set;
+otherwise ADK resolves its own limit (500 per invocation if unset);
+reaching it fails without restarting the tool loop. It is separate from the
+outer Workflow budget, which counts `agent()` steps or reported tokens.
+
+All dependency versions are refreshed in `uv.lock` to the newest releases that
+resolve together. Some transitive pins prevent absolute-latest versions:
+tokenizers requires Hugging Face Hub <2; LiteLLM requires OpenAI <3 and
+importlib-metadata <9; ADK caps OpenTelemetry at 1.42.1 and websockets below 16.
+FastAPI 0.142.2 requires OpenTelemetry >=1.44, so 0.141.1 remains the compatible
+version. aiohttp requires multidict <7, and Pydantic pins pydantic-core exactly.
+Install reproducibly with `uv sync --locked`.
 
 Use `gemini-3.5-flash` (default) or `gemini-3.1-pro-preview` only — there is no
 stable `gemini-3.1-pro` (404 on generateContent). Provider strings are
@@ -371,10 +413,33 @@ reflection `history` records stage, label, and model.
 ```bash
 uv sync                                         # install deps
 uv run pytest                                   # mocked, fast, no API key
-uv run pytest -m e2e                            # live E2E (needs GOOGLE_API_KEY)
+uv run pytest -m e2e                            # live repair + tools/schema/worker tests (configured model credentials)
 uv run pytest -m e2e_access                     # live access-list tests (needs OPENAI_API_BASE + OPENAI_API_KEY + DEFAULT_MODEL_CONFIG=openai:...)
+uv run pytest -m 'e2e or e2e_access'             # all six live cases via a configured OpenAI-compatible backend
 uv run ruff format && uv run ruff check         # format / lint
 ```
+
+For cliproxy, load your shell environment, map `CLIPROXYAPI_BASE_URL` (including
+`/v1`) to `OPENAI_API_BASE` and `CLIPROXYAPI_TOKEN` to `OPENAI_API_KEY`, then set
+`DEFAULT_MODEL_CONFIG` and `GENERATOR_MODEL_CONFIG` to an available `openai:`
+model and `DIALECTICA_DISABLE_THINKING=true` for Qwen. Set
+`E2E_REFLECTION_FAST_MODEL` and `E2E_REFLECTION_STRONG_MODEL` to two distinct
+available model configs; their historical defaults are Qwen 3.6 Flash and GLM 5.2.
+The tool/schema tests retrieve a random value absent from the prompt, validate
+the result, check the actual sync tool thread, and require backend-reported
+token usage. Missing credentials cause skips; a skipped case is not live acceptance.
+
+ADK 2.11 live acceptance (2026-10-03): **9 passed, zero skipped, 145.37s** via
+cliproxy, using `openai:qwen3.8-flash` for the default/generator/fast model and
+`openai:gemini-3.5-flash-lite` for the second reflection model. Coverage includes
+access-list visibility, default isolation, all ten heterogeneous reflection
+calls, repair, tools + schema with sync workers both disabled and enabled, and
+parallel resume with cached context, reported usage and zero-call replay, plus
+real-model response failures before event creation (retry success and final
+failure both preserve the exact reported token sum). After the final cached-event
+accounting fix, both live failure cases were rerun: **2 passed in 21.17s**.
+This validates the OpenAI-compatible route; direct Gemini credentials were
+invalid, and the available GLM routes were blocked by subscription/routing issues.
 
 The library never calls `logging.basicConfig` — the consuming app owns logging.
 Mock the LLM at the single seam `agent_runtime.run_agent()` — never patch ADK
@@ -397,7 +462,7 @@ updating tests, update the matching `.feature` first. CI
 
 ```
 dialectica/
-  adk_config.py        # ADK 2.3 context cache + OpenTelemetry env wiring
+  adk_config.py        # ADK cache, tool workers, call limits + OpenTelemetry
   agent_factory.py    # builds LlmAgents from ROLE_TEMPLATES (Generator only)
   agent_runtime.py    # THE single LLM seam: run_agent() + retry/backoff
   json_repair.py       # shared fence/escape JSON-repair helpers
