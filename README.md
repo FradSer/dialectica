@@ -1,6 +1,6 @@
 # Dialectica ![](https://img.shields.io/badge/A%20FRAD%20PRODUCT-WIP-yellow)
 
-[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.11+-orange.svg)]() [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)]()
+[![PyPI](https://img.shields.io/pypi/v/dialectica.svg)](https://pypi.org/project/dialectica/) [![Twitter Follow](https://img.shields.io/twitter/follow/FradSer?style=social)](https://twitter.com/FradSer) [![Python Version](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/) [![Framework](https://img.shields.io/badge/Framework-ADK%202.11+-orange.svg)](https://github.com/google/adk-python) [![Evaluation](https://img.shields.io/badge/Evaluation-honesty%20gate-purple.svg)](#evaluation)
 
 **English** | [简体中文](README.zh-CN.md)
 
@@ -14,10 +14,10 @@ Inspired by [karpathy/autoresearch](https://github.com/karpathy/autoresearch), S
 
 The evals collapsed the shipped surface to exactly what the data supports:
 
-| | Wins by adding | Verdict |
+| | Wins by adding | Evidence (tested tasks/models) |
 |---|---|---|
-| **`Workflow` / `agent(tools=...)`** | **capability** — tools let a stage act → observe → iterate | ✅ genuine win (8/8 vs 0/8 on hidden-oracle) |
-| **`create_repair_engine`** | **ground truth** — verifier-in-the-loop, short-circuits on pass | ✅ cost win (best-of-N reliability at ~1/3 the calls) |
+| **`Workflow` / `agent(tools=...)`** | **capability** — tools let a stage act → observe → iterate | ✅ capability gain on the hidden-oracle task (8/8 vs 0/8) |
+| **`create_repair_engine`** | **ground truth** — verifier-in-the-loop, short-circuits on pass | ✅ lower cost at the tested pass rate (best-of-N reliability at ~1/3 the calls) |
 
 Everything else this project built — a dedicated agentic-engine class, the heterogeneous ensemble + scorer, the dialectic spiral, the legacy ToT+GAN beam search — either needs nothing beyond `agent(tools=...)` or was measured to tie/lose a prompt-matched single call as a pure-LLM scaffold. They're kept as runnable **reference patterns**, not shipped API. For open-ended meta-tasks the measured recipe is hetero reflection (`examples/patterns/reflection_pattern.py`) composed on the kernel — still not a third shipped engine. See [Patterns](#patterns-not-shipped-for-reference).
 
@@ -84,15 +84,18 @@ async def research(args):
 
 
 register_workflow("research", research)
-result = await Workflow(
-    research,
-    args={"topic": "cache design"},
-    meta={
-        "name": "research",
-        "description": "fan-out research",
-        "phases": [{"title": "Gather"}],
-    },
-).run()
+
+
+async def main():
+    return await Workflow(
+        research,
+        args={"topic": "cache design"},
+        meta={
+            "name": "research",
+            "description": "fan-out research",
+            "phases": [{"title": "Gather"}],
+        },
+    ).run()
 ```
 
 ### Claude Workflow parity — and what small models can gain from it
@@ -120,16 +123,16 @@ each model, and report actual costs before claiming a gain.
 
 | Situation | What to use | Small-model upside |
 |---|---|---|
-| Must read code, run commands, probe an API | `agent(tools=[...])`, optional `parallel` | ✅ **Measured win** — hidden-oracle **8/8 vs 0/8** for a small model with tools vs 0/8 single-call |
-| Output is checkable (tests, schema, linter) | `create_repair_engine` + verifier | ✅ **Cost win** — best-of-N reliability at ~⅓ the calls; ties matched-cost pass-rate |
-| Open-ended meta-task (research, review, design) | Hetero reflection: `create_reflection_engine` (or `create_quality_workflow_engine(..., mode="reflection")`) | ✅ **Measured win** — hetero reflection **10-0-0** vs single on meta+default (finding #7); lever is roster heterogeneity |
+| Must read code, run commands, probe an API | `agent(tools=[...])`, optional `parallel` | ✅ **Capability gain** — hidden-oracle **8/8 vs 0/8** for a small model with tools vs 0/8 single-call |
+| Output is checkable (tests, schema, linter) | `create_repair_engine` + verifier | ✅ **Cost gain** — best-of-N reliability at ~⅓ the calls; ties matched-cost pass-rate |
+| Open-ended meta-task (research, review, design) | Hetero reflection: `create_reflection_engine` (or `create_quality_workflow_engine(..., mode="reflection")`) | ⚠️ **Conditional gain** — hetero reflection **10-0-0** vs single on meta+default (finding #7); lever is roster heterogeneity. Held-out source-grounded tasks showed no established superiority over a strong single call ([results](docs/findings.md#research-update-historical-findings-are-conditional)) |
 | Self-contained reasoning (no tools, no verifier) | Strong single prompt or bigger model | The tested same-model scaffolds did not beat the tested strong single-call controls |
 
 **Practical recipe for small models:**
 
 1. **Explore / debug** — `agent_type="Explore"` + `tools=[...]`, optionally `isolation="worktree"`.
 2. **Verifiable output** — `create_repair_engine(verifier=...)`; rotate `models=[small, small, medium]` on failure.
-3. **Research / review / open-ended reflection** — `create_reflection_engine(problem)` with a heterogeneous roster (default `qwen` + `glm` via cliproxy). Do **not** default to adversarial/dialectic modes — finding #7 found no consistent lift over hetero reflection.
+3. **Research / review / open-ended reflection** — try `create_reflection_engine(problem)` (reference pattern; conditional evidence, compare against a strong single call) with a heterogeneous roster (default `qwen` + `glm` via cliproxy). Do **not** default to adversarial/dialectic modes — finding #7 found no consistent lift over hetero reflection.
 4. **Cost control** — `Workflow(..., budget_unit="tokens")`; use a small model for fan-out, a larger one only for synthesis or the last repair attempt.
 
 `parallel` and concurrency caps control scheduling and can reduce wall-clock
@@ -158,20 +161,23 @@ at ~1/3 the calls.
 
 `examples/patterns/` (a dev tool, like `evals/` — not packaged in the wheel)
 holds runnable research patterns, including historical variants whose evals
-did not justify shipping and new mechanisms still awaiting evidence. Each keeps the demoted engine's exact
+did not justify shipping and new mechanisms still awaiting evidence. The demoted engines keep their exact
 factory name/signature/return-shape, rebuilt on the `Workflow` kernel instead
 of bespoke agent construction. (The `evals/*.py` scripts that originally
 measured them were removed in the 2026-08 cleanup; their verdicts are recorded
-in the table and the findings below.)
+in the table below and in [docs/findings.md](docs/findings.md).)
 
 | Pattern | What it shows | Measured verdict |
 |---|---|---|
 | `agentic_pattern.py` (`create_agentic_engine`) | `agent(tools=[...], instructions=...)` as a standalone tool-using stage | Same 8/8 vs 0/8 win as the kernel primitive — kept only as a copy-pasteable recipe with the tailored system prompt, not because the capability needs a class. |
 | `dialectic_pattern.py` (`create_dialectic_engine`) | thesis → antithesis → synthesis spiral, scored via `agent(schema=Verdict)` | Ties/loses a prompt-matched single call (**0-3-2**) on self-contained tasks, but **beats one on open-ended meta-tasks when tuned** (sharpened synthesis + `max_rounds=5`: **−0.500 → +0.600 NET**, finding #9). |
 | `ensemble_pattern.py` (`create_ensemble_engine`) | AB-MCTS-lite adaptive search (Thompson-sampling bandit) over a heterogeneous roster | **CUT** by the honesty gate — a blind-pick roster (scorer replaced by a constant) matched the real scorer's robustness gain; the signal adds nothing over heterogeneity alone. |
-| `reflection_pattern.py` (`create_reflection_engine`) | **Canonical** open-ended recipe: hetero gather → frame → critique → synthesize on `Workflow`. Opt-in `use_access_lists=True` routes critique/synthesize prior context through the kernel `sees=` primitive (Fugu-Ultra-style selective visibility) instead of inlining via `.format()`. | ✅ Measured win — **5-0-0** vs single/homo on meta (finding #6); **10-0-0** vs single on meta+default via quality ablation (finding #7). No LLM scorer / AB-MCTS. Access-list mode is opt-in; the measured numbers above used inlined prompts. |
+| `reflection_pattern.py` (`create_reflection_engine`) | **Canonical** open-ended recipe: hetero gather → frame → critique → synthesize on `Workflow`. Opt-in `use_access_lists=True` routes critique/synthesize prior context through the kernel `sees=` primitive (Fugu-Ultra-style selective visibility) instead of inlining via `.format()`. | ⚠️ Conditional win — **5-0-0** vs single/homo on meta (finding #6); **10-0-0** vs single on meta+default via quality ablation (finding #7). No LLM scorer / AB-MCTS. Access-list mode is opt-in; the measured numbers above used inlined prompts. |
 | `quality_workflow_pattern.py` (`create_quality_workflow_engine`) | Mode switcher over the same roster: `reflection` (default, delegates to reflection_pattern) / `adversarial` / `dialectic` | Ablation harness — adversarial/dialectic add no consistent lift over hetero reflection (finding #7). Prefer `create_reflection_engine` unless comparing modes. |
 | `tot_gan_pattern.py` (`create_engine`/`create_coordinator`) | beam search + GAN-style adversarial refinement, `parallel()` for sibling expand/evaluate | **Measured dominated** — never wins a matchup against single/best-of-N/self-refine at matched compute; loses to a single call on Game-of-24 at ~34× the cost. |
+| `claim_falsification_pattern.py` (`create_claim_falsification_engine`) | CLR-inspired independent claim assessment + weighted candidate selection | **Experimental** — repeated held-out comparisons (K=6, K=3) showed no selection benefit or established quality advantage; not promoted. |
+| `meta_reasoning_pattern.py` (`create_meta_reasoning_engine`) | Staged/direct controllers, selective context, stored-artifact selection | **Experimental** — all differences against single retained zero on held-out meta budgets 6 and 12. |
+| `self_refine_pattern.py` (`create_self_refine_engine`) | Iterative self-refinement with configurable selection policy (`last`, `plurality`, `convergence`, custom `selector`) | **Measured** — unguided `last` ties single (2/16 vs 2/16), but oracle-free checkers rescue lost intermediate solutions (9/16, 100% coverage); `convergence` early stopping saves ~62% of steps. |
 
 Each pattern's docstring cites its exact eval verdict. They're written in the
 kernel's own compositional idiom (plain functions/closures over
@@ -186,6 +192,11 @@ from examples.patterns.ensemble_pattern import create_ensemble_engine
 from examples.patterns.reflection_pattern import create_reflection_engine
 from examples.patterns.quality_workflow_pattern import create_quality_workflow_engine
 from examples.patterns.tot_gan_pattern import create_engine
+from examples.patterns.claim_falsification_pattern import (
+    create_claim_falsification_engine,
+)
+from examples.patterns.meta_reasoning_pattern import create_meta_reasoning_engine
+from examples.patterns.self_refine_pattern import create_self_refine_engine
 ```
 
 ## Evaluation
@@ -195,75 +206,64 @@ eval harness (`evals/`, a dev tool — not part of the published package) that
 answers this with data: each problem is solved by the engine **and** by a
 single-call baseline; a **blind judge** compares both answers twice with
 positions swapped (historical disagreement = tie; new protocols preserve
-inconclusive outcomes). Historical call counting used the `run_agent` seam;
-new per-arm receipts include tokens, observable turns, failures and raw records.
+inconclusive outcomes). New per-arm receipts include tokens, observable turns,
+failures and raw records; harnesses save configuration, task text,
+source/dependency fingerprints and analysis rules before the first model call,
+so experiment paths cannot be reused.
 
-```bash
-uv run python -m evals.reflection_ablation      # reflection pattern: hetero vs homo vs single (open-ended)
-uv run python -m evals.quality_workflow_ablation  # multi-model modes vs single (meta+default, 10 problems)
-uv run python -m evals.workflow_ablation        # homogeneous reflection vs single (open-ended)
-```
+| Script | Purpose |
+|---|---|
+| `uv run python -m evals.reflection_ablation` | reflection pattern: hetero vs homo vs single (open-ended) |
+| `uv run python -m evals.quality_workflow_ablation` | multi-model modes vs single (meta+default, 10 problems) |
+| `uv run python -m evals.workflow_ablation` | homogeneous reflection vs single (open-ended) |
+| `uv run python -m evals.claim_ablation --help` | claim-falsification vs consensus/self-refine (objective verifier) |
+| `uv run python -m evals.meta_ablation --help` | meta-reasoning controllers vs single (objective verifier) |
+| `uv run python -m evals.evidence_ablation --help` | evidence-grounded decisions; generation, calibration and judging metered separately |
+| `uv run python -m evals.research_campaign --help` | frozen repeated held-out campaign (no adaptive tuning or restart) |
+| `uv run python -m evals.objective_analysis results.json --output analysis.json` | analyze completed objective-verifier reports |
+| `uv run python -m evals.evidence_analysis evidence.json --output evidence.analysis.json` | analyze completed evidence-grounded reports |
+
+`objective_analysis` averages repeats within each task and resamples paired tasks;
+failed generation stays in the reliability denominator, unknown usage prevents
+complete reported-cost claims, and missing pairs, duplicate trials or
+inconsistent task pools fail analysis. Frozen source/rule drift is rejected
+unless `--exploratory-reanalysis` records it. `evidence_analysis` compares each
+arm with every declared single-model baseline, keeps unresolved preferences at
+bounds of [-1, +1] and reports task-cluster uncertainty. Intervals are
+exploratory and unadjusted for multiple comparisons.
 
 The historical eval scripts (the ToT+GAN `python -m evals` CLI, and the
 `repair_ablation` / `agentic_eval` / `quality_ablation` / `ensemble_ablation` /
 `ensemble_meta_ablation` / `access_list_scale` / `scaffold_boundary` suites)
-were removed in the 2026-08 cleanup; the three ablations above are the current
-methodology, and the findings they back are retained below as a record.
+were removed in the 2026-08 cleanup; their findings are retained as a record.
 
-### Headline findings (measured, no preset conclusion)
+### Results at a glance
 
-The numbered findings below are historical observations on the tested tasks,
-models and evaluation protocols. Their rankings are not universal laws. Older
-judge disagreement was recorded as a tie; the new evidence harness preserves it
-as inconclusive. Nominal call matching does not establish token or dollar parity.
+Full methodology, numbers and caveats live in
+[docs/findings.md](docs/findings.md). These are historical observations on the
+tested tasks, models and protocols — not universal laws.
 
-1. **Where an engine genuinely wins — capability, not quality.** On tasks that require *acting* (the agentic hidden-oracle benchmark), a small model with `agent(tools=[...])` scored **8/8** vs a single call's **0/8**: it probes the hidden function, infers the rule, and implements it — a single call can't know an arbitrary rule without probing. This is the genuine value class.
+| # | Finding |
+|---|---|
+| 1 | **Tools add capability:** small model + `agent(tools=...)` 8/8 vs single call 0/8 on hidden-oracle. |
+| 2 | **Pure-LLM scaffolds tied strong single calls on self-contained tasks;** repair beats a single call, ties matched-cost best-of-K at ~1/3 the calls. |
+| 3 | **ToT+GAN was dominated:** Game-of-24 14/15 vs single 15/15 at ~34× the cost. |
+| 4 | **No headroom** on the hardest Game-of-24 puzzles across four model tiers (single 5/5 everywhere). |
+| 5 | **Ensemble scorer CUT:** the open-ended gain came from roster heterogeneity, not the scorer's ranking. |
+| 6 | **Hetero reflection** beat single and homo reflection **5-0-0** on meta-tasks. |
+| 7 | **Quality modes (10 problems):** hetero reflection 10-0-0 vs single; adversarial/dialectic add no consistent extra lift. |
+| 8 | **Access lists** (`sees=`) shipped as a kernel primitive; reflection integration stays opt-in. |
+| 9 | **Tuned dialectic** moved from −0.500 to +0.600 NET vs single on 3 meta tasks (single judge). |
 
-2. **Where scaffolds do NOT win — self-contained result quality.** Judged against a *matched-cost* baseline, **the tested pure-LLM scaffolds did not beat the tested single-call controls on self-contained tasks**: the dialectic pattern went **0-3-2** vs a prompt-matched strong baseline at every model size (the earlier 4-1-0 "win" was prompt + length, not structure). The **repair** engine beats a *single* call but exactly **ties matched-cost best-of-K** on pass-rate — its real edge is **cost** (best-of-N reliability at ~1/3 the calls). On *open-ended meta-tasks*, the picture differs — see finding #9 (the dialectic, correctly tuned, beats a prompt-matched single call).
-
-3. **The tree structure is *dominated*, not just unhelpful.** On **Game-of-24** — ToT's *own* canonical benchmark — a faithful ToT scored **14/15 and lost to a single call's 15/15 at ~34× the cost**: modern models one-shot the task the 2023 paper's GPT-4 failed 96% of the time. At matched compute under a blind judge, the ToT+GAN pattern went **0-4-1 / 0-2-3 / 0-1-4** (vs single / best-of-N / self-refine) — it *never won a matchup*. The quality order is **self-refine ≥ best-of-N ≥ single ≥ tree-scaffold**.
-
-4. **The value window is closed across the accessible model range.** ToT only helps where the base model fails alone but search can recover — a "fails-but-fixable" band. Probing the *hardest* Game-of-24 puzzles against **four model tiers** (the weakest cloud models available) a single call scored **5/5 on every model, every puzzle**. There is no accessible weak model that fails these tasks, so there is no gap for search to recover — the boundary has moved past this task.
-
-5. **Heterogeneous ensemble — the scorer's signal is not what does the work (2026-06-26).** The ensemble was designed as a fourth honest win lever — *independence* ranked by a mandatory ground-truth-grade signal. A two-axis honesty gate falsified the signal half of the thesis while surfacing a real, narrower result:
-   - **Code (ground-truth verifier, 6 problems, budget 6):** ensemble+signal **6/6**, best-single best-of-6 **6/6**, blind-pick **6/6** — **CUT**: both models one-shot every problem, so heterogeneity and the signal both have empty headroom. Saturation, same shape as finding #4.
-   - **Open-ended meta (blind LLM-judge, 5 problems, budget 6, position-swap):** ensemble+signal beat a prompt-matched single call **3-1-2** — *the pattern does improve answer robustness on open-ended tasks* (the code axis couldn't measure this). But the **blind-pick arm** (signal replaced by a constant) also beat single **3-1**: the gain is **attributable to roster heterogeneity, not the scorer's ranking signal**. Per H1's signal-attribution clause: **CUT**.
-   - **Takeaway:** a *no-scorer* multi-model best-of-N (sample N heterogeneous models, keep one) captures the robustness gain the ensemble shows on open-ended tasks; the float scorer adds no measurable lift over blind-pick. The repair sub-criterion was also **CUT** (multi-model-repair@6 vs single@6: 6/6 vs 6/6, **0 model-switch rescues**).
-
-6. **Heterogeneous reflection — the honest meta-task lever (2026-07-08).** `reflection_pattern.py` implements the structured gather → frame → critique → synthesize pipeline with per-angle model assignment — no AB-MCTS, no LLM scorer. On the full **5-problem meta set** (blind position-swap judge, cliproxy roster `openai:qwen3.6-flash` + `openai:glm-5.2`, `JUDGE_MODEL_CONFIG=openai:glm-5.2`, `DIALECTICA_DISABLE_THINKING=true`):
-   - **`evals/reflection_ablation.py` — hetero vs homo vs single:** heterogeneous reflection beat a prompt-matched single call **5-0-0** and beat the same pipeline on one model **5-0-0** — the gain is **attributable to roster heterogeneity**, not merely multi-stage shape.
-   - **`evals/workflow_ablation.py` — homo vs single (control):** the homogeneous reflection pipeline beat single **4-0-1** (NET **+4**) — the pipeline shape *does* help on meta-tasks, but heterogeneity adds the remaining edge (including the one problem where homo tied single but hetero won).
-   - **Takeaway:** for open-ended reflection/meta-tasks, use heterogeneous multi-angle reflection; do not resurrect ensemble float-scorer ranking. Reproduce: `uv run python -m evals.reflection_ablation` and `uv run python -m evals.workflow_ablation` (same cliproxy env as finding #5).
-
-7. **Multi-model quality workflow modes — expanded pool (2026-07-09).** `quality_workflow_pattern.py` unifies three hetero compositions on **10 problems** (5 meta + 5 default; blind judge, same cliproxy roster as #6):
-   - **vs single:** homo reflection **4-0-6** (NET +4); hetero reflection **10-0-0** (NET +10); hetero adversarial **9-0-1** (NET +9); hetero dialectic **9-0-1** (NET +9).
-   - **vs hetero reflection (does the extra stage help?):** adversarial **2-0-8** (NET +2); dialectic **0-1-9** (NET −1).
-   - **Takeaway:** hetero `reflection` is the default — it sweeps the expanded pool. Extra adversarial-rival or one-round dialectic stages add no consistent lift over hetero reflection (mostly ties; dialectic loses one head-to-head). Prefer `create_reflection_engine`; keep `quality_workflow_pattern` for mode comparison only. Reproduce: `uv run python -m evals.quality_workflow_ablation`.
-
-8. **Access lists — a context-visibility lever, ported from Sakana Fugu (2026-07-12).** A study of Sakana's Fugu/Fugu-Ultra orchestrators (TRINITY + The Conductor, ICLR 2026) provides a distinct architectural example: Fugu's win over each single worker comes from **model independence + a learned router**, not tools the workers lack, and a learned communication topology with per-step access lists. The mechanism implemented here without training is the **access list** — `agent(sees=[...])` now ships as a kernel primitive: default full isolation, opt-in to inject only designated prior steps' outputs. It is wired into the reflection recipe via `use_access_lists=True` (each critique sees only its own gather angle; synthesize sees the tension + critiques, not the full transcript), and verified against a live model (`glm-5.2` via an OpenAI-compatible endpoint). The measured reflection numbers above used inlined prompts, so access-list mode stays opt-in until an ablation shows it lifts or ties on the same matrices. Reproduce the live check: `uv run pytest -m e2e_access`.
-
-9. **The dialectic, correctly tuned, beats a prompt-matched single call — on open-ended meta-tasks (2026-08-05).** The 0-3-2 result (finding #2) is **not the whole story**: that dialectic was under-tuned. Two pure-LLM, same-model changes — a **sharpened `SYNTHESIS_PROMPT`** (make ONE binding decision, give the precise measurable trigger, name the condition where each side wins, carry forward specific numbers — the same bar the reflection pattern holds its synthesis to) and a **deeper spiral** (`max_rounds` 3 → 5) — flip the dialectic from **−0.500 to +0.600 NET** vs a prompt-matched strong single call, confirmed over **two independent runs** (+0.100, +0.600). Methodology matters: this used a **continuous 0-10 score** (blind judge grades each answer against `DEFAULT_CRITERIA`, NET = mean score diff), not the discrete win/lose/tie NET whose ±4 run-to-run swing made the earlier measurement unreadable. Rejected directions: sharpening the THESIS prompt too (−0.333) and two rivals per round (`perspectives=2`, −0.567) both regressed and were reverted. Caveat: measured on the 3 meta problems, single judge (gpt-5.5), continuous-score design; the same tuning on the full 5-meta pool is not yet measured.
-
-### Research update: historical findings are conditional
-
-As of **2026-10-04**, this research update screened **32 primary-source papers**
-and completed **7 real-model studies with 576 generation trials**. The
-[literature matrix](docs/research/2026-10-03-literature.md) records dates,
-reading depth and local implementation decisions; screening does not mean that
-all 32 papers were fully reviewed or replicated. The
-[completion audit](docs/research/2026-10-04-completion-audit.md) links requirements
-to saved verification, and the
-[raw-record integrity audit](docs/research/results/2026-10-04-heldout-v1/final-integrity-audit.json)
-reconciles the completed studies. Generation trials are experimental arm runs,
-not individual model calls; calibration and judging are metered separately.
+#### Held-out campaign (2026-10-04)
 
 The [frozen seven-study campaign](docs/research/2026-10-04-heldout-protocol.md)
-is complete. All 576 generation trials, report/protocol/analysis bindings and
-record-level usage sums were verified before final dependency changes. The batch
-reports **3,631,216 tokens / 3,789 observable model turns**, including calibration
-and judging, and retains **30 failed generations**. Unknown usage was zero in
-this batch; earlier gateway failures with unknown usage remain separate evidence.
-These are reported costs, not provider billing or hidden HTTP request counts.
+screened 32 primary-source papers ([literature matrix](docs/research/2026-10-03-literature.md))
+and ran 576 generation trials: **3,631,216 reported tokens / 3,789 observable
+model turns** including calibration and judging, with **30 failed generations
+retained**. These are reported costs, not provider billing or hidden HTTP request
+counts. See the [completion audit](docs/research/2026-10-04-completion-audit.md)
+and [raw-record integrity audit](docs/research/results/2026-10-04-heldout-v1/final-integrity-audit.json).
 
 | Held-out comparison | Observed result | Adoption decision |
 |---|---|---|
@@ -274,88 +274,13 @@ These are reported costs, not provider billing or hidden HTTP request counts.
 | [Meta budget 6](docs/research/2026-10-04-heldout-meta-budget6-result.md) | Single 5/24; consensus 4/24; self-refinement 10/24; staged 4/24; direct 0/24 | All differences against single retain zero; favorable self-refinement point estimates are insufficient for adoption |
 | Strong single controls: [meta](docs/research/2026-10-04-heldout-strong-meta-result.md) / [claims](docs/research/2026-10-04-heldout-strong-claim-result.md) | GPT 24/24 under each output contract | Observed ceilings on this pool, not universal success or tests of mechanisms on GPT |
 
-[Candidate/selection diagnostics](docs/research/2026-10-04-heldout-selection-diagnostics.md)
-find no correctness change from claim weighting on the same returned candidates.
-Meta controllers have low candidate coverage; self-refinement loses correct
-intermediate answers at final selection. Failed claim trials have incomplete
-coverage rather than assumed zero. These post-hoc diagnostics guide future
-research, not retuning on the frozen held-out pool. Intervals condition on small
-task pools and are exploratory without multiplicity correction; token costs are
-unequal. The shipped surface remains Workflow and verifier-guided repair.
-
-The findings above describe the tested models, tasks and protocols. They do not
-establish a necessary-and-sufficient law that scaffolds can only win by adding
-external information. Small task pools, saturation, uneven prompt constraints,
-call-count-only cost accounting and a single judge limit generalization.
-
-Recent counterevidence motivated the controlled evaluation:
-[claim-level falsification](https://arxiv.org/abs/2608.11994) and
-[structured meta-reasoning](https://arxiv.org/abs/2609.38147) report benefits from
-reallocating inference computation, while also documenting budget/model limits.
-These are authors' results, not local replications. The current research upgrade
-tracks hypotheses, sources and acceptance gates in
-[the upgrade contract](docs/research/2026-10-03-upgrade.md) and
-[literature matrix](docs/research/2026-10-03-literature.md). New superiority claims
-require strong prompt-matched controls, complete per-arm cost receipts,
-held-out tasks, repetitions and reliable evaluation; E2E proves execution only.
-
-The new [claim-falsification research pattern](examples/patterns/claim_falsification_pattern.py)
-implements independent claim assessment and weighted candidate selection.
-[Its comparison harness](evals/claim_ablation.py) records controller/assessment
-costs, raw candidates, coverage and same-candidate unweighted selection. Initial
-live development trials found a zero-coverage floor at fourteen-project tasks;
-see [pilot diagnostics](docs/research/2026-10-04-pilot-diagnostics.md). This
-pattern remains experimental after the repeated held-out comparisons: no
-selection benefit or established quality advantage justified promotion.
-
-The [meta-reasoning research pattern](examples/patterns/meta_reasoning_pattern.py)
-implements staged/direct controllers, selective context and stored-artifact
-selection; no quality advantage is established. The
-[evidence-grounded decision harness](evals/evidence_ablation.py) separately
-meters generation, calibration and judging. Position bias, judge disagreement
-and failed calibration remain inconclusive. Its first live pilot passed quote
-checks but produced position disagreement, so it has no quality winner. Nominal
-allowances count workflow agent steps; underlying retries may issue additional
-requests. They do not establish request, token or dollar parity.
-
-The new comparison harnesses save configuration, task text, source/dependency
-fingerprints and analysis rules before the first model call, including judge
-calibration. Existing experiment paths cannot be reused. For completed
-objective-verifier reports, run:
-
-```bash
-uv run python -m evals.objective_analysis results.json --output analysis.json
-```
-
-Analysis averages repeats within each task and resamples paired tasks. Failed
-generation stays in the reliability denominator; unknown usage prevents complete
-reported-cost claims. Missing pairs, duplicate trials and inconsistent model task
-pools fail analysis. Frozen source/rule drift is rejected by default;
-`--exploratory-reanalysis` explicitly records the drift for historical diagnostics.
-Intervals are exploratory and unadjusted for multiple comparisons. Degenerate
-intervals at a floor or ceiling do not establish certainty or general superiority.
-
-For completed evidence-grounded decision reports, run:
-
-```bash
-uv run python -m evals.evidence_analysis evidence.json --output evidence.analysis.json
-```
-
-This analysis compares each candidate arm with every declared single-model baseline.
-Unresolved preferences retain bounds of [-1, +1] rather than becoming ties. It
-reports task-cluster uncertainty and separate generation, calibration and judging
-costs. Valid-only preferences are selected-evidence diagnostics; they do not prove
-human alignment. Incomplete trial pools or baseline comparisons are rejected.
-
-### Earlier advice-suite matrices (2026-06-10/11) — superseded
-
-The first-round matrices compared the ToT+GAN pattern against a *weaker*
-single-call baseline (no matched-prompt control) and an "Innovation"
-discriminator criterion that steered toward over-complex answers. They are
-superseded by findings #2–#7 above. Recorded here: V1 (Innovation criterion) won technical problems 7-1-1 but lost organizational ones 0-4-2; V2 (Feasibility criterion) pooled to 20-8-2 vs V1's 7-5-3 —
-evidence that discriminator criteria steer answer *content*, not just selection,
-but neither beats a prompt-matched strong baseline.
-
+Post-hoc [selection diagnostics](docs/research/2026-10-04-heldout-selection-diagnostics.md)
+guide future research, not retuning on the frozen pool. Intervals condition on
+small task pools, are exploratory without multiplicity correction, and token
+costs are unequal. **The shipped surface remains Workflow and verifier-guided
+repair; new superiority claims require strong prompt-matched controls, complete
+per-arm cost receipts, held-out tasks, repetitions and reliable evaluation —
+E2E proves execution only.**
 
 ## Configuration
 
@@ -388,14 +313,25 @@ export OPENAI_API_KEY="..."
 export OPENAI_API_BASE="http://localhost:8317/v1"
 # Disable qwen-family thinking trace for eval latency (optional)
 export DIALECTICA_DISABLE_THINKING=true
-
-# ADK 2.11+ runtime (optional — see "Claude Workflow parity" above)
-export DIALECTICA_CONTEXT_CACHE=true              # Gemini context cache via ADK App
-export DIALECTICA_CONTEXT_CACHE_MIN_TOKENS=4096   # Gemini hard floor
-export DIALECTICA_ADK_TELEMETRY=true              # or set OTEL_EXPORTER_OTLP_* instead
-export DIALECTICA_TOOL_WORKERS=4                 # offload blocking sync tools (opt-in)
-export DIALECTICA_MAX_LLM_CALLS=50               # bound each ADK invocation's tool loop
 ```
+
+### Runtime variables (all optional)
+
+| Variable | Default | Effect |
+|---|---|---|
+| `DIALECTICA_CONTEXT_CACHE` | off | Gemini context cache via ADK App (`true` to enable) |
+| `DIALECTICA_CONTEXT_CACHE_INTERVALS` | `10` | cache intervals |
+| `DIALECTICA_CONTEXT_CACHE_TTL_SECONDS` | `1800` | cache TTL |
+| `DIALECTICA_CONTEXT_CACHE_MIN_TOKENS` | `4096` | Gemini hard floor |
+| `DIALECTICA_CONTEXT_CACHE_CREATE_TIMEOUT_MS` | unset | `CachedContent.create()` timeout |
+| `DIALECTICA_ADK_TELEMETRY` | off | OpenTelemetry (or set `OTEL_EXPORTER_OTLP_*` instead) |
+| `DIALECTICA_TOOL_WORKERS` | unset | positive int; offload blocking sync tools to ADK's thread pool |
+| `DIALECTICA_MAX_LLM_CALLS` | ADK limit | positive int; bounds each ADK invocation's tool loop |
+| `DIALECTICA_WORKFLOW_CONCURRENCY` | `min(16, cpu−2)` | cap on overlapping `agent()` calls; `Workflow(concurrency=...)` takes precedence |
+| `DIALECTICA_MAX_CONCURRENCY` | unlimited | global cap on overlapping `run_agent()` calls |
+| `DIALECTICA_WORKFLOW_JOURNAL_DIR` | `.dialectica/workflows` | where resume journals are written |
+
+### Runtime behavior
 
 The runtime targets [ADK 2.11](https://github.com/google/adk-python/releases/tag/v2.11.0).
 `tools` and `schema` can be used together: ADK selects native structured output
@@ -430,41 +366,32 @@ journals lacking the field remain readable; their default zero means the
 counter was not recorded. A `tokens` budget caps reported output tokens,
 including reported thinking; input/total/cached usage is recorded separately.
 
-Explicit model configuration now fails before dispatch for malformed values,
-unsupported providers or missing OpenAI/OpenRouter credentials. It no longer
-silently selects a Google model. Use `provider:model`, unset
-`DEFAULT_MODEL_CONFIG` to choose the native default, and provide the selected
-provider's credentials. `openrouter:vendor/model` routes through OpenRouter.
-This changes the former fallback behavior; update callers that relied on it.
+Explicit model configuration fails before dispatch for malformed values,
+unsupported providers or missing OpenAI/OpenRouter credentials; it never
+silently selects a Google model. Use `provider:model` (`openrouter:vendor/model`
+routes through OpenRouter) and unset `DEFAULT_MODEL_CONFIG` to choose the native
+default.
 
-`DIALECTICA_TOOL_WORKERS` uses ADK's sync tool thread pool support for ordinary
-invocations. Leave it unset for tools that depend on the calling thread. Python
-cannot stop a sync tool already running in a worker thread. Both settings require
-positive integers. `DIALECTICA_MAX_LLM_CALLS` overrides native `ADK_MAX_LLM_CALLS` when set;
-otherwise ADK resolves its own limit (500 per invocation if unset);
-reaching it fails without restarting the tool loop. It is separate from the
-outer Workflow budget, which counts `agent()` steps or reported tokens.
+Leave `DIALECTICA_TOOL_WORKERS` unset for tools that depend on the calling
+thread; Python cannot stop a sync tool already running in a worker thread. Both
+`DIALECTICA_TOOL_WORKERS` and `DIALECTICA_MAX_LLM_CALLS` require positive
+integers. `DIALECTICA_MAX_LLM_CALLS` overrides native `ADK_MAX_LLM_CALLS` when
+set; otherwise ADK resolves its own limit (500 per invocation if unset). Reaching
+it fails without restarting the tool loop and is separate from the outer
+Workflow budget, which counts `agent()` steps or reported tokens.
 
-`uv.lock` freezes the upgraded dependency combination used by the research
-campaign was archived before the final upgrade. After completion, a fresh full
-`uv lock --upgrade` resolved 94 packages and upgraded zipp to 4.1.1;
-[the dependency audit](docs/research/2026-10-04-dependency-audit.md) separates
-the frozen experimental environment from the final installed environment.
-Some transitive pins prevent absolute-latest versions:
-tokenizers requires Hugging Face Hub <2; LiteLLM requires OpenAI <3 and
-importlib-metadata <9; ADK caps OpenTelemetry at 1.42.1 and websockets below 16.
-FastAPI 0.142.2 requires OpenTelemetry >=1.44, so 0.141.1 remains the compatible
-version. aiohttp requires multidict <7, and Pydantic pins pydantic-core exactly.
-Install reproducibly with `uv sync --locked`.
+Install reproducibly with `uv sync --locked`. [The dependency audit](docs/research/2026-10-04-dependency-audit.md)
+separates the frozen experimental environment from the final installed one and
+explains the transitive pins that prevent absolute-latest versions.
 
-Use `gemini-3.5-flash` (default) or `gemini-3.1-pro-preview` only — there is no
-stable `gemini-3.1-pro` (404 on generateContent). Provider strings are
+Known-good Gemini ids are `gemini-3.5-flash` (default) and `gemini-3.1-pro-preview`
+(there is no stable `gemini-3.1-pro`; see [Troubleshooting](#troubleshooting)). Provider strings are
 `provider:model_name`; the `openai:` provider passes `api_base` explicitly
 (recent LiteLLM no longer reads `OPENAI_API_BASE` for the `openai/` prefix).
 
 ### Parameters
 
-- **`agent()`** — `tools` (injected callables), `instructions` (task-specific guidance), `schema` (structured output), `model` (per-call override), `isolation="worktree"`, `agent_type` (e.g. `"Explore"`), `sees` (per-step access list of prior step labels for selective context visibility).
+- **`agent()`** — see the signature under [Workflow kernel](#workflow-kernel--repair).
 - **`Workflow`** — `budget_total` / `budget_unit` (`"calls"` or `"tokens"`), `resume_run_id`, `meta`, `concurrency`; `budget().usage()` includes `cached_tokens` when the backend reports cache hits.
 - **`create_repair_engine`** — `verifier` (mandatory), `max_attempts`, `solution_format`, `models` (optional roster).
 - **Patterns** — see each pattern's own docstring/factory signature in `examples/patterns/`; they keep their demoted engine's original parameters (e.g. `scorer`/`policy` for the ensemble pattern, `criteria`/`rounds` for the dialectic pattern).
@@ -533,7 +460,7 @@ uv sync                                         # install deps
 uv run pytest                                   # mocked, fast, no API key
 uv run pytest -m e2e                            # live repair + tools/schema/worker tests (configured model credentials)
 uv run pytest -m e2e_access                     # live access-list tests (needs OPENAI_API_BASE + OPENAI_API_KEY + DEFAULT_MODEL_CONFIG=openai:...)
-uv run pytest -m 'e2e or e2e_access'             # all nine live cases via a configured OpenAI-compatible backend
+uv run pytest -m 'e2e or e2e_access'             # all live cases via a configured OpenAI-compatible backend
 uv run ruff format && uv run ruff check         # format / lint
 ```
 
@@ -547,27 +474,10 @@ The tool/schema tests retrieve a random value absent from the prompt, validate
 the result, check the actual sync tool thread, and require backend-reported
 token usage. Missing credentials cause skips; a skipped case is not live acceptance.
 
-ADK 2.11 live acceptance (2026-10-03): **9 passed, zero skipped, 145.37s** via
-cliproxy, using `openai:qwen3.8-flash` for the default/generator/fast model and
-`openai:gemini-3.5-flash-lite` for the second reflection model. Coverage includes
-access-list visibility, default isolation, all ten heterogeneous reflection
-calls, repair, tools + schema with sync workers both disabled and enabled, and
-parallel resume with cached context, reported usage and zero-call replay, plus
-real-model response failures before event creation (retry success and final
-failure both preserve the exact reported token sum). After the final cached-event
-accounting fix, both live failure cases were rerun: **2 passed in 21.17s**.
-This validates the OpenAI-compatible route; direct Gemini credentials were
-invalid, and the available GLM routes were blocked by subscription/routing issues.
-
-Final post-campaign environment verification (2026-10-04): **212 offline passed;
-9 real-model E2E passed, zero skipped, 114.77s** with Gemini Flash Lite and GPT-5.5
-as the heterogeneous reflection pair. Lint, formatting, package build and dependency
-checks are recorded in [the completion audit](docs/research/2026-10-04-completion-audit.md).
-The first final live attempt retained 8 passes and one historical-roster routing
-failure; the configured available-roster rerun passed every test without changing
-assertions. One upstream Pydantic `ReadOnly` warning remains; no unhandled asynchronous
-task failure was observed in the passing run. These checks establish execution,
-including pre-event failure usage retention, not quality superiority.
+Dated live-acceptance snapshots (pass counts, timings, rosters) are recorded in
+[docs/findings.md](docs/findings.md#live-verification-snapshots) and the
+[completion audit](docs/research/2026-10-04-completion-audit.md); they establish
+execution, not quality superiority.
 
 The library never calls `logging.basicConfig` — the consuming app owns logging.
 Mock the LLM at the single seam `agent_runtime.run_agent()` — never patch ADK
@@ -590,30 +500,43 @@ updating tests, update the matching `.feature` first. CI
 
 ```
 dialectica/
-  adk_config.py        # ADK cache, tool workers, call limits + OpenTelemetry
-  agent_factory.py    # builds LlmAgents from ROLE_TEMPLATES (Generator only)
-  agent_runtime.py    # THE single LLM seam: run_agent() + retry/backoff
-  json_repair.py       # shared fence/escape JSON-repair helpers
-  llm_config.py        # provider:model parsing (google/openrouter/openai)
-  repair.py            # create_repair_engine (cost win)
-  workflow.py           # Workflow + agent/parallel/pipeline/phase/log/budget + sees= access lists (the kernel)
-examples/patterns/     # reference implementations of demoted engines (not shipped)
-  agentic_pattern.py
-  dialectic_pattern.py
-  ensemble_pattern.py
+  adk_config.py          # ADK cache, tool workers, call limits + OpenTelemetry
+  agent_factory.py       # builds LlmAgents from ROLE_TEMPLATES (Generator only)
+  agent_runtime.py       # THE single LLM seam: run_agent() + retry/backoff
+  json_repair.py         # shared fence/escape JSON-repair helpers
+  llm_config.py          # provider:model parsing (google/openrouter/openai)
+  repair.py              # create_repair_engine (cost win)
+  workflow.py            # Workflow + agent/parallel/pipeline/phase/log/budget + sees= access lists (the kernel)
+  workflow_journal.py    # run journal + resume (.dialectica/workflows/<run_id>/)
+  workflow_registry.py   # register_workflow named registry
+  workflow_worktree.py   # agent(isolation="worktree")
+examples/patterns/       # reference implementations (not shipped)
+  agentic_pattern.py, dialectic_pattern.py, ensemble_pattern.py, tot_gan_pattern.py  # demoted engines
   reflection_pattern.py       # canonical open-ended recipe (hetero); opt-in use_access_lists
   quality_workflow_pattern.py # mode ablation switcher
-  tot_gan_pattern.py
-evals/                # dev-only eval harness (not shipped in the wheel)
+  claim_falsification_pattern.py, meta_reasoning_pattern.py  # experimental research modes
+  self_refine_pattern.py      # self-refinement with convergence & selection policies
+  _scoring.py                 # shared Verdict schema
+evals/                   # dev-only eval harness (not shipped in the wheel)
   baseline.py, harness.py, judge.py, problems.py, meta_problems.py  # shared primitives
-  reflection_ablation.py, workflow_ablation.py, quality_workflow_ablation.py  # the current ablations
-tests/                # BDD features + step defs + helpers
+  reflection_ablation.py, workflow_ablation.py, quality_workflow_ablation.py  # open-ended ablations
+  claim_ablation.py, meta_ablation.py, research_ablation.py, evidence_ablation.py, research_campaign.py  # held-out research
+  selection_study.py, selection_rules.py  # candidate trajectory selection research
+  evidence_eval.py, evidence_tasks.py, research_tasks.py  # task pools + evidence judge
+  measurement.py, experiment_protocol.py, objective_analysis.py, evidence_analysis.py  # receipts, freezing, analysis
+docs/
+  findings.md            # measured findings, research update, live-verification snapshots
+  research/              # literature matrix, protocols, held-out results, audits
+tests/                   # BDD features + step defs + helpers
 ```
 
 ## Troubleshooting
 
 - **`gemini-3.1-pro` 404s** — use `gemini-3.1-pro-preview` or `gemini-3.5-flash`.
 - **OpenAI-compatible backend "Connection error"** — `OPENAI_API_BASE` is no longer read for the `openai/` prefix by recent LiteLLM; the library passes `api_base` explicitly, so make sure `OPENAI_API_BASE` is set (not just `OPENAI_API_KEY`).
+- **`ValueError` before any model call** — explicit model config is validated up front: use `provider:model`, a supported provider (`google`, `openrouter`, `openai`) and that provider's credentials.
+- **Tool loop stops with an ADK call-limit error** — `DIALECTICA_MAX_LLM_CALLS` (or `ADK_MAX_LLM_CALLS`) was reached; the loop is not restarted. Raise the limit or tighten the task.
+- **E2E tests report skipped** — credentials were missing; a skipped case is not live acceptance.
 - **qwen-family evals are slow** — set `DIALECTICA_DISABLE_THINKING=true` to disable the reasoning trace (`chat_template_kwargs.enable_thinking=false`).
 - **Ensemble pattern roster "collapsed to duplicate effective model"** (`examples/patterns/ensemble_pattern.py`) — this pattern no longer warns automatically (the check needed pre-built agents, dropped when it was demoted); compare your `models` list for duplicates yourself before calling `create_ensemble_engine`.
 - **ToT+GAN pattern + enforced JSON mode returns empty verdicts** (some backends, e.g. gemma-4-26b-a4b) — the pattern's `structured_output` parameter is accepted for signature parity but always uses schema-enforced scoring; the original engine's workaround was not ported.
@@ -654,7 +577,7 @@ survive; the GAN-specific classes moved to `examples/patterns/tot_gan_pattern.py
 
 ## Contributing
 
-Conventional commits (use the `/git:commit` skill). Release = push a `v*.*.*`
+Conventional commits. Release = push a `v*.*.*`
 tag whose version **matches** `pyproject.toml`; CI runs tests, publishes to PyPI,
 and creates a GitHub release. When adding to the shipped API, ship the
 honesty-gate ablation that would CUT it if the data says so — the repo's
@@ -671,6 +594,7 @@ MIT — see `LICENSE`.
 - [Tree of Thoughts](https://arxiv.org/abs/2305.10601) — Yao et al., 2023 (the ToT+GAN pattern's lineage; now reference-only).
 - [Sakana AB-MCTS / "Wider or Deeper?"](https://arxiv.org/abs/2503.04412) — the ensemble pattern's lineage (independence + ground-truth signal).
 - [Sakana Fugu](https://sakana.ai/fugu/) — the multi-model coordinator whose per-step access-list mechanism inspired the kernel's `sees=` primitive (finding #8).
+- [Claim-level falsification (CLR)](https://arxiv.org/abs/2608.11994) and [structured meta-reasoning](https://arxiv.org/abs/2609.38147) — the lineage of `claim_falsification_pattern.py` and `meta_reasoning_pattern.py`; authors' results, not local replications. Local screening is in the [literature matrix](docs/research/2026-10-03-literature.md).
 - [karpathy/autoresearch](https://github.com/karpathy/autoresearch) — inspiration.
 
 ## Acknowledgments
