@@ -1,0 +1,347 @@
+{
+  "protocol": "research-pilot-v1",
+  "split": "dev",
+  "size": 14,
+  "models": [
+    "openai:qwen3.8-flash",
+    "openai:gemini-3.5-flash-lite"
+  ],
+  "rows": [
+    {
+      "task_id": "portfolio-dev-000",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "To find the globally optimal subset of projects, we need to maximize the total reward subject to a cost constraint of 100 and mutual exclusion constraints.\n\n**Projects Data:**\nID: Reward, Cost\n0: 60, 7\n1: 30, 20\n2: 48, 28\n3: 68, 9\n4: 30, 12\n5: 59, 5\n6: 48, 4\n7: 54, 21\n8: 67, 23\n9: 76, 27\n10: 47, 23\n11: 22, 26\n12: 44, 27\n13: 77, 20\n\n**Mutually Exclusive Pairs:**\n(0, 1), (0, 5), (1, 10), (3, 8), (4, 7), (5, 8), (5, 9)\n\nLet's analyze high-reward, low-cost items first to see if they can be combined effectively.\nItems with high efficiency (Reward/Cost):\n- 5: 59/5 = 11.8\n- 6: 48/4 = 12.0\n- 0: 60/7 = 8.57\n- 3: 68/9 = 7.55\n- 13: 77/20 = 3.85\n- 9: 76/27 = 2.81\n- 8: 67/23 = 2.91\n- 7: 54/21 = 2.57\n\nNote conflicts involving these top items:\n- Item 5 conflicts with 0, 8, 9.\n- Item 0 conflicts with 1, 5.\n- Item 3 conflicts with 8.\n- Item 6 has no conflicts listed.\n\nLet's try combinations including the most efficient items (5 and 6).\nIf we select **5** (Cost 5, Reward 59) and **6** (Cost 4, Reward 48):\nCurrent Cost: 9. Current Reward: 107.\nConflicts triggered by 5: Cannot select 0, 8, 9.\nRemaining available high-value items: 3, 13, 7, 10, 2, 4, 1, 11, 12.\n(Note: 0 is excluded due to conflict with 5).\n\nLet's look at **3** (Cost 9, Reward 68). It conflicts with 8 (already excluded). No conflict with 5 or 6.\nSelect **3**:\nCurrent Set: {5, 6, 3}.\nCost: 5 + 4 + 9 = 18.\nReward: 59 + 48 + 68 = 175.\nConflicts: 5 excludes 0, 8, 9. 3 excludes 8.\n\nNow we have budget remaining: 100 - 18 = 82.\nAvailable candidates not conflicting with {5, 6, 3}:\n- 13 (77, 20): No conflicts with 5, 6, 3.\n- 7 (54, 21): Conflicts with 4. No conflict with 5, 6, 3.\n- 10 (47, 23): Conflicts with 1. No conflict with 5, 6, 3.\n- 2 (48, 28): No conflicts.\n- 4 (30, 12): Conflicts with 7.\n- 1 (30, 20): Conflicts with 0 (excluded), 10.\n- 11 (22, 26)\n- 12 (44, 27)\n\nLet's add **13** (Cost 20, Reward 77).\nSet: {5, 6, 3, 13}.\nCost: 18 + 20 = 38.\nReward: 175 + 77 = 252.\nBudget Left: 62.\nConflicts for 13: None listed.\n\nNext best candidate from remaining pool based on value/cost or absolute value?\nCandidates: 7 (54, 21), 10 (47, 23), 2 (48, 28), 12 (44, 27), 4 (30, 12), 1 (30, 20), 11 (22, 26).\n\nLet's try adding **7** (Cost 21, Reward 54).\nSet: {5, 6, 3, 13, 7}.\nCost: 38 + 21 = 59.\nReward: 252 + 54 = 306.\nBudget Left: 41.\nConflict check: 7 conflicts with 4. So 4 is out.\n\nRemaining candidates: 10 (47, 23), 2 (48, 28), 12 (44, 27), 1 (30, 20), 11 (22, 26).\nCan we fit more?\nTry **10** (Cost 23).\nSet: {5, 6, 3, 13, 7, 10}.\nCost: 59 + 23 = 82.\nReward: 306 + 47 = 353.\nBudget Left: 18.\nConflict check: 10 conflicts with 1. So 1 is out.\nRemaining candidates fitting in 18 cost:\n- 4 is already out (conflict with 7).\n- 2 costs 28 > 18.\n- 12 costs 27 > 18.\n- 11 costs 26 > 18.\n- 1 costs 20 > 18.\nIs there anything else?\nWe skipped checking item 4 earlier because of conflict with 7.\nWhat about item 1? Conflict with 10.\nWhat about item 2? Cost 28. Too expensive for remaining 18.\n\nSo one potential solution is **{3, 5, 6, 7, 10, 13}**.\nTotal Cost: 9 + 5 + 4 + 21 + 23 + 20 = 82.\nTotal Reward: 68 + 59 + 48 + 54 + 47 + 77 = 353.\n\nCan we do better?\nLet's look at the unused budget of 18. Is there a combination of other items that yields higher reward than swapping something?\nOr maybe excluding 7 allows picking 4 and something else?\nIf we exclude 7 (Reward 54, Cost 21), we free up 21 cost and remove conflict with 4.\nCurrent Set without 7: {3, 5, 6, 10, 13}.\nCost: 82 - 21 = 61.\nReward: 353 - 54 = 299.\nBudget Left: 100 - 61 = 39.\nAvailable now: 4 (30, 12), 2 (48, 28), 12 (44, 27), 1 (30, 20), 11 (22, 26).\nNote: 1 conflicts with 10 (selected). So 1 is out.\nLet's pick **2** (48, 28).\nSet: {3, 5, 6, 10, 13, 2}.\nCost: 61 + 28 = 89.\nReward: 299 + 48 = 347.\nBudget Left: 11.\nCan we add 4 (30, 12)? No, cost 12 > 11.\nCan we add 12? No.\nCan we add 11? No.\nResult: 347 < 353.\n\nLet's try picking **4** instead of 2 in the above scenario.\nSet: {3, 5, 6, 10, 13, 4}.\nCost: 61 + 12 = 73.\nReward: 299 + 30 = 329.\nBudget Left: 27.\nCan we add **2** (48, 28)? No, 28 > 27.\nCan we add **12** (44, 27)? Yes.\nSet: {3, 5, 6, 10, 13, 4, 12}.\nCost: 73 + 27 = 100.\nReward: 329 + 44 = 373.\nCheck conflicts:\n- 3 vs 8 (8 not selected). OK.\n- 5 vs 0, 8, 9 (none selected). OK.\n- 10 vs 1 (1 not selected). OK.\n- 4 vs 7 (7 not selected). OK.\n- 12 vs ? (No conflicts listed for 12). OK.\n- Others: 6, 13 no conflicts.\nThis set **{3, 4, 5, 6, 10, 12, 13}** has Total Cost 100 and Total Reward **373**.\n\nLet's verify this new high score.\nItems:\n3: 68, 9\n4: 30, 12\n5: 59, 5\n6: 48, 4\n10: 47, 23\n12: 44, 27\n13: 77, 20\n\nSum Costs: 9+12+5+4+23+27+20 = 100.\nSum Rewards: 68+30+59+48+47+44+77 = 373.\n\nCan we beat 373?\nLet's explore variations around this core.\nThe previous best was 353. This is significantly better.\n\nAre there other combinations?\nWhat if we swap 12 (44, 27) for something else?\nRemaining budget after {3,4,5,6,10,13} is 100 - (9+12+5+4+23+20) = 100 - 73 = 27.\nItem 12 fits exactly.\nItem 2 costs 28 (too expensive).\nItem 11 costs 26 (Reward 22). If we pick 11, Reward = 373 - 44 + 22 = 351. Worse.\nItem 1 costs 20 (Reward 30). But 1 conflicts with 10. If we drop 10 (47, 23) and add 1 (30, 20) and use freed budget...\nLet's trace: Drop 10, Add 1.\nBase {3,4,5,6,13} Cost: 9+12+5+4+20 = 50. Reward: 68+30+59+48+77 = 282.\nBudget Left: 50.\nAdd 1 (30, 20). Cost 70. Reward 312.\nLeft Budget: 30.\nAdd 2 (48, 28). Cost 98. Reward 360.\nLeft Budget: 2.\nAdd nothing.\nResult 360 < 373.\n\nWhat if we drop 10 and don't take 1?\nBase {3,4,5,6,13} Cost 50, Reward 282.\nLeft 50.\nAdd 2 (48, 28). Cost 78, Reward 330.\nLeft 22.\nAdd 11 (22, 26)? No.\nAdd 1 (30, 20)? Conflicts with nothing in this set? 1 conflicts with 0, 10. 0 and 10 are not in set. So yes, add 1.\nSet: {3,4,5,6,13,2,1}.\nCost: 50 + 28 + 20 = 98.\nReward: 282 + 48 + 30 = 360.\nSame as before.\n\nWhat if we replace 4 (30, 12) with something else?\nIn set {3,4,5,6,10,12,13}, removing 4 frees 12 cost and loses 30 reward.\nNew Budget: 100 - 12 = 88 used? No, current cost 100. Remove 4 -> Cost 88. Reward 343.\nLeft Budget: 12.\nCan we add something with cost <= 12?\nItem 0 (60, 7)? Conflicts with 5. 5 is in set. No.\nItem 1 (30, 20)? Too big.\nItem 7 (54, 21)? Too big.\nItem 8? Conflicts with 3, 5. No.\nItem 9? Conflicts with 5. No.\nItem 11? Too big.\nSo removing 4 doesn't help immediately unless we restructure more.\n\nLet's look at Item 0 (60, 7). High reward.\nConflicts: 1, 5.\nIf we include 0, we cannot include 5.\nSet with 0:\nStart with {0, 6, 3, 13}.\n0: 60, 7\n6: 48, 4\n3: 68, 9\n13: 77, 20\nCost: 40. Reward: 253.\nConflicts: 0 excludes 1, 5.\nAvailable: 2, 4, 7, 8(excl by 3), 9(excl by 5? No, 5 not in set, but 9 conflicts with 5. Wait. Pair (5,9). If 5 is not selected, 9 is allowed. However, 9 also conflicts with... only 5 in the list? Let's check pairs again.\nPairs: (0,1), (0,5), (1,10), (3,8), (4,7), (5,8), (5,9).\nSo if 5 is NOT selected, 9 IS allowed.\nBut 3 is selected, so 8 is NOT allowed.\nSo from {0,6,3,13}, we can potentially add 9, 7, 2, 4, 10, 11, 12.\nNote: 10 conflicts with 1 (not selected). So 10 is allowed.\nNote: 7 conflicts with 4.\n\nLet's try adding high value items to {0,6,3,13}.\nBudget Left: 60.\nCandidates:\n9: 76, 27\n7: 54, 21\n2: 48, 28\n10: 47, 23\n4: 30, 12\n12: 44, 27\n11: 22, 26\n\nTry adding **9** (76, 27).\nSet: {0, 6, 3, 13, 9}.\nCost: 40 + 27 = 67.\nReward: 253 + 76 = 329.\nLeft Budget: 33.\nConflicts: 9 conflicts with 5 (not in set). OK.\nRemaining candidates: 7, 2, 10, 4, 12, 11.\nTry adding **7** (54, 21).\nSet: {0, 6, 3, 13, 9, 7}.\nCost: 67 + 21 = 88.\nReward: 329 + 54 = 383.\nLeft Budget: 12.\nConflicts: 7 conflicts with 4. So 4 is out.\nCan we add anything with cost <= 12?\nItem 4 is out.\nItem 10 (23) too big.\nItem 2 (28) too big.\nItem 12 (27) too big.\nItem 11 (26) too big.\nItem 1 (20) too big.\nIs there any other item? No.\nWait, did I miss an item?\nIDs 0-13.\nSelected: 0, 3, 6, 7, 9, 13.\nUnselected: 1, 2, 4, 5, 8, 10, 11, 12.\nConstraints check:\n(0,1) - 1 not sel. OK.\n(0,5) - 5 not sel. OK.\n(1,10) - neither sel. OK.\n(3,8) - 8 not sel. OK.\n(4,7) - 4 not sel. OK.\n(5,8) - neither sel. OK.\n(5,9) - 5 not sel. OK.\nCost: 7+9+4+21+27+20 = 88.\nReward: 60+68+48+54+76+77 = 383.\n\nThis beats the previous 373!\nCan we improve {0, 3, 6, 7, 9, 13}?\nLeft budget 12.\nCan we swap something to fit another item?\nCurrent items:\n0: 60, 7\n3: 68, 9\n6: 48, 4\n7: 54, 21\n9: 76, 27\n13: 77, 20\n\nIf we remove 7 (54, 21), cost becomes 67, reward 329. Budget left 33.\nAdd 4 (30, 12) and 2 (48, 28)? Cost 12+28=40 > 33.\nAdd 4 (30, 12) and 10 (47, 23)? Cost 12+23=35 > 33.\nAdd 4 (30, 12) and 12 (44, 27)? Cost 12+27=39 > 33.\nAdd 2 (48, 28) and ...? Just 2 costs 28. Left 5. Add nothing.\nSet: {0, 3, 6, 9, 13, 2}.\nCost: 67 + 28 = 95.\nReward: 329 + 48 = 377.\nLeft Budget: 5.\nAdd 4? Cost 12 > 5.\nAdd 10? Cost 23 > 5.\nAdd 12? Cost 27 > 5.\nAdd 11? Cost 26 > 5.\nAdd 1? Cost 20 > 5.\nAdd 7? Cost 21 > 5.\nSo 377 < 383.\n\nWhat if we remove 9 (76, 27)?\nCost: 88 - 27 = 61. Reward: 383 - 76 = 307.\nBudget Left: 39.\nAdd 2 (48, 28) and 4 (30, 12)? Cost 40 > 39.\nAdd 2 (48, 28) and ...? Left 11. Add nothing useful.\nSet: {0, 3, 6, 7, 13, 2}.\nCost: 61 + 28 = 89.\nReward: 307 + 48 = 355.\nWorse.\n\nAdd 10 (47, 23) and 4 (30, 12)? Cost 35.\nSet: {0, 3, 6, 7, 13, 10, 4}.\nCost: 61 + 23 + 12 = 96.\nReward: 307 + 47 + 30 = 384.\nCheck conflicts:\n(4,7) -> Both selected! **Invalid**.\n\nSo we can't have 4 and 7 together.\nBack to removing 9. We had 7. Can't add 4.\nCan we add 2 and 10?\nSet: {0, 3, 6, 7, 13, 2, 10}.\nCost: 61 + 28 + 23 = 112 > 100. Invalid.\n\nCan we add 12 and 10?\nCost: 27 + 23 = 50 > 39. No.\nCan we add 12 and 4?\nCost: 27 + 12 = 39. Exactly fits!\nSet: {0, 3, 6, 7, 13, 12, 4}.\nWait, 4 conflicts with 7. Invalid.\n\nSo removing 9 seems hard to beat 383 because of the 4-7 conflict blocking efficient fills.\n\nWhat if we remove 7 from the 383 set and keep 9?\nSet: {0, 3, 6, 9, 13}.\nCost: 67. Reward: 329.\nBudget Left: 33.\nAdd 4 (30, 12) and 2 (48, 28)? Cost 40 > 33.\nAdd 4 (30, 12) and 10 (47, 23)? Cost 35 > 33.\nAdd 4 (30, 12) and 12 (44, 27)? Cost 39 > 33.\nAdd 2 (48, 28) and ... Left 5. Nothing.\nAdd 10 (47, 23) and ... Left 10. Add 4? Conflict? 10 conflicts with 1. 4 conflicts with 7 (not in set). So 4 is ok.\nSet: {0, 3, 6, 9, 13, 10, 4}.\nCost: 67 + 23 + 12 = 102 > 100. Invalid.\nRemove 4? Set {0,3,6,9,13,10}. Cost 90. Reward 329+47=376.\nAdd 2? Cost 28 > 10 left.\nAdd 12? Cost 27 > 10 left.\nAdd 11? Cost 26 > 10 left.\nAdd 1? Cost 20 > 10 left.\nSo 376 < 383.\n\nWhat if we add 2 to {0,3,6,9,13}?\nSet: {0, 3, 6, 9, 13, 2}.\nCost: 67 + 28 = 95.\nReward: 329 + 48 = 377.\nLeft 5.\nSame as before.\n\nWhat if we add 12 to {0,3,6,9,13}?\nSet: {0, 3, 6, 9, 13, 12}.\nCost: 67 + 27 = 94.\nReward: 329 + 44 = 373.\nLeft 6.\nAdd 4? Cost 12 > 6.\nAdd 10? Cost 23 > 6.\nAdd 7? Cost 21 > 6.\nAdd 2? Cost 28 > 6.\nAdd 1? Cost 20 > 6.\nAdd 11? Cost 26 > 6.\nSo 373.\n\nIt seems 383 is strong.\nLet's check if we can combine 0, 5? No, conflict.\nLet's check if we can combine 5, 9? No, conflict.\nLet's check if we can combine 5, 8? No, conflict.\nLet's check if we can combine 3, 8? No, conflict.\n\nIs there a set involving 5 that beats 383?\nWe found {3, 4, 5, 6, 10, 12, 13} = 373.\nLet's try to optimize around 5.\nMust exclude 0, 8, 9.\nInclude 5 (59, 5).\nInclude 6 (48, 4).\nInclude 3 (68, 9). (Excludes 8, which is already out).\nInclude 13 (77, 20).\nCurrent: {3, 5, 6, 13}. Cost 38. Reward 252.\nLeft 62.\nAvailable: 1, 2, 4, 7, 10, 11, 12.\nConflicts: 1 vs 10. 4 vs 7.\nBest remaining rewards: 7(54), 2(48), 10(47), 12(44), 4(30), 1(30), 11(22).\nTry taking 7 and 2?\nCost 21+28=49. Total Cost 38+49=87.\nReward 252+54+48=354.\nLeft 13.\nAdd 4? Conflict with 7.\nAdd 10? Conflict with 1 (not in set). Cost 23 > 13.\nAdd 12? Cost 27 > 13.\nAdd 1? Cost 20 > 13.\nAdd 11? Cost 26 > 13.\nSo 354.\n\nTry taking 10 and 2?\nCost 23+28=51. Total 38+51=89.\nReward 252+47+48=347.\nLeft 11.\nAdd 4? Cost 12 > 11.\nAdd 1? Conflict with 10.\nAdd 7? Cost 21 > 11.\nAdd 12? Cost 27 > 11.\nSo 347.\n\nTry taking 7 and 10?\nCost 21+23=44. Total 38+44=82.\nReward 252+54+47=353.\nLeft 18.\nAdd 4? Conflict with 7.\nAdd 2? Cost 28 > 18.\nAdd 12? Cost 27 > 18.\nAdd 1? Conflict with 10.\nAdd 11? Cost 26 > 18.\nSo 353.\n\nTry taking 7 and 12?\nCost 21+27=48. Total 38+48=86.\nReward 252+54+44=350.\nLeft 14.\nAdd 4? Conflict with 7.\nAdd 2? Cost 28 > 14.\nAdd 10? Cost 23 > 14.\nAdd 1? Cost 20 > 14.\nAdd 11? Cost 26 > 14.\nSo 350.\n\nTry taking 2 and 12?\nCost 28+27=55. Total 38+55=93.\nReward 252+48+44=344.\nLeft 7.\nAdd 4? Cost 12 > 7.\nAdd 7? Cost 21 > 7.\nAdd 10? Cost 23 > 7.\nAdd 1? Cost 20 > 7.\nAdd 11? Cost 26 > 7.\nSo 344.\n\nTry taking 4 and 10?\nCost 12+23=35. Total 38+35=73.\nReward 252+30+47=329.\nLeft 27.\nAdd 2? Cost 28 > 27.\nAdd 7? Conflict with 4.\nAdd 12? Cost 27. Fits!\nSet: {3, 5, 6, 13, 4, 10, 12}.\nCost: 73 + 27 = 100.\nReward: 329 + 44 = 373.\nThis matches our previous best for the \"5-inclusive\" branch.\n\nCan we improve 373 in the 5-branch?\nSwap 12 (44, 27) for something else using the same cost?\nNo other item costs 27 except 9 (conflict) and 12.\nSwap 10 (47, 23) and 4 (30, 12) [Total 77, Cost 35] for 7 (54, 21) and 2 (48, 28) [Total 102, Cost 49]?\nOld base {3,5,6,13} Cost 38.\nOption A: Add 4,10,12. Cost 35+27=62. Total 100. Reward 373.\nOption B: Add 7,2. Cost 21+28=49. Total 87. Reward 252+54+48=354. Left 13. Can't add much.\nOption C: Add 7,12. Cost 21+27=48. Total 86. Reward 252+54+44=350. Left 14. Add 4? Conflict. Add 2? Too big.\nOption D: Add 2,10. Cost 28+23=51. Total 89. Reward 252+48+47=347. Left 11.\n\nIt seems 373 is the max for sets containing 5.\n383 is the max for sets containing 0 (and thus not 5).\n\nAre there sets with neither 0 nor 5?\nThen we can potentially take 1, 9, etc.\nExclude 0, 5.\nAvailable: 1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13.\nConflicts active:\n(1,10)\n(3,8)\n(4,7)\nOthers involve 0 or 5, so inactive.\n\nLet's try high value items here.\n9 (76, 27)\n13 (77, 20)\n3 (68, 9)\n6 (48, 4)\n2 (48, 28)\n7 (54, 21)\n10 (47, 23)\n12 (44, 27)\n4 (30, 12)\n1 (30, 20)\n8 (67, 23) - Conflicts with 3.\n11 (22, 26)\n\nTry {3, 6, 9, 13}.\nCost: 9+4+27+20 = 60.\nReward: 68+48+76+77 = 269.\nLeft 40.\nConflicts: 3 excludes 8.\nAvailable: 1, 2, 4, 7, 10, 11, 12.\n(1,10) conflict. (4,7) conflict.\nTry adding 2 (48, 28) and 4 (30, 12)? Cost 40.\nSet: {3, 6, 9, 13, 2, 4}.\nCost: 60 + 28 + 12 = 100.\nReward: 269 + 48 + 30 = 347.\nCheck conflicts:\n3 vs 8 (ok).\n4 vs 7 (7 not in set).\n2 vs ?\n1 vs 10 (neither in set).\nValid. 347 < 383.\n\nTry adding 7 (54, 21) and 10 (47, 23)? Cost 44 > 40.\nTry adding 7 (54, 21) and 12 (44, 27)? Cost 48 > 40.\nTry adding 7 (54, 21) and 1 (30, 20)? Cost 41 > 40.\nTry adding 7 (54, 21) and 11 (22, 26)? Cost 47 > 40.\nTry adding 7 (54, 21) and ... Left 19.\nAdd 4? Conflict with 7.\nAdd 1? Cost 20 > 19.\nAdd 10? Cost 23 > 19.\nAdd 2? Cost 28 > 19.\nAdd 12? Cost 27 > 19.\nSo just 7?\nSet: {3, 6, 9, 13, 7}.\nCost: 60 + 21 = 81.\nReward: 269 + 54 = 323.\nLeft 19.\nAdd 4? Conflict with 7.\nAdd 1? Cost 20 > 19.\nAdd 10? Cost 23 > 19.\nAdd 2? Cost 28 > 19.\nAdd 12? Cost 27 > 19.\nAdd 11? Cost 26 > 19.\nSo 323.\n\nTry adding 10 (47, 23) and 1 (30, 20)? Conflict.\nTry adding 10 (47, 23) and 4 (30, 12)? Cost 35.\nSet: {3, 6, 9, 13, 10, 4}.\nCost: 60 + 23 + 12 = 95.\nReward: 269 + 47 + 30 = 346.\nLeft 5.\nAdd 2? No.\nAdd 7? Conflict with 4.\nAdd 1? Conflict with 10.\nAdd 12? No.\nAdd 11? No.\n346 < 383.\n\nTry adding 12 (44, 27) and 4 (30, 12)? Cost 39.\nSet: {3, 6, 9, 13, 12, 4}.\nCost: 60 + 27 + 12 = 99.\nReward: 269 + 44 + 30 = 343.\nLeft 1.\n343 < 383.\n\nTry adding 2 (48, 28) and 10 (47, 23)? Cost 51 > 40.\nTry adding 2 (48, 28) and 1 (30, 20)? Cost 48 > 40.\n\nWhat if we don't take 3?\nTake 8 (67, 23) instead?\nBase {6, 9, 13, 8}.\nCost: 4+27+20+23 = 74.\nReward: 48+76+77+67 = 268.\nLeft 26.\nConflicts: 8 excludes 3.\nAvailable: 0(excl by 5? No, 5 not in set. But 0 conflicts with 1,5. 5 not in set. So 0 is available? Wait. Pair (0,5). If 5 not selected, 0 is ok. Pair (0,1). If 1 not selected, 0 is ok.)\nBut we are in \"Neither 0 nor 5\" branch? No, I just said \"Try sets with neither 0 nor 5\".\nIf I allow 0, I enter the previous branch.\nLet's stick to excluding 0 and 5.\nSo 0 is out.\nAvailable: 1, 2, 4, 7, 10, 11, 12.\nConflicts: 1-10, 4-7.\nTry adding 2 (48, 28)? Cost 28 > 26.\nTry adding 7 (54, 21)?\nSet: {6, 9, 13, 8, 7}.\nCost: 74 + 21 = 95.\nReward: 268 + 54 = 322.\nLeft 5.\nAdd 4? Conflict with 7.\nAdd 1? Cost 20 > 5.\nAdd 10? Cost 23 > 5.\nAdd 12? Cost 27 > 5.\nAdd 11? Cost 26 > 5.\n322 < 383.\n\nTry adding 10 (47, 23)?\nSet: {6, 9, 13, 8, 10}.\nCost: 74 + 23 = 97.\nReward: 268 + 47 = 315.\nLeft 3.\n315 < 383.\n\nTry adding 12 (44, 27)?\nCost 27 > 26.\n\nSo the \"Neither 0 nor 5\" branch seems weaker.\n\nComparing the two main branches:\nBranch A (Contains 5): Max ~373.\nBranch B (Contains 0): Max ~383.\n\nLet's double check Branch B calculation.\nSet: {0, 3, 6, 7, 9, 13}\nCosts: 7 + 9 + 4 + 21 + 27 + 20 = 88.\nRewards: 60 + 68 + 48 + 54 + 76 + 77 = 383.\nConflicts:\n(0,1): 1 not in set.\n(0,5): 5 not in set.\n(1,10): neither in set.\n(3,8): 8 not in set.\n(4,7): 4 not in set.\n(5,8): neither in set.\n(5,9): 5 not in set.\nAll valid.\n\nCan we add item 4 (30, 12) to this set?\nCost 88 + 12 = 100.\nBut 4 conflicts with 7.\nSo we must remove 7 to add 4.\nRemove 7 (-54, -21). Add 4 (+30, +12).\nNet change: -24 reward, -9 cost.\nNew Cost: 88 - 21 + 12 = 79.\nNew Reward: 383 - 54 + 30 = 359.\nLeft Budget: 21.\nCan we add something else?\nAvailable: 1, 2, 8, 10, 11, 12.\n(1,10) conflict.\n8 conflicts with 3 (in set).\n2 (48, 28) > 21.\n10 (47, 23) > 21.\n12 (44, 27) > 21.\n11 (22, 26) > 21.\n1 (30, 20) fits!\nAdd 1.\nSet: {0, 3, 6, 9, 13, 4, 1}.\nCost: 79 + 20 = 99.\nReward: 359 + 30 = 389.\nCheck conflicts:\n(0,1): **CONFLICT**. 0 and 1 cannot both be selected.\nSo this path is invalid.\n\nWhat if we remove 0 instead?\nFrom {0, 3, 6, 7, 9, 13}, remove 0 (-60, -7).\nCost 81. Reward 323.\nLeft 19.\nAdd 1 (30, 20)? Cost 20 > 19.\nAdd 5? Conflict with 9.\nAdd 4? Conflict with 7.\nAdd 10? Cost 23 > 19.\nAdd 2? Cost 28 > 19.\nAdd 12? Cost 27 > 19.\nAdd 11? Cost 26 > 19.\nAdd 8? Conflict with 3.\nSo removing 0 doesn't help easily.\n\nWhat if we start from {0, 3, 6, 9, 13} (Cost 67, Reward 329) and add 7 (21, 54) -> 383.\nCan we add anything else to 383 set?\nLeft 12.\nItems costing <= 12: 4 (12), 6 (4 - already in), 0 (7 - already in), 3 (9 - already in), 5 (5 - conflict with 9), 1 (20), 2 (28)...\nOnly 4 costs 12.\n4 conflicts with 7.\nSo we can't add 4 without removing 7.\nRemove 7, Add 4.\nReward change: -54 + 30 = -24.\nCost change: -21 + 12 = -9.\nNew Cost: 88 - 9 = 79.\nNew Reward: 383 - 24 = 359.\nLeft 21.\nCan we fill 21?\nItems: 1 (20, 30), 10 (23, 47), 2 (28, 48), 12 (27, 44), 11 (26, 22), 8 (23, 67 - conflict 3).\nAdd 1 (20, 30).\nCost 79 + 20 = 99.\nReward 359 + 30 = 389.\nCheck conflicts:\n(0,1): 0 is in set. 1 is in set. **CONFLICT**.\n\nSo we can't have 0 and 1.\nIn the set {0, 3, 6, 9, 13, 4, 1}, 0 and 1 conflict.\n\nWhat if we remove 0 from the original 383 set?\nSet: {3, 6, 7, 9, 13}.\nCost: 9+4+21+27+20 = 81.\nReward: 68+48+54+76+77 = 323.\nLeft 19.\nAdd 4? Conflict with 7.\nAdd 1? Cost 20 > 19.\nAdd 10? Cost 23 > 19.\nAdd 2? Cost 28 > 19.\nAdd 12? Cost 27 > 19.\nAdd 11? Cost 26 > 19.\nAdd 0? Back to 383.\nAdd 5? Conflict with 9.\nAdd 8? Conflict with 3.\n\nWhat if we remove 9 from 383 set?\nSet: {0, 3, 6, 7, 13}.\nCost: 7+9+4+21+20 = 61.\nReward: 60+68+48+54+77 = 307.\nLeft 39.\nAdd 2 (48, 28) and 4 (30, 12)? Cost 40 > 39.\nAdd 2 (48, 28) and 10 (47, 23)? Cost 51 > 39.\nAdd 2 (48, 28) and 12 (44, 27)? Cost 55 > 39.\nAdd 2 (48, 28) and 1 (30, 20)? Cost 48 > 39.\nAdd 10 (47, 23) and 4 (30, 12)? Cost 35.\nSet: {0, 3, 6, 7, 13, 10, 4}.\nCost: 61 + 23 + 12 = 96.\nReward: 307 + 47 + 30 = 384.\nCheck conflicts:\n(4,7): **CONFLICT**. 4 and 7 both selected. Invalid.\n\nAdd 10 (47, 23) and 12 (44, 27)? Cost 50 > 39.\nAdd 12 (44, 27) and 4 (30, 12)? Cost 39.\nSet: {0, 3, 6, 7, 13, 12, 4}.\nCost: 61 + 27 + 12 = 100.\nReward: 307 + 44 + 30 = 381.\nCheck conflicts:\n(4,7): **CONFLICT**. Invalid.\n\nAdd 12 (44, 27) and 1 (30, 20)? Cost 47 > 39.\nAdd 11 (22, 26) and 4 (30, 12)? Cost 38.\nSet: {0, 3, 6, 7, 13, 11, 4}.\nCost: 61 + 26 + 12 = 99.\nReward: 307 + 22 + 30 = 359.\n(4,7) Conflict. Invalid.\n\nSo 383 remains the champion.\n\nFinal check of {0, 3, 6, 7, 9, 13}.\nIDs: 0, 3, 6, 7, 9, 13.\nRewards: 60, 68, 48, 54, 76, 77. Sum = 383.\nCosts: 7, 9, 4, 21, 27, 20. Sum = 88.\nConstraints:\n(0,1) - 1 not present.\n(0,5) - 5 not present.\n(1,10) - none present.\n(3,8) - 8 not present.\n(4,7) - 4 not present.\n(5,8) - none present.\n(5,9) - 5 not present.\n\nOne last attempt to squeeze more.\nCan we replace 7 (54, 21) with something else that allows adding 4?\nIf we drop 7, we can add 4.\nDrop 7: Cost -21, Reward -54.\nAdd 4: Cost +12, Reward +30.\nNet: Cost -9, Reward -24.\nCurrent Set: {0, 3, 6, 9, 13, 4}.\nCost: 88 - 9 = 79.\nReward: 383 - 24 = 359.\nLeft Budget: 21.\nAvailable: 1, 2, 8, 10, 11, 12.\n(1,10) conflict.\n8 conflicts with 3.\nAdd 2 (48, 28)? Cost 28 > 21.\nAdd 10 (47, 23)? Cost 23 > 21.\nAdd 12 (44, 27)? Cost 27 > 21.\nAdd 11 (22, 26)? Cost 26 > 21.\nAdd 1 (30, 20)? Cost 20 <= 21.\nSet: {0, 3, 6, 9, 13, 4, 1}.\nCost: 79 + 20 = 99.\nReward: 359 + 30 = 389.\nCheck conflicts:\n(0,1): **CONFLICT**.\n\nSo we can't have 0 and 1.\nIf we want 1, we must drop 0.\nFrom {0, 3, 6, 9, 13, 4}, drop 0.\nCost: 79 - 7 = 72.\nReward: 359 - 60 = 299.\nAdd 1.\nCost: 72 + 20 = 92.\nReward: 299 + 30 = 329.\nLeft 8.\nAdd nothing.\n329 << 383.\n\nConclusion stands.\n\n```json\n[\n  {\n    \"id\": 0,\n    \"reward\": 60,\n    \"cost\": 7\n  },\n  {\n    \"id\": 3,\n    \"reward\": 68,\n    \"cost\": 9\n  },\n  {\n    \"id\": 6,\n    \"reward\": 48,\n    \"cost\": 4\n  },\n  {\n    \"id\": 7,\n    \"reward\": 54,\n    \"cost\": 21\n  },\n  {\n    \"id\": 9,\n    \"reward\": 76,\n    \"cost\": 27\n  },\n  {\n    \"id\": 13,\n    \"reward\": 77,\n    \"cost\": 20\n  }\n]\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 148.90229570888914,
+        "usage": {
+          "prompt_tokens": 389,
+          "output_tokens": 11993,
+          "total_tokens": 12382,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-000",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [0, 3, 6, 8, 9, 13]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 2.5958308749832213,
+        "usage": {
+          "prompt_tokens": 374,
+          "output_tokens": 27,
+          "total_tokens": 401,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "A mutually exclusive pair was selected.",
+      "receipt": {
+        "name": "single",
+        "output": "{\"selected\": [0, 1, 3, 12, 13]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 2.5223991251550615,
+        "usage": {
+          "prompt_tokens": 392,
+          "output_tokens": 20,
+          "total_tokens": 412,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [0, 1, 3, 5, 12, 13]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 2.4159392500296235,
+        "usage": {
+          "prompt_tokens": 377,
+          "output_tokens": 28,
+          "total_tokens": 405,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-002",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "The total project cost exceeds capacity.",
+      "receipt": {
+        "name": "single",
+        "output": "{\"selected\": [0, 1, 4, 8, 9]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 1.9681427078321576,
+        "usage": {
+          "prompt_tokens": 396,
+          "output_tokens": 18,
+          "total_tokens": 414,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-002",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [0, 1, 3, 4, 8, 9, 12]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 3.533630584133789,
+        "usage": {
+          "prompt_tokens": 381,
+          "output_tokens": 30,
+          "total_tokens": 411,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-003",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "A mutually exclusive pair was selected.",
+      "receipt": {
+        "name": "single",
+        "output": "{\"selected\": [0, 1, 3, 6, 9, 10, 12]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 1.0006754999049008,
+        "usage": {
+          "prompt_tokens": 387,
+          "output_tokens": 26,
+          "total_tokens": 413,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-003",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [0, 3, 5, 9, 10, 12, 13]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 2.6564654170069844,
+        "usage": {
+          "prompt_tokens": 372,
+          "output_tokens": 32,
+          "total_tokens": 404,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-004",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "A mutually exclusive pair was selected.",
+      "receipt": {
+        "name": "single",
+        "output": "{\"selected\": [0, 2, 6, 7, 11]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 0.999690999975428,
+        "usage": {
+          "prompt_tokens": 391,
+          "output_tokens": 19,
+          "total_tokens": 410,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-004",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [2, 3, 5, 6, 8, 11, 13]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 3.382841542130336,
+        "usage": {
+          "prompt_tokens": 376,
+          "output_tokens": 31,
+          "total_tokens": 407,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-005",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "The subset is feasible but not globally optimal.",
+      "receipt": {
+        "name": "single",
+        "output": "{\n    \"selected\": [0, 1, 7, 9]\n}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 1.0933695000130683,
+        "usage": {
+          "prompt_tokens": 391,
+          "output_tokens": 20,
+          "total_tokens": 411,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-005",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [0, 1, 3, 5, 7, 9, 13]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 2.5227193750906736,
+        "usage": {
+          "prompt_tokens": 376,
+          "output_tokens": 30,
+          "total_tokens": 406,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-006",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "The total project cost exceeds capacity.",
+      "receipt": {
+        "name": "single",
+        "output": "{\"selected\": [1, 2, 6, 8, 9, 10]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 1.0698206250090152,
+        "usage": {
+          "prompt_tokens": 391,
+          "output_tokens": 22,
+          "total_tokens": 413,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-006",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [1, 2, 4, 6, 8, 10, 11, 13]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 4.494594959076494,
+        "usage": {
+          "prompt_tokens": 376,
+          "output_tokens": 35,
+          "total_tokens": 411,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-007",
+      "model": "openai:qwen3.8-flash",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "To solve the problem of selecting a globally optimal subset of projects, we need to maximize the total reward subject to the following constraints:\n1.  **Total Cost**: $\\le 93$.\n2.  **Mutually Exclusive Pairs**: We cannot select both projects in any of the pairs: $(0,4), (1,4), (1,11), (3,5), (3,11), (5,12), (8,13)$.\n\nLet's list the projects with their attributes (ID: Reward, Cost):\n-   0: 78, 11\n-   1: 54, 7\n-   2: 79, 27\n-   3: 46, 7\n-   4: 57, 25\n-   5: 37, 23\n-   6: 79, 19\n-   7: 37, 8\n-   8: 85, 29\n-   9: 52, 11\n-   10: 12, 21\n-   11: 60, 12\n-   12: 12, 16\n-   13: 67, 18\n\n**Step 1: Analyze High-Value Projects and Conflicts**\n\nThe highest rewards are from projects 8 (85), 2 (79), 6 (79), 0 (78), 13 (67), 11 (60).\n\nLet's look at the conflicts involving high-value items:\n-   Project 8 conflicts with 13.\n-   Project 0 conflicts with 4.\n-   Project 1 conflicts with 4 and 11.\n-   Project 3 conflicts with 5 and 11.\n-   Project 5 conflicts with 3 and 12.\n\n**Strategy:** Try combinations including the top reward items.\n\n**Case A: Include Project 8 (Reward 85, Cost 29)**\nIf we include 8, we **cannot** include 13.\nRemaining Budget: $93 - 29 = 64$.\nRemaining Candidates (excluding 13): 0, 1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12.\n\nLet's try adding other high-reward items.\nProject 2 (79, 27) and Project 6 (79, 19) have no direct conflicts with 8 or each other.\nLet's try including **8, 2, 6**.\nCost so far: $29 + 27 + 19 = 75$.\nReward so far: $85 + 79 + 79 = 243$.\nRemaining Budget: $93 - 75 = 18$.\nProjects excluded by selection/conflict: 13 (conflict with 8).\nConflicts among remaining candidates for the last slot?\nCandidates fitting in cost $\\le 18$:\n-   0: Cost 11, Reward 78. Conflict with 4. No conflict with 8,2,6.\n-   1: Cost 7, Reward 54. Conflict with 4, 11. No conflict with 8,2,6.\n-   3: Cost 7, Reward 46. Conflict with 5, 11. No conflict with 8,2,6.\n-   4: Cost 25. Too expensive ($>18$).\n-   5: Cost 23. Too expensive.\n-   7: Cost 8, Reward 37. No conflicts listed with selected set.\n-   9: Cost 11, Reward 52. No conflicts listed with selected set.\n-   10: Cost 21. Too expensive.\n-   11: Cost 12, Reward 60. Conflict with 1, 3. No conflict with 8,2,6.\n-   12: Cost 16, Reward 12. Conflict with 5. No conflict with 8,2,6.\n\nWe want to maximize reward with remaining budget 18.\nOption 1: Add Project 0 (Reward 78, Cost 11). Total Reward: $243 + 78 = 321$. Remaining Budget: 7. Can we add anything else?\n    -   With Project 0 selected, we cannot select 4 (already too expensive anyway).\n    -   Remaining Budget 7. Candidates: 1 (54, 7), 3 (46, 7), 7 (37, 8-no), 9 (52, 11-no), 11 (60, 12-no).\n    -   Check conflicts for 1 and 3 against current set {8, 2, 6, 0}.\n        -   1 conflicts with 4, 11. Neither is in set. So 1 is valid.\n        -   3 conflicts with 5, 11. Neither is in set. So 3 is valid.\n    -   Compare adding 1 vs 3. Reward 54 > 46.\n    -   Let's check if we can add **both**? Cost $11+7=18$. Exactly fits budget.\n    -   Are 0 and 1 compatible? Yes.\n    -   Are 0 and 3 compatible? Yes.\n    -   Are 1 and 3 compatible? No mutual exclusion pair between them.\n    -   Wait, can we add 1 AND 3?\n        -   Current Set: {8, 2, 6, 0}. Cost 75. Rem 18.\n        -   Add 1 (Cost 7) -> Rem 11.\n        -   Add 3 (Cost 7) -> Rem 4.\n        -   Total Cost: $75 + 7 + 7 = 89 \\le 93$.\n        -   Total Reward: $243 + 78 + 54 + 46 = 421$.\n        -   Check conflicts in final set {0, 1, 2, 3, 6, 8}:\n            -   (0,4): 4 not in set. OK.\n            -   (1,4): 4 not in set. OK.\n            -   (1,11): 11 not in set. OK.\n            -   (3,5): 5 not in set. OK.\n            -   (3,11): 11 not in set. OK.\n            -   (5,12): N/A.\n            -   (8,13): 13 not in set. OK.\n        -   This looks very promising. **Reward: 421**.\n\nCan we do better than 421?\nLet's see if swapping 0 (78) for something else helps? Unlikely, 0 is high value/low cost.\nWhat if we don't take 0?\nSet {8, 2, 6}. Cost 75. Rem 18.\nAdd 11 (60, 12)? Rem 6. Add 1 (54, 7)? No, 1 conflicts with 11. Add 3 (46, 7)? No, 3 conflicts with 11.\nSo if we pick 11, we can only pick one of {1,3} if they were compatible, but they conflict with 11.\nActually, 1 conflicts with 11. 3 conflicts with 11.\nSo with {8,2,6}, if we pick 11 (Cost 12, Rem 6), we can't pick 1 or 3. Can we pick 7 (37, 8)? No, cost 8 > 6. Pick 9 (52, 11)? No. Pick 12 (12, 16)? No.\nBest with 11 is just 11. Reward $243+60=303$. Worse.\n\nWhat if we pick 9 (52, 11) instead of 0?\nRem 7. Add 1 (54, 7)? Conflict? 9 has no conflicts with 1.\nSet {8, 2, 6, 9, 1}. Cost $75+11+7=93$. Reward $243+52+54=349$. Worse than 421.\n\nWhat if we pick 13 instead of 8?\n**Case B: Include Project 13 (Reward 67, Cost 18)**\nCannot include 8.\nRemaining Budget: $93 - 18 = 75$.\nTry adding top others: 2 (79, 27), 6 (79, 19), 0 (78, 11).\nSet {13, 2, 6, 0}.\nCost: $18 + 27 + 19 + 11 = 75$.\nReward: $67 + 79 + 79 + 78 = 303$.\nRemaining Budget: $93 - 75 = 18$.\nCheck conflicts in {13, 2, 6, 0}:\n-   13 conflicts with 8 (not in set). OK.\n-   0 conflicts with 4 (not in set). OK.\nCandidates for remaining 18:\n-   1 (54, 7). Conflicts with 4, 11. OK.\n-   3 (46, 7). Conflicts with 5, 11. OK.\n-   11 (60, 12). Conflicts with 1, 3. OK w.r.t 13,2,6,0.\n-   9 (52, 11). OK.\n-   7 (37, 8). OK.\n\nOption B1: Add 1 and 3?\nCost $7+7=14 \\le 18$.\nConflict check: 1 and 3 don't conflict.\nSet {13, 2, 6, 0, 1, 3}.\nTotal Cost: $75 + 14 = 89$.\nTotal Reward: $303 + 54 + 46 = 403$.\nLess than 421.\n\nOption B2: Add 11?\nCost 12. Rem 6.\nReward $303 + 60 = 363$. Less.\n\nOption B3: Add 9 and 1?\nCost $11+7=18$.\nReward $303 + 52 + 54 = 409$. Less.\n\nOption B4: Add 9 and 3?\nReward $303 + 52 + 46 = 401$. Less.\n\nIt seems Case A yielded 421. Let's verify if we can get higher than 421.\n\nIs there a combination without 8 that beats 421?\nMax possible reward roughly sum of top 5-6 items.\nTop items: 8(85), 2(79), 6(79), 0(78), 13(67), 11(60), 1(54), 9(52), 3(46)...\n\nIn Case A ({8,2,6,0,1,3}), we used 8,2,6,0,1,3.\nRewards: $85+79+79+78+54+46 = 421$.\nCosts: $29+27+19+11+7+7 = 100$?\nWait. Let me re-sum costs carefully.\n8: 29\n2: 27\n6: 19\n0: 11\n1: 7\n3: 7\nSum: $29+27=56$; $56+19=75$; $75+11=86$; $86+7=93$; $93+7=100$.\n**Error!** The cost exceeds 93.\nMy previous calculation: \"Cost so far: 75... Add 0 (11) -> 86... Add 1 (7) -> 93... Add 3 (7) -> 100\".\nAh, I calculated remaining budget as 18 after {8,2,6}.\n$93 - 75 = 18$.\nI added 0 (11). Remaining $18-11=7$.\nI added 1 (7). Remaining $7-7=0$.\nI tried to add 3 (7). But remaining was 0.\nSo {8, 2, 6, 0, 1} is valid.\nCost: $29+27+19+11+7 = 93$.\nReward: $85+79+79+78+54 = 375$.\nCan we replace 1 with 3?\n{8, 2, 6, 0, 3}. Cost: $29+27+19+11+7 = 93$.\nReward: $85+79+79+78+46 = 367$.\nSo {8, 2, 6, 0, 1} gives 375.\n\nLet's re-evaluate Case A properly.\nBase: {8, 2, 6}. Cost 75. Reward 243. Rem Budget 18.\nOptions to fill 18:\n1.  **0 (11) + 1 (7)**. Cost 18. Reward $78+54=132$. Total $243+132=375$.\n    Set: {0,1,2,6,8}. Check conflicts:\n    -   (0,4): OK.\n    -   (1,4): OK.\n    -   (1,11): OK.\n    -   (8,13): OK.\n    Valid. Reward 375.\n\n2.  **0 (11) + 3 (7)**. Cost 18. Reward $78+46=124$. Total $243+124=367$.\n    Set: {0,2,3,6,8}. Valid. Reward 367.\n\n3.  **0 (11) + 9 (11)**? Cost 22 > 18. No.\n4.  **0 (11) + 7 (8)**? Cost 19 > 18. No.\n5.  **11 (12) + ...?**\n    If we pick 11 (60, 12), Rem 6.\n    Can we pick 1? No (conflict).\n    Can we pick 3? No (conflict).\n    Can we pick 7? Cost 8 > 6.\n    Can we pick nothing else? Reward $243+60=303$.\n    Or pick 9? Cost 11 > 6.\n    Or pick 4? Cost 25.\n    So 11 is weak here because it blocks 1 and 3 which fit nicely with 0.\n\n6.  **1 (7) + 3 (7) + 7 (8)**? Cost $7+7+8=22 > 18$. No.\n7.  **1 (7) + 3 (7) + 9 (11)**? Cost 25. No.\n8.  **1 (7) + 3 (7) + 12 (16)**? Cost 30. No.\n9.  **1 (7) + 3 (7) + 4 (25)**? No.\n10. **1 (7) + 3 (7) + 5 (23)**? No.\n11. **1 (7) + 3 (7) + 10 (21)**? No.\n12. **1 (7) + 3 (7) + 13 (18)**? No, 13 conflicts with 8.\n\nSo max with {8,2,6} is 375.\n\nLet's explore other bases.\nMaybe drop 6 (79, 19) to allow more small items?\nOr drop 2 (79, 27)?\n\n**Case C: Drop 6. Keep {8, 2}.**\nCost: $29+27=56$. Reward: $85+79=164$.\nRem Budget: $93-56=37$.\nExcluded: 13 (conflict 8).\nAvailable: 0,1,3,4,5,6(dropped),7,9,10,11,12.\nNote: 6 is dropped, so its conflicts don't matter, but we aren't taking it.\n\nLet's try to pack high reward items into 37.\nCandidates:\n0 (78, 11)\n1 (54, 7)\n3 (46, 7)\n11 (60, 12)\n9 (52, 11)\n7 (37, 8)\n4 (57, 25) - Conflicts with 0, 1.\n5 (37, 23) - Conflicts with 3, 12.\n12 (12, 16) - Conflicts with 5.\n10 (12, 21)\n\nTry {0, 1, 3}.\nCost: $11+7+7=25$. Rem $37-25=12$.\nReward: $78+54+46=178$.\nTotal: $164+178=342$.\nWith Rem 12, can we add 11? No, 11 conflicts with 1 and 3.\nCan we add 9? Cost 11. Rem 1.\nSet {8, 2, 0, 1, 3, 9}.\nCost: $56+25+11=92 \\le 93$.\nReward: $164+178+52=394$.\nCheck conflicts:\n-   (0,4): OK.\n-   (1,4): OK.\n-   (1,11): OK (11 not in set).\n-   (3,5): OK.\n-   (3,11): OK.\n-   (8,13): OK.\nValid. **Reward: 394**.\n\nCan we improve on 394?\nCurrent Set: {8, 2, 0, 1, 3, 9}.\nSwap 9 (52, 11) for something else?\nRem budget was 12. 9 took 11. Left 1.\nCould we have taken 11 (60, 12) instead of 9?\nIf we take 11, we must drop 1 and 3 due to conflicts.\nSet {8, 2, 0, 11}.\nCost: $56+11+12=79$. Rem 14.\nReward: $164+78+60=302$.\nAdd 1? No (conflict 11). Add 3? No (conflict 11).\nAdd 9 (52, 11)? Rem 3. No.\nAdd 7 (37, 8)? Rem 6. No.\nAdd 4? No (conflict 0).\nAdd 5? No (conflict 3? 3 not in set. Conflict 12? 12 not in set).\n5 conflicts with 3 and 12. 3 is not in set. So 5 is allowed!\nCost of 5 is 23. Rem 14. Cannot take 5.\nSo {8,2,0,11} yields ~302 + maybe small item.\nAdd 7 (37, 8)? Cost $79+8=87$. Rem 6.\nReward $302+37=339$. Worse.\n\nBack to {8, 2, 0, 1, 3, 9} (394).\nCan we swap 1 (54) or 3 (46) for something better?\nBudget used: 92.\nItems: 8,2,0,1,3,9.\nWhat if we drop 3 (46, 7) and add 11 (60, 12)?\nDrop 3 -> Rem budget becomes $12+7=19$ (since we had 1 left over).\nAdd 11 (12). Rem 7.\nBut 11 conflicts with 1. So we must drop 1 too.\nDrop 1 (54, 7) and 3 (46, 7).\nAdd 11 (60, 12).\nNet Change: Reward $-54-46+60 = -40$. Cost $-7-7+12 = -2$.\nWorse.\n\nWhat if we drop 9 (52, 11) and add 11 (60, 12)?\nMust drop 1 and 3? No, 11 conflicts with 1 and 3.\nSo if we want 11, we lose 1 and 3.\nCompare {1,3,9} (Reward 152, Cost 25) vs {11} (Reward 60, Cost 12).\nClearly {1,3,9} is much better.\n\nWhat about including 6?\nWe established {8,2,6,0,1} = 375.\n{8,2,0,1,3,9} = 394.\nDifference: Swap 6 (79, 19) for 3 (46, 7) and 9 (52, 11)?\nCost change: $-19 + 7 + 11 = -1$.\nReward change: $-79 + 46 + 52 = +19$.\nYes, dropping 6 allows us to fit 3 and 9 alongside 0,1,8,2.\nThis confirms 394 > 375.\n\nCan we drop 2 (79, 27) instead?\n**Case D: Keep {8, 6}.**\nCost: $29+19=48$. Reward: $85+79=164$.\nRem Budget: $93-48=45$.\nExcluded: 13.\nTry to fit 0, 1, 3, 9, 11, etc.\nSimilar structure to Case C but replacing 2 with 6 saves 8 cost ($27-19$).\nSo we have 8 extra budget compared to Case C base.\nIn Case C, we used 92 out of 93. Here we have 45 rem.\nLet's try {0, 1, 3, 9, 11}?\nConflicts: 11 conflicts with 1 and 3.\nSo we can't have all three.\n\nOption D1: {0, 1, 3, 9}.\nCost: $11+7+7+11=36$. Rem $45-36=9$.\nReward: $78+54+46+52=230$.\nTotal: $164+230=394$.\nSame as Case C result.\nCan we use the remaining 9?\nAdd 7 (37, 8)? Cost 8. Rem 1.\nSet {8, 6, 0, 1, 3, 9, 7}.\nCost: $48+36+8=92$.\nReward: $164+230+37=431$.\nCheck conflicts:\n-   (0,4): OK.\n-   (1,4): OK.\n-   (1,11): OK (11 not in set).\n-   (3,5): OK.\n-   (3,11): OK.\n-   (5,12): N/A.\n-   (8,13): OK.\n-   Does 7 conflict with anyone? No pairs listed for 7.\n-   Does 9 conflict? No.\n-   Does 6 conflict? No.\n-   Does 0 conflict with 1,3,9,7? No.\n-   Does 1 conflict with 3,9,7? No.\n-   Does 3 conflict with 9,7? No.\nThis set looks valid!\n**Reward: 431**.\n\nCan we do even better?\nCurrent Set: {0, 1, 3, 6, 7, 8, 9}.\nCost: 92. Rem: 1.\nIs there a swap that increases reward?\nWe have 7 (37, 8). Could we replace 7 with something worth more than 37 using 8+1=9 budget?\nCandidates with cost $\\le 9$:\n-   None really. 1 is 7, 3 is 7. Both already in.\n-   What about removing 9 (52, 11) and adding 11 (60, 12)?\n    -   Remove 9. Rem budget $1+11=12$.\n    -   Add 11. Cost 12. Rem 0.\n    -   But 11 conflicts with 1 and 3.\n    -   If we keep 1 and 3, we can't add 11.\n    -   If we remove 1 and 3 to add 11:\n        -   Lose 1 (54) and 3 (46). Gain 11 (60). Net -40. Bad.\n\nWhat if we remove 7 (37) and 9 (52) [Total 89, Cost 19]?\nReplace with 11 (60, 12) and ...?\nIf we remove 7 and 9, we free up 19 cost.\nCurrent Base {8,6,0,1,3}. Cost $48+11+7+7=73$. Rem 20.\nAdd 11 (60, 12). Conflict with 1,3. Must remove 1,3.\nRemove 1,3 (Reward 100, Cost 14).\nNew Base {8,6,0,11}. Cost $48+11+12=71$. Rem 22.\nReward $164+78+60=302$.\nAdd 9 (52, 11)? Rem 11.\nAdd 7 (37, 8)? Rem 3.\nSet {8,6,0,11,9,7}.\nCost $71+11+8=90$.\nReward $302+52+37=391$.\nLess than 431.\n\nWhat if we don't take 0?\nBase {8,6}. Cost 48. Rem 45.\nTake 11 (60, 12). Rem 33.\nTake 9 (52, 11). Rem 22.\nTake 7 (37, 8). Rem 14.\nTake 1? Conflict 11.\nTake 3? Conflict 11.\nTake 4? Conflict 0 (not in), 1 (not in). Cost 25.\nTake 5? Conflict 3 (not in), 12. Cost 23.\nTake 12? Conflict 5. Cost 16.\nTake 10? Cost 21.\n\nLet's try maximizing with 11.\nSet {8, 6, 11, 9, 7}.\nCost: $29+19+12+11+8 = 79$.\nReward: $85+79+60+52+37 = 313$.\nRem 14.\nCan add 4? Cost 25. No.\nCan add 5? Cost 23. No.\nCan add 12? Cost 16. No.\nCan add 10? Cost 21. No.\nCan add 0? Cost 11. Conflict with 4? No. Conflict with others? No.\nAdd 0.\nSet {8, 6, 11, 9, 7, 0}.\nCost: $79+11=90$.\nReward: $313+78=391$.\nStill less than 431.\n\nLet's try swapping 7 (37, 8) in the 431 solution.\nSet {0, 1, 3, 6, 7, 8, 9}. Reward 431.\nCan we replace 7 with 11?\nRemove 7 (37, 8). Rem budget $1+8=9$.\nAdd 11 (60, 12). Not enough budget.\nAlso 11 conflicts with 1 and 3.\nSo we'd have to remove 1 and 3 too.\nRemove 1,3,7. Reward $54+46+37=137$. Cost $7+7+8=22$.\nAdd 11. Reward 60. Cost 12.\nNet Loss.\n\nCan we replace 9 (52, 11) with 11 (60, 12)?\nRemove 9. Rem $1+11=12$.\nAdd 11. Cost 12. Rem 0.\nBut 11 conflicts with 1 and 3.\nIf we keep 1 and 3, we can't add 11.\nIf we remove 1 and 3:\nRemove 1,3,9. Reward $54+46+52=152$. Cost $7+7+11=25$.\nAdd 11. Reward 60. Cost 12.\nNet Loss.\n\nCan we replace 1 (54, 7) with 11 (60, 12)?\nRemove 1. Rem $1+7=8$.\nAdd 11? Cost 12. No.\nAnd 11 conflicts with 3.\n\nIt seems 431 is a strong candidate.\nLet's double check the cost of {0, 1, 3, 6, 7, 8, 9}.\n0: 11\n1: 7\n3: 7\n6: 19\n7: 8\n8: 29\n9: 11\nSum: $11+7+7+19+8+29+11$.\n$11+7=18$\n$18+7=25$\n$25+19=44$\n$44+8=52$\n$52+29=81$\n$81+11=92$.\n$92 \\le 93$. Correct.\n\nReward Sum:\n0: 78\n1: 54\n3: 46\n6: 79\n7: 37\n8: 85\n9: 52\nSum: $78+54+46+79+37+85+52$.\n$78+54=132$\n$132+46=178$\n$178+79=257$\n$257+37=294$\n$294+85=379$\n$379+52=431$. Correct.\n\nAre there any other combinations?\nWhat if we include 2 (79, 27) and exclude 6 (79, 19)?\nWe found {8, 2, 0, 1, 3, 9} = 394.\nAdding 7 (37, 8) to this?\nCost: $92+8=100$. Over budget.\nSo we can't add 7 to the {8,2,...} set easily.\nIn {8,2,0,1,3,9}, cost is 92. Rem 1.\nCan we swap 9 (52, 11) for 7 (37, 8)?\nReduce cost by 3. Reward reduce by 15. Bad.\nSwap 1 (54, 7) for 7 (37, 8)?\nBad.\n\nWhat if we exclude 0 (78, 11)?\nBase {8, 6, 1, 3, 9, 7}.\nCost: $29+19+7+7+11+8 = 81$.\nReward: $85+79+54+46+52+37 = 353$.\nRem 12.\nAdd 11? Conflict 1,3.\nAdd 2? Cost 27. No.\nAdd 4? Conflict 1.\nAdd 5? Conflict 3.\nAdd 12? Conflict 5. Cost 16. No.\nAdd 10? Cost 21. No.\nAdd 13? Conflict 8.\nSo stuck at 353. Much worse.\n\nWhat if we exclude 8?\n**Case E: No 8.**\nMaximize with 2, 6, 0, 13...\n13 (67, 18).\n2 (79, 27).\n6 (79, 19).\n0 (78, 11).\nCost: $18+27+19+11 = 75$.\nReward: $67+79+79+78 = 303$.\nRem 18.\nAdd 1 (54, 7) and 3 (46, 7)?\nCost 14. Rem 4.\nReward $303+54+46=403$.\nSet {0, 1, 2, 3, 6, 13}.\nCheck conflicts:\n-   (8,13): 8 not in set. OK.\n-   (0,4): OK.\n-   (1,4): OK.\n-   (1,11): OK.\n-   (3,5): OK.\n-   (3,11): OK.\n-   (5,12): OK.\nValid. Reward 403.\nCan we improve?\nRem 4. Nothing fits.\nSwap 13 (67, 18) for 9 (52, 11)?\nRemove 13. Add 9.\nCost change: $-18+11=-7$. Rem becomes $4+7=11$.\nReward change: $-67+52=-15$.\nTotal Reward: $403-15=388$.\nWith Rem 11, add 11 (60, 12)? No, cost 12.\nAdd 7 (37, 8)? Rem 3.\nSet {0, 1, 2, 3, 6, 9, 7}.\nCost: $75-18+11+8 = 76$. Wait.\nBase {0,1,2,3,6} cost $11+7+27+7+19=71$.\nAdd 9 (11) -> 82.\nAdd 7 (8) -> 90.\nReward: $78+54+79+46+79+52+37 = 425$.\nCheck conflicts:\n-   No 8, so 13 irrelevant.\n-   1 conflicts with 11? 11 not in set.\n-   3 conflicts with 11? 11 not in set.\n-   0 conflicts with 4? 4 not in set.\nValid.\n**Reward: 425**.\n\nCompare 425 vs 431.\n431 is still higher.\nSet for 425: {0, 1, 2, 3, 6, 7, 9}.\nCost: $11+7+27+7+19+8+11 = 90$.\nReward: $78+54+79+46+79+37+52 = 425$.\n\nCan we squeeze more into 425?\nRem budget 3.\nNothing fits.\nSwap 7 (37, 8) for something else?\nRemove 7. Rem $3+8=11$.\nAdd 11 (60, 12)? No, cost 12.\nAdd 4 (57, 25)? No.\nAdd 5 (37, 23)? No.\nAdd 13 (67, 18)? No.\nAdd 12 (12, 16)? No.\nAdd 10 (12, 21)? No.\nSo 425 is local max for this branch.\n\nIs there a way to get > 431?\nWe have 431 with {0, 1, 3, 6, 7, 8, 9}.\nCost 92.\nReward 431.\n\nLet's check if we can replace 7 (37) with 11 (60) by adjusting others.\nTo fit 11 (12), we need 4 more cost.\nCurrently Cost 92. Target 93.\nIf we add 11, we must remove 1 and 3 (conflicts).\nRemove 1 (54, 7) and 3 (46, 7).\nAdd 11 (60, 12).\nNet Reward: $-54-46+60 = -40$.\nNet Cost: $-7-7+12 = -2$.\nOld Cost 92. New Cost 90.\nOld Reward 431. New Reward 391.\nWith Rem 3, add nothing.\nWorse.\n\nWhat if we remove 9 (52, 11) and add 11 (60, 12)?\nNeed to remove 1 or 3?\nIf we keep 1 and 3, we can't add 11.\nSo remove 1, 3, 9.\nAdd 11.\nReward: $-54-46-52+60 = -92$.\nCost: $-7-7-11+12 = -13$.\nOld Cost 92. New Cost 79.\nOld Reward 431. New Reward 339.\nWith Rem 14, add 7? Already removed? No, 7 is still there.\nWait, set was {0,1,3,6,7,8,9}.\nRemoved 1,3,9. Added 11.\nSet {0, 6, 7, 8, 11}.\nCost: $11+19+8+29+12 = 79$.\nReward: $78+79+37+85+60 = 339$.\nRem 14.\nAdd 1? Conflict 11.\nAdd 3? Conflict 11.\nAdd 2 (79, 27)? No.\nAdd 13? Conflict 8.\nAdd 4? Conflict 0.\nAdd 5? Conflict 3 (not in), 12. Cost 23. No.\nAdd 12? Conflict 5. Cost 16. No.\nAdd 10? Cost 21. No.\nWorse.\n\nConclusion: 431 seems to be the global optimum.\n\nFinal Set: IDs 0, 1, 3, 6, 7, 8, 9.\nTotal Reward: 431.\nTotal Cost: 92.\n\n```json\n[0, 1, 3, 6, 7, 8, 9]\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 141.02626304188743,
+        "usage": {
+          "prompt_tokens": 392,
+          "output_tokens": 9470,
+          "total_tokens": 9862,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    },
+    {
+      "task_id": "portfolio-dev-007",
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": false,
+      "feedback": "Return a valid JSON object with selected project IDs.",
+      "receipt": {
+        "name": "single",
+        "output": "```json\n{\"selected\": [0, 2, 6, 7, 8, 9, 11, 13]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 3.674371541943401,
+        "usage": {
+          "prompt_tokens": 377,
+          "output_tokens": 34,
+          "total_tokens": 411,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      }
+    }
+  ]
+}

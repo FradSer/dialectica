@@ -1,0 +1,720 @@
+{
+  "protocol": "generator-prompt-dev-v1",
+  "split": "dev",
+  "steps": 8,
+  "models": [
+    "openai:gemini-3.5-flash-lite",
+    "openai:qwen3.8-flash"
+  ],
+  "order_seed": 10428,
+  "templates": {
+    "old": "You are a {role_name} responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process\n\n{additional_context}",
+    "neutral": "You are {role_name}, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions\n\n{additional_context}"
+  },
+  "rows": [
+    {
+      "task_id": "state-dev-000",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "old",
+      "order": [
+        "old",
+        "neutral"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "old",
+        "output": "```json\n{\"state\": [12, 13, 33, 8, 48, 27]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 5.1147387500386685,
+        "usage": {
+          "prompt_tokens": 365,
+          "output_tokens": 31,
+          "total_tokens": 396,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "```json\n{\"state\": [12, 13, 33, 8, 48, 27]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 365,
+              "output_tokens": 31,
+              "total_tokens": 396,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 5.112609624862671
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-000",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "neutral",
+      "order": [
+        "old",
+        "neutral"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "neutral",
+        "output": "```json\n{\"state\": [12, 30, 22, 8, 48, 27]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 3.816657999996096,
+        "usage": {
+          "prompt_tokens": 342,
+          "output_tokens": 31,
+          "total_tokens": 373,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "```json\n{\"state\": [12, 30, 22, 8, 48, 27]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 342,
+              "output_tokens": 31,
+              "total_tokens": 373,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 3.814147915923968
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-000",
+      "model": "openai:qwen3.8-flash",
+      "arm": "neutral",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "Return a JSON state object.",
+      "receipt": {
+        "name": "neutral",
+        "output": "We start with registers 0..5:\n`R = [85, 95, 77, 8, 12, 27]`\n\nAll operations are followed by a modulo 97 reduction on all registers.\n\n**Operation 1: `swap(2,1,8)`**\n- Swap R[2] and R[1].\n- R[2] was 77, R[1] was 95.\n- New R: `[85, 77, 95, 8, 12, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[85, 77, 95, 8, 12, 27]`\n\n**Operation 2: `swap(4,2,22)`**\n- Swap R[4] and R[2].\n- R[4] was 12, R[2] was 95.\n- New R: `[85, 77, 12, 8, 95, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[85, 77, 12, 8, 95, 27]`\n\n**Operation 3: `move(2,4,18)`**\n- Subtract 18 from R[2], add 18 to R[4].\n- R[2] = 12 - 18 = -6\n- R[4] = 95 + 18 = 113\n- Intermediate R: `[85, 77, -6, 8, 113, 27]`\n- Modulo 97:\n  - R[0] = 85 % 97 = 85\n  - R[1] = 77 % 97 = 77\n  - R[2] = -6 % 97 = 91 (since -6 + 97 = 91)\n  - R[3] = 8 % 97 = 8\n  - R[4] = 113 % 97 = 16 (since 113 - 97 = 16)\n  - R[5] = 27 % 97 = 27\n- State: `[85, 77, 91, 8, 16, 27]`\n\n**Operation 4: `if_add(3,4,23)`**\n- Compare pre-operation values of R[3] and R[4].\n- Pre-op R[3] = 8, R[4] = 16.\n- Condition: Is R[3] > R[4]? 8 > 16 is False.\n- Since false, add n=23 to R[4] (the \"otherwise\" branch adds to j).\n- Wait, let's re-read carefully: \"if register i > register j add n to i, otherwise add n to j.\"\n- Here i=3, j=4.\n- R[3] (8) is not greater than R[4] (16). So we add to j (R[4]).\n- R[4] = 16 + 23 = 39.\n- Other registers unchanged.\n- Intermediate R: `[85, 77, 91, 8, 39, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[85, 77, 91, 8, 39, 27]`\n\n**Operation 5: `add(1,4,30)`**\n- Add 30 to R[1]. Ignore j.\n- R[1] = 77 + 30 = 107.\n- Intermediate R: `[85, 107, 91, 8, 39, 27]`\n- Modulo 97:\n  - R[0] = 85\n  - R[1] = 107 % 97 = 10\n  - R[2] = 91\n  - R[3] = 8\n  - R[4] = 39\n  - R[5] = 27\n- State: `[85, 10, 91, 8, 39, 27]`\n\n**Operation 6: `if_add(2,0,17)`**\n- Compare pre-operation values of R[2] and R[0].\n- Pre-op R[2] = 91, R[0] = 85.\n- Condition: Is R[2] > R[0]? 91 > 85 is True.\n- Since true, add n=17 to i (R[2]).\n- R[2] = 91 + 17 = 108.\n- Intermediate R: `[85, 10, 108, 8, 39, 27]`\n- Modulo 97:\n  - R[0] = 85\n  - R[1] = 10\n  - R[2] = 108 % 97 = 11\n  - R[3] = 8\n  - R[4] = 39\n  - R[5] = 27\n- State: `[85, 10, 11, 8, 39, 27]`\n\n**Operation 7: `swap(0,4,23)`**\n- Swap R[0] and R[4].\n- R[0] was 85, R[4] was 39.\n- New R: `[39, 10, 11, 8, 85, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[39, 10, 11, 8, 85, 27]`\n\n**Operation 8: `add(2,3,38)`**\n- Add 38 to R[2]. Ignore j.\n- R[2] = 11 + 38 = 49.\n- Intermediate R: `[39, 10, 49, 8, 85, 27]`\n- Modulo 97: All values are within 0..96.\n- Final State: `[39, 10, 49, 8, 85, 27]`\n\n```json\n{\"state\": [39, 10, 49, 8, 85, 27]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 21.050358457956463,
+        "usage": {
+          "prompt_tokens": 341,
+          "output_tokens": 1581,
+          "total_tokens": 1922,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "We start with registers 0..5:\n`R = [85, 95, 77, 8, 12, 27]`\n\nAll operations are followed by a modulo 97 reduction on all registers.\n\n**Operation 1: `swap(2,1,8)`**\n- Swap R[2] and R[1].\n- R[2] was 77, R[1] was 95.\n- New R: `[85, 77, 95, 8, 12, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[85, 77, 95, 8, 12, 27]`\n\n**Operation 2: `swap(4,2,22)`**\n- Swap R[4] and R[2].\n- R[4] was 12, R[2] was 95.\n- New R: `[85, 77, 12, 8, 95, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[85, 77, 12, 8, 95, 27]`\n\n**Operation 3: `move(2,4,18)`**\n- Subtract 18 from R[2], add 18 to R[4].\n- R[2] = 12 - 18 = -6\n- R[4] = 95 + 18 = 113\n- Intermediate R: `[85, 77, -6, 8, 113, 27]`\n- Modulo 97:\n  - R[0] = 85 % 97 = 85\n  - R[1] = 77 % 97 = 77\n  - R[2] = -6 % 97 = 91 (since -6 + 97 = 91)\n  - R[3] = 8 % 97 = 8\n  - R[4] = 113 % 97 = 16 (since 113 - 97 = 16)\n  - R[5] = 27 % 97 = 27\n- State: `[85, 77, 91, 8, 16, 27]`\n\n**Operation 4: `if_add(3,4,23)`**\n- Compare pre-operation values of R[3] and R[4].\n- Pre-op R[3] = 8, R[4] = 16.\n- Condition: Is R[3] > R[4]? 8 > 16 is False.\n- Since false, add n=23 to R[4] (the \"otherwise\" branch adds to j).\n- Wait, let's re-read carefully: \"if register i > register j add n to i, otherwise add n to j.\"\n- Here i=3, j=4.\n- R[3] (8) is not greater than R[4] (16). So we add to j (R[4]).\n- R[4] = 16 + 23 = 39.\n- Other registers unchanged.\n- Intermediate R: `[85, 77, 91, 8, 39, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[85, 77, 91, 8, 39, 27]`\n\n**Operation 5: `add(1,4,30)`**\n- Add 30 to R[1]. Ignore j.\n- R[1] = 77 + 30 = 107.\n- Intermediate R: `[85, 107, 91, 8, 39, 27]`\n- Modulo 97:\n  - R[0] = 85\n  - R[1] = 107 % 97 = 10\n  - R[2] = 91\n  - R[3] = 8\n  - R[4] = 39\n  - R[5] = 27\n- State: `[85, 10, 91, 8, 39, 27]`\n\n**Operation 6: `if_add(2,0,17)`**\n- Compare pre-operation values of R[2] and R[0].\n- Pre-op R[2] = 91, R[0] = 85.\n- Condition: Is R[2] > R[0]? 91 > 85 is True.\n- Since true, add n=17 to i (R[2]).\n- R[2] = 91 + 17 = 108.\n- Intermediate R: `[85, 10, 108, 8, 39, 27]`\n- Modulo 97:\n  - R[0] = 85\n  - R[1] = 10\n  - R[2] = 108 % 97 = 11\n  - R[3] = 8\n  - R[4] = 39\n  - R[5] = 27\n- State: `[85, 10, 11, 8, 39, 27]`\n\n**Operation 7: `swap(0,4,23)`**\n- Swap R[0] and R[4].\n- R[0] was 85, R[4] was 39.\n- New R: `[39, 10, 11, 8, 85, 27]`\n- Modulo 97: All values are within 0..96.\n- State: `[39, 10, 11, 8, 85, 27]`\n\n**Operation 8: `add(2,3,38)`**\n- Add 38 to R[2]. Ignore j.\n- R[2] = 11 + 38 = 49.\n- Intermediate R: `[39, 10, 49, 8, 85, 27]`\n- Modulo 97: All values are within 0..96.\n- Final State: `[39, 10, 49, 8, 85, 27]`\n\n```json\n{\"state\": [39, 10, 49, 8, 85, 27]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 341,
+              "output_tokens": 1581,
+              "total_tokens": 1922,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 21.048810249892995
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-000",
+      "model": "openai:qwen3.8-flash",
+      "arm": "old",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "old",
+        "output": "{\"state\": [61, 54, 82, 39, 78, 27]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 1.9916207080241293,
+        "usage": {
+          "prompt_tokens": 363,
+          "output_tokens": 27,
+          "total_tokens": 390,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "{\"state\": [61, 54, 82, 39, 78, 27]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 363,
+              "output_tokens": 27,
+              "total_tokens": 390,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 1.9905548749957234
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-001",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "neutral",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "neutral",
+        "output": "```json\n{\"state\": [55, 6, 28, 62, 86, 45]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 3.752177875023335,
+        "usage": {
+          "prompt_tokens": 344,
+          "output_tokens": 31,
+          "total_tokens": 375,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (27, 7, 45, 55, 90, 28). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(2,4,32)\n2: move(1,2,3)\n3: swap(2,5,34)\n4: if_add(1,5,24)\n5: add(4,0,31)\n6: swap(3,0,34)\n7: add(1,0,37)\n8: if_add(2,4,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "```json\n{\"state\": [55, 6, 28, 62, 86, 45]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 344,
+              "output_tokens": 31,
+              "total_tokens": 375,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 3.7508622501045465
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-001",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "old",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "old",
+        "output": "```json\n{\"state\": [65, 41, 28, 62, 86, 75]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 3.237124874955043,
+        "usage": {
+          "prompt_tokens": 367,
+          "output_tokens": 32,
+          "total_tokens": 399,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (27, 7, 45, 55, 90, 28). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(2,4,32)\n2: move(1,2,3)\n3: swap(2,5,34)\n4: if_add(1,5,24)\n5: add(4,0,31)\n6: swap(3,0,34)\n7: add(1,0,37)\n8: if_add(2,4,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "```json\n{\"state\": [65, 41, 28, 62, 86, 75]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 367,
+              "output_tokens": 32,
+              "total_tokens": 399,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 3.2358652921393514
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-001",
+      "model": "openai:qwen3.8-flash",
+      "arm": "neutral",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "neutral",
+        "output": "{\"state\": [28, 41, 59, 86, 90, 7]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 0.9064577498938888,
+        "usage": {
+          "prompt_tokens": 342,
+          "output_tokens": 26,
+          "total_tokens": 368,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (27, 7, 45, 55, 90, 28). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(2,4,32)\n2: move(1,2,3)\n3: swap(2,5,34)\n4: if_add(1,5,24)\n5: add(4,0,31)\n6: swap(3,0,34)\n7: add(1,0,37)\n8: if_add(2,4,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\": [28, 41, 59, 86, 90, 7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 342,
+              "output_tokens": 26,
+              "total_tokens": 368,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 0.9054693330544978
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-001",
+      "model": "openai:qwen3.8-flash",
+      "arm": "old",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "old",
+        "output": "{\n\"state\": [73, 41, 59, 86, 25, 7]\n}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 1.2698464998975396,
+        "usage": {
+          "prompt_tokens": 364,
+          "output_tokens": 30,
+          "total_tokens": 394,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (27, 7, 45, 55, 90, 28). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(2,4,32)\n2: move(1,2,3)\n3: swap(2,5,34)\n4: if_add(1,5,24)\n5: add(4,0,31)\n6: swap(3,0,34)\n7: add(1,0,37)\n8: if_add(2,4,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "{\n\"state\": [73, 41, 59, 86, 25, 7]\n}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 364,
+              "output_tokens": 30,
+              "total_tokens": 394,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 1.2684960418846458
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-002",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "old",
+      "order": [
+        "old",
+        "neutral"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "old",
+        "output": "```json\n{\"state\": [81, 77, 17, 37, 14, 79]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 4.198472584132105,
+        "usage": {
+          "prompt_tokens": 364,
+          "output_tokens": 32,
+          "total_tokens": 396,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (86, 57, 12, 37, 14, 41). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: add(1,4,14)\n2: add(5,0,32)\n3: move(0,2,17)\n4: add(5,2,36)\n5: if_add(3,4,29)\n6: add(5,1,6)\n7: move(2,0,12)\n8: swap(4,3,21)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "```json\n{\"state\": [81, 77, 17, 37, 14, 79]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 364,
+              "output_tokens": 32,
+              "total_tokens": 396,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 4.1972464171703905
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-002",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "neutral",
+      "order": [
+        "old",
+        "neutral"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "neutral",
+        "output": "```json\n{\"state\": [81, 71, 7, 66, 43, 79]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 2.593262125039473,
+        "usage": {
+          "prompt_tokens": 341,
+          "output_tokens": 31,
+          "total_tokens": 372,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (86, 57, 12, 37, 14, 41). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: add(1,4,14)\n2: add(5,0,32)\n3: move(0,2,17)\n4: add(5,2,36)\n5: if_add(3,4,29)\n6: add(5,1,6)\n7: move(2,0,12)\n8: swap(4,3,21)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "```json\n{\"state\": [81, 71, 7, 66, 43, 79]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 341,
+              "output_tokens": 31,
+              "total_tokens": 372,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 2.5920604581478983
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-002",
+      "model": "openai:qwen3.8-flash",
+      "arm": "neutral",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "neutral",
+        "output": "{\"state\": [81, 71, 42, 36, 50, 9]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 1.3543606249149889,
+        "usage": {
+          "prompt_tokens": 341,
+          "output_tokens": 26,
+          "total_tokens": 367,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (86, 57, 12, 37, 14, 41). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: add(1,4,14)\n2: add(5,0,32)\n3: move(0,2,17)\n4: add(5,2,36)\n5: if_add(3,4,29)\n6: add(5,1,6)\n7: move(2,0,12)\n8: swap(4,3,21)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\": [81, 71, 42, 36, 50, 9]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 341,
+              "output_tokens": 26,
+              "total_tokens": 367,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 1.3532865829765797
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-002",
+      "model": "openai:qwen3.8-flash",
+      "arm": "old",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "Return a JSON state object.",
+      "receipt": {
+        "name": "old",
+        "output": "We start with registers $R_0, R_1, R_2, R_3, R_4, R_5$ initialized to:\n$R_0 = 86$\n$R_1 = 57$\n$R_2 = 12$\n$R_3 = 37$\n$R_4 = 14$\n$R_5 = 41$\n\nThe rule is: After each operation, reduce every register modulo 97. The range is $0 \\dots 96$.\n\n**Operation 1: `add(1, 4, 14)`**\n- Adds 14 to register 1. Register 4 is ignored.\n- $R_1 = (57 + 14) \\pmod{97} = 71 \\pmod{97} = 71$\n- Other registers unchanged.\n- State: $[86, 71, 12, 37, 14, 41]$\n\n**Operation 2: `add(5, 0, 32)`**\n- Adds 32 to register 5. Register 0 is ignored.\n- $R_5 = (41 + 32) \\pmod{97} = 73 \\pmod{97} = 73$\n- Other registers unchanged.\n- State: $[86, 71, 12, 37, 14, 73]$\n\n**Operation 3: `move(0, 2, 17)`**\n- Simultaneously subtracts 17 from $R_0$ and adds 17 to $R_2$.\n- $R_0 = (86 - 17) \\pmod{97} = 69 \\pmod{97} = 69$\n- $R_2 = (12 + 17) \\pmod{97} = 29 \\pmod{97} = 29$\n- Other registers unchanged.\n- State: $[69, 71, 29, 37, 14, 73]$\n\n**Operation 4: `add(5, 2, 36)`**\n- Adds 36 to register 5. Register 2 is ignored.\n- $R_5 = (73 + 36) \\pmod{97} = 109 \\pmod{97}$\n- $109 - 97 = 12$\n- So, $R_5 = 12$\n- Other registers unchanged.\n- State: $[69, 71, 29, 37, 14, 12]$\n\n**Operation 5: `if_add(3, 4, 29)`**\n- Compares pre-operation values of $R_3$ and $R_4$.\n- Current $R_3 = 37$, $R_4 = 14$.\n- Since $37 > 14$, we add 29 to register 3 ($i$).\n- $R_3 = (37 + 29) \\pmod{97} = 66 \\pmod{97} = 66$\n- $R_4$ remains 14.\n- Other registers unchanged.\n- State: $[69, 71, 29, 66, 14, 12]$\n\n**Operation 6: `add(5, 1, 6)`**\n- Adds 6 to register 5. Register 1 is ignored.\n- $R_5 = (12 + 6) \\pmod{97} = 18 \\pmod{97} = 18$\n- Other registers unchanged.\n- State: $[69, 71, 29, 66, 14, 18]$\n\n**Operation 7: `move(2, 0, 12)`**\n- Simultaneously subtracts 12 from $R_2$ and adds 12 to $R_0$.\n- $R_2 = (29 - 12) \\pmod{97} = 17 \\pmod{97} = 17$\n- $R_0 = (69 + 12) \\pmod{97} = 81 \\pmod{97} = 81$\n- Other registers unchanged.\n- State: $[81, 71, 17, 66, 14, 18]$\n\n**Operation 8: `swap(4, 3, 21)`**\n- Swaps the values of register 4 and register 3. The value 21 is ignored.\n- Pre-swap: $R_4 = 14$, $R_3 = 66$.\n- Post-swap: $R_4 = 66$, $R_3 = 14$.\n- Other registers unchanged.\n- State: $[81, 71, 17, 14, 66, 18]$\n\nFinal check of the state:\n$R_0 = 81$\n$R_1 = 71$\n$R_2 = 17$\n$R_3 = 14$\n$R_4 = 66$\n$R_5 = 18$\n\nAll values are within $0..96$.\n\n```json\n{\"state\": [81, 71, 17, 14, 66, 18]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 16.23378266603686,
+        "usage": {
+          "prompt_tokens": 363,
+          "output_tokens": 1296,
+          "total_tokens": 1659,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (86, 57, 12, 37, 14, 41). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: add(1,4,14)\n2: add(5,0,32)\n3: move(0,2,17)\n4: add(5,2,36)\n5: if_add(3,4,29)\n6: add(5,1,6)\n7: move(2,0,12)\n8: swap(4,3,21)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "We start with registers $R_0, R_1, R_2, R_3, R_4, R_5$ initialized to:\n$R_0 = 86$\n$R_1 = 57$\n$R_2 = 12$\n$R_3 = 37$\n$R_4 = 14$\n$R_5 = 41$\n\nThe rule is: After each operation, reduce every register modulo 97. The range is $0 \\dots 96$.\n\n**Operation 1: `add(1, 4, 14)`**\n- Adds 14 to register 1. Register 4 is ignored.\n- $R_1 = (57 + 14) \\pmod{97} = 71 \\pmod{97} = 71$\n- Other registers unchanged.\n- State: $[86, 71, 12, 37, 14, 41]$\n\n**Operation 2: `add(5, 0, 32)`**\n- Adds 32 to register 5. Register 0 is ignored.\n- $R_5 = (41 + 32) \\pmod{97} = 73 \\pmod{97} = 73$\n- Other registers unchanged.\n- State: $[86, 71, 12, 37, 14, 73]$\n\n**Operation 3: `move(0, 2, 17)`**\n- Simultaneously subtracts 17 from $R_0$ and adds 17 to $R_2$.\n- $R_0 = (86 - 17) \\pmod{97} = 69 \\pmod{97} = 69$\n- $R_2 = (12 + 17) \\pmod{97} = 29 \\pmod{97} = 29$\n- Other registers unchanged.\n- State: $[69, 71, 29, 37, 14, 73]$\n\n**Operation 4: `add(5, 2, 36)`**\n- Adds 36 to register 5. Register 2 is ignored.\n- $R_5 = (73 + 36) \\pmod{97} = 109 \\pmod{97}$\n- $109 - 97 = 12$\n- So, $R_5 = 12$\n- Other registers unchanged.\n- State: $[69, 71, 29, 37, 14, 12]$\n\n**Operation 5: `if_add(3, 4, 29)`**\n- Compares pre-operation values of $R_3$ and $R_4$.\n- Current $R_3 = 37$, $R_4 = 14$.\n- Since $37 > 14$, we add 29 to register 3 ($i$).\n- $R_3 = (37 + 29) \\pmod{97} = 66 \\pmod{97} = 66$\n- $R_4$ remains 14.\n- Other registers unchanged.\n- State: $[69, 71, 29, 66, 14, 12]$\n\n**Operation 6: `add(5, 1, 6)`**\n- Adds 6 to register 5. Register 1 is ignored.\n- $R_5 = (12 + 6) \\pmod{97} = 18 \\pmod{97} = 18$\n- Other registers unchanged.\n- State: $[69, 71, 29, 66, 14, 18]$\n\n**Operation 7: `move(2, 0, 12)`**\n- Simultaneously subtracts 12 from $R_2$ and adds 12 to $R_0$.\n- $R_2 = (29 - 12) \\pmod{97} = 17 \\pmod{97} = 17$\n- $R_0 = (69 + 12) \\pmod{97} = 81 \\pmod{97} = 81$\n- Other registers unchanged.\n- State: $[81, 71, 17, 66, 14, 18]$\n\n**Operation 8: `swap(4, 3, 21)`**\n- Swaps the values of register 4 and register 3. The value 21 is ignored.\n- Pre-swap: $R_4 = 14$, $R_3 = 66$.\n- Post-swap: $R_4 = 66$, $R_3 = 14$.\n- Other registers unchanged.\n- State: $[81, 71, 17, 14, 66, 18]$\n\nFinal check of the state:\n$R_0 = 81$\n$R_1 = 71$\n$R_2 = 17$\n$R_3 = 14$\n$R_4 = 66$\n$R_5 = 18$\n\nAll values are within $0..96$.\n\n```json\n{\"state\": [81, 71, 17, 14, 66, 18]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 363,
+              "output_tokens": 1296,
+              "total_tokens": 1659,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 16.23266787501052
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-003",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "old",
+      "order": [
+        "old",
+        "neutral"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "old",
+        "output": "```json\n{\"state\": [30, 24, 76, 31, 8, 59]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 2.754329000134021,
+        "usage": {
+          "prompt_tokens": 363,
+          "output_tokens": 31,
+          "total_tokens": 394,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (1, 24, 2, 31, 68, 24). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(5,4,39)\n2: add(2,5,5)\n3: move(4,5,4)\n4: move(4,2,36)\n5: move(1,2,29)\n6: if_add(1,4,21)\n7: swap(4,1,23)\n8: move(4,5,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "```json\n{\"state\": [30, 24, 76, 31, 8, 59]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 363,
+              "output_tokens": 31,
+              "total_tokens": 394,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 2.7533970000222325
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-003",
+      "model": "openai:gemini-3.5-flash-lite",
+      "arm": "neutral",
+      "order": [
+        "old",
+        "neutral"
+      ],
+      "passed": false,
+      "feedback": "The final register state is incorrect.",
+      "receipt": {
+        "name": "neutral",
+        "output": "```json\n{\"state\": [81, 62, 42, 31, 23, 76]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 3.6538957920856774,
+        "usage": {
+          "prompt_tokens": 340,
+          "output_tokens": 32,
+          "total_tokens": 372,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Track registers 0..5, initially (1, 24, 2, 31, 68, 24). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(5,4,39)\n2: add(2,5,5)\n3: move(4,5,4)\n4: move(4,2,36)\n5: move(1,2,29)\n6: if_add(1,4,21)\n7: swap(4,1,23)\n8: move(4,5,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "```json\n{\"state\": [81, 62, 42, 31, 23, 76]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 340,
+              "output_tokens": 32,
+              "total_tokens": 372,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 3.652638499857858
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-003",
+      "model": "openai:qwen3.8-flash",
+      "arm": "neutral",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "Return a JSON state object.",
+      "receipt": {
+        "name": "neutral",
+        "output": "We start with registers 0 to 5:\n$R = [1, 24, 2, 31, 68, 24]$\n\n**Operation 1: `if_add(5, 4, 39)`**\n- Compare $R[5]$ and $R[4]$.\n- $R[5] = 24$, $R[4] = 68$.\n- Since $24 \\ngtr 68$, we add 39 to register $j=4$.\n- New $R[4] = 68 + 39 = 107$.\n- Reduce modulo 97: $107 \\pmod{97} = 10$.\n- State: $[1, 24, 2, 31, 10, 24]$\n\n**Operation 2: `add(2, 5, 5)`**\n- Add 5 to register $i=2$. ($j=5$ is ignored).\n- New $R[2] = 2 + 5 = 7$.\n- Reduce modulo 97: $7 \\pmod{97} = 7$.\n- State: $[1, 24, 7, 31, 10, 24]$\n\n**Operation 3: `move(4, 5, 4)`**\n- Subtract 4 from $i=4$, add 4 to $j=5$.\n- $R[4] = 10 - 4 = 6$.\n- $R[5] = 24 + 4 = 28$.\n- Reduce modulo 97:\n  - $6 \\pmod{97} = 6$.\n  - $28 \\pmod{97} = 28$.\n- State: $[1, 24, 7, 31, 6, 28]$\n\n**Operation 4: `move(4, 2, 36)`**\n- Subtract 36 from $i=4$, add 36 to $j=2$.\n- $R[4] = 6 - 36 = -30$.\n- $R[2] = 7 + 36 = 43$.\n- Reduce modulo 97:\n  - $-30 \\pmod{97} = 97 - 30 = 67$.\n  - $43 \\pmod{97} = 43$.\n- State: $[1, 24, 43, 31, 67, 28]$\n\n**Operation 5: `move(1, 2, 29)`**\n- Subtract 29 from $i=1$, add 29 to $j=2$.\n- $R[1] = 24 - 29 = -5$.\n- $R[2] = 43 + 29 = 72$.\n- Reduce modulo 97:\n  - $-5 \\pmod{97} = 97 - 5 = 92$.\n  - $72 \\pmod{97} = 72$.\n- State: $[1, 92, 72, 31, 67, 28]$\n\n**Operation 6: `if_add(1, 4, 21)`**\n- Compare pre-operation values of $R[1]$ and $R[4]$.\n- $R[1] = 92$, $R[4] = 67$.\n- Since $92 > 67$, add 21 to register $i=1$.\n- New $R[1] = 92 + 21 = 113$.\n- Reduce modulo 97: $113 \\pmod{97} = 16$.\n- State: $[1, 16, 72, 31, 67, 28]$\n\n**Operation 7: `swap(4, 1, 23)`**\n- Swap $R[4]$ and $R[1]$. ($n=23$ is ignored).\n- $R[4]$ becomes old $R[1] = 16$.\n- $R[1]$ becomes old $R[4] = 67$.\n- State: $[1, 67, 72, 31, 16, 28]$\n\n**Operation 8: `move(4, 5, 31)`**\n- Subtract 31 from $i=4$, add 31 to $j=5$.\n- $R[4] = 16 - 31 = -15$.\n- $R[5] = 28 + 31 = 59$.\n- Reduce modulo 97:\n  - $-15 \\pmod{97} = 97 - 15 = 82$.\n  - $59 \\pmod{97} = 59$.\n- State: $[1, 67, 72, 31, 82, 59]$\n\nFinal Register Values:\n$R[0] = 1$\n$R[1] = 67$\n$R[2] = 72$\n$R[3] = 31$\n$R[4] = 82$\n$R[5] = 59$\n\n{\"state\": [1, 67, 72, 31, 82, 59]}",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 14.806260708021,
+        "usage": {
+          "prompt_tokens": 339,
+          "output_tokens": 1282,
+          "total_tokens": 1621,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (1, 24, 2, 31, 68, 24). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(5,4,39)\n2: add(2,5,5)\n3: move(4,5,4)\n4: move(4,2,36)\n5: move(1,2,29)\n6: if_add(1,4,21)\n7: swap(4,1,23)\n8: move(4,5,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "We start with registers 0 to 5:\n$R = [1, 24, 2, 31, 68, 24]$\n\n**Operation 1: `if_add(5, 4, 39)`**\n- Compare $R[5]$ and $R[4]$.\n- $R[5] = 24$, $R[4] = 68$.\n- Since $24 \\ngtr 68$, we add 39 to register $j=4$.\n- New $R[4] = 68 + 39 = 107$.\n- Reduce modulo 97: $107 \\pmod{97} = 10$.\n- State: $[1, 24, 2, 31, 10, 24]$\n\n**Operation 2: `add(2, 5, 5)`**\n- Add 5 to register $i=2$. ($j=5$ is ignored).\n- New $R[2] = 2 + 5 = 7$.\n- Reduce modulo 97: $7 \\pmod{97} = 7$.\n- State: $[1, 24, 7, 31, 10, 24]$\n\n**Operation 3: `move(4, 5, 4)`**\n- Subtract 4 from $i=4$, add 4 to $j=5$.\n- $R[4] = 10 - 4 = 6$.\n- $R[5] = 24 + 4 = 28$.\n- Reduce modulo 97:\n  - $6 \\pmod{97} = 6$.\n  - $28 \\pmod{97} = 28$.\n- State: $[1, 24, 7, 31, 6, 28]$\n\n**Operation 4: `move(4, 2, 36)`**\n- Subtract 36 from $i=4$, add 36 to $j=2$.\n- $R[4] = 6 - 36 = -30$.\n- $R[2] = 7 + 36 = 43$.\n- Reduce modulo 97:\n  - $-30 \\pmod{97} = 97 - 30 = 67$.\n  - $43 \\pmod{97} = 43$.\n- State: $[1, 24, 43, 31, 67, 28]$\n\n**Operation 5: `move(1, 2, 29)`**\n- Subtract 29 from $i=1$, add 29 to $j=2$.\n- $R[1] = 24 - 29 = -5$.\n- $R[2] = 43 + 29 = 72$.\n- Reduce modulo 97:\n  - $-5 \\pmod{97} = 97 - 5 = 92$.\n  - $72 \\pmod{97} = 72$.\n- State: $[1, 92, 72, 31, 67, 28]$\n\n**Operation 6: `if_add(1, 4, 21)`**\n- Compare pre-operation values of $R[1]$ and $R[4]$.\n- $R[1] = 92$, $R[4] = 67$.\n- Since $92 > 67$, add 21 to register $i=1$.\n- New $R[1] = 92 + 21 = 113$.\n- Reduce modulo 97: $113 \\pmod{97} = 16$.\n- State: $[1, 16, 72, 31, 67, 28]$\n\n**Operation 7: `swap(4, 1, 23)`**\n- Swap $R[4]$ and $R[1]$. ($n=23$ is ignored).\n- $R[4]$ becomes old $R[1] = 16$.\n- $R[1]$ becomes old $R[4] = 67$.\n- State: $[1, 67, 72, 31, 16, 28]$\n\n**Operation 8: `move(4, 5, 31)`**\n- Subtract 31 from $i=4$, add 31 to $j=5$.\n- $R[4] = 16 - 31 = -15$.\n- $R[5] = 28 + 31 = 59$.\n- Reduce modulo 97:\n  - $-15 \\pmod{97} = 97 - 15 = 82$.\n  - $59 \\pmod{97} = 59$.\n- State: $[1, 67, 72, 31, 82, 59]$\n\nFinal Register Values:\n$R[0] = 1$\n$R[1] = 67$\n$R[2] = 72$\n$R[3] = 31$\n$R[4] = 82$\n$R[5] = 59$\n\n{\"state\": [1, 67, 72, 31, 82, 59]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 339,
+              "output_tokens": 1282,
+              "total_tokens": 1621,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 14.805246041854843
+          }
+        ]
+      }
+    },
+    {
+      "task_id": "state-dev-003",
+      "model": "openai:qwen3.8-flash",
+      "arm": "old",
+      "order": [
+        "neutral",
+        "old"
+      ],
+      "passed": false,
+      "feedback": "Return a JSON state object.",
+      "receipt": {
+        "name": "old",
+        "output": "To determine the final state of the registers, we will track the values of registers 0 through 5 step-by-step.\nInitial State: $R = [1, 24, 2, 31, 68, 24]$\n\n**Operation 1: `if_add(5, 4, 39)`**\n- Compare pre-operation values: $R[5] = 24$, $R[4] = 68$.\n- Condition: Is $R[5] > R[4]$? $24 > 68$ is **False**.\n- Action: Add $n=39$ to register $j=4$.\n- Update $R[4]$: $68 + 39 = 107$.\n- Reduce modulo 97: $107 \\pmod{97} = 10$.\n- New State: $[1, 24, 2, 31, 10, 24]$\n\n**Operation 2: `add(2, 5, 5)`**\n- Action: Add $n=5$ to register $i=2$. ($j$ is ignored).\n- Update $R[2]$: $2 + 5 = 7$.\n- Reduce modulo 97: $7 \\pmod{97} = 7$.\n- New State: $[1, 24, 7, 31, 10, 24]$\n\n**Operation 3: `move(4, 5, 4)`**\n- Action: Subtract $n=4$ from $i=4$ and add $n=4$ to $j=5$.\n- Update $R[4]$: $10 - 4 = 6$.\n- Update $R[5]$: $24 + 4 = 28$.\n- Reduce modulo 97: $6 \\pmod{97} = 6$, $28 \\pmod{97} = 28$.\n- New State: $[1, 24, 7, 31, 6, 28]$\n\n**Operation 4: `move(4, 2, 36)`**\n- Action: Subtract $n=36$ from $i=4$ and add $n=36$ to $j=2$.\n- Update $R[4]$: $6 - 36 = -30$.\n- Update $R[2]$: $7 + 36 = 43$.\n- Reduce modulo 97:\n  - $R[4]: -30 \\pmod{97} = 67$ (since $-30 + 97 = 67$).\n  - $R[2]: 43 \\pmod{97} = 43$.\n- New State: $[1, 24, 43, 31, 67, 28]$\n\n**Operation 5: `move(1, 2, 29)`**\n- Action: Subtract $n=29$ from $i=1$ and add $n=29$ to $j=2$.\n- Update $R[1]$: $24 - 29 = -5$.\n- Update $R[2]$: $43 + 29 = 72$.\n- Reduce modulo 97:\n  - $R[1]: -5 \\pmod{97} = 92$ (since $-5 + 97 = 92$).\n  - $R[2]: 72 \\pmod{97} = 72$.\n- New State: $[1, 92, 72, 31, 67, 28]$\n\n**Operation 6: `if_add(1, 4, 21)`**\n- Compare pre-operation values: $R[1] = 92$, $R[4] = 67$.\n- Condition: Is $R[1] > R[4]$? $92 > 67$ is **True**.\n- Action: Add $n=21$ to register $i=1$.\n- Update $R[1]$: $92 + 21 = 113$.\n- Reduce modulo 97: $113 \\pmod{97} = 16$.\n- New State: $[1, 16, 72, 31, 67, 28]$\n\n**Operation 7: `swap(4, 1, 23)`**\n- Action: Swap values of $i=4$ and $j=1$. ($n$ is ignored).\n- Current $R[4] = 67$, $R[1] = 16$.\n- Update $R[4]$: becomes old $R[1] = 16$.\n- Update $R[1]$: becomes old $R[4] = 67$.\n- Reduce modulo 97: Values are already in range.\n- New State: $[1, 67, 72, 31, 16, 28]$\n\n**Operation 8: `move(4, 5, 31)`**\n- Action: Subtract $n=31$ from $i=4$ and add $n=31$ to $j=5$.\n- Update $R[4]$: $16 - 31 = -15$.\n- Update $R[5]$: $28 + 31 = 59$.\n- Reduce modulo 97:\n  - $R[4]: -15 \\pmod{97} = 82$ (since $-15 + 97 = 82$).\n  - $R[5]: 59 \\pmod{97} = 59$.\n- Final State: $[1, 67, 72, 31, 82, 59]$\n\n```json\n{\"state\": [1, 67, 72, 31, 82, 59]}\n```",
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 18.279840582981706,
+        "usage": {
+          "prompt_tokens": 361,
+          "output_tokens": 1397,
+          "total_tokens": 1758,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "Track registers 0..5, initially (1, 24, 2, 31, 68, 24). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(5,4,39)\n2: add(2,5,5)\n3: move(4,5,4)\n4: move(4,2,36)\n5: move(1,2,29)\n6: if_add(1,4,21)\n7: swap(4,1,23)\n8: move(4,5,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "To determine the final state of the registers, we will track the values of registers 0 through 5 step-by-step.\nInitial State: $R = [1, 24, 2, 31, 68, 24]$\n\n**Operation 1: `if_add(5, 4, 39)`**\n- Compare pre-operation values: $R[5] = 24$, $R[4] = 68$.\n- Condition: Is $R[5] > R[4]$? $24 > 68$ is **False**.\n- Action: Add $n=39$ to register $j=4$.\n- Update $R[4]$: $68 + 39 = 107$.\n- Reduce modulo 97: $107 \\pmod{97} = 10$.\n- New State: $[1, 24, 2, 31, 10, 24]$\n\n**Operation 2: `add(2, 5, 5)`**\n- Action: Add $n=5$ to register $i=2$. ($j$ is ignored).\n- Update $R[2]$: $2 + 5 = 7$.\n- Reduce modulo 97: $7 \\pmod{97} = 7$.\n- New State: $[1, 24, 7, 31, 10, 24]$\n\n**Operation 3: `move(4, 5, 4)`**\n- Action: Subtract $n=4$ from $i=4$ and add $n=4$ to $j=5$.\n- Update $R[4]$: $10 - 4 = 6$.\n- Update $R[5]$: $24 + 4 = 28$.\n- Reduce modulo 97: $6 \\pmod{97} = 6$, $28 \\pmod{97} = 28$.\n- New State: $[1, 24, 7, 31, 6, 28]$\n\n**Operation 4: `move(4, 2, 36)`**\n- Action: Subtract $n=36$ from $i=4$ and add $n=36$ to $j=2$.\n- Update $R[4]$: $6 - 36 = -30$.\n- Update $R[2]$: $7 + 36 = 43$.\n- Reduce modulo 97:\n  - $R[4]: -30 \\pmod{97} = 67$ (since $-30 + 97 = 67$).\n  - $R[2]: 43 \\pmod{97} = 43$.\n- New State: $[1, 24, 43, 31, 67, 28]$\n\n**Operation 5: `move(1, 2, 29)`**\n- Action: Subtract $n=29$ from $i=1$ and add $n=29$ to $j=2$.\n- Update $R[1]$: $24 - 29 = -5$.\n- Update $R[2]$: $43 + 29 = 72$.\n- Reduce modulo 97:\n  - $R[1]: -5 \\pmod{97} = 92$ (since $-5 + 97 = 92$).\n  - $R[2]: 72 \\pmod{97} = 72$.\n- New State: $[1, 92, 72, 31, 67, 28]$\n\n**Operation 6: `if_add(1, 4, 21)`**\n- Compare pre-operation values: $R[1] = 92$, $R[4] = 67$.\n- Condition: Is $R[1] > R[4]$? $92 > 67$ is **True**.\n- Action: Add $n=21$ to register $i=1$.\n- Update $R[1]$: $92 + 21 = 113$.\n- Reduce modulo 97: $113 \\pmod{97} = 16$.\n- New State: $[1, 16, 72, 31, 67, 28]$\n\n**Operation 7: `swap(4, 1, 23)`**\n- Action: Swap values of $i=4$ and $j=1$. ($n$ is ignored).\n- Current $R[4] = 67$, $R[1] = 16$.\n- Update $R[4]$: becomes old $R[1] = 16$.\n- Update $R[1]$: becomes old $R[4] = 67$.\n- Reduce modulo 97: Values are already in range.\n- New State: $[1, 67, 72, 31, 16, 28]$\n\n**Operation 8: `move(4, 5, 31)`**\n- Action: Subtract $n=31$ from $i=4$ and add $n=31$ to $j=5$.\n- Update $R[4]$: $16 - 31 = -15$.\n- Update $R[5]$: $28 + 31 = 59$.\n- Reduce modulo 97:\n  - $R[4]: -15 \\pmod{97} = 82$ (since $-15 + 97 = 82$).\n  - $R[5]: 59 \\pmod{97} = 59$.\n- Final State: $[1, 67, 72, 31, 82, 59]$\n\n```json\n{\"state\": [1, 67, 72, 31, 82, 59]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 361,
+              "output_tokens": 1397,
+              "total_tokens": 1758,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 18.2787778750062
+          }
+        ]
+      }
+    }
+  ]
+}

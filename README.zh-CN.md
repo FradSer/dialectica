@@ -4,9 +4,9 @@
 
 [English](README.md) | **简体中文**
 
-**Dialectica** 是基于 Google ADK 的推理引擎工具箱，按硬方式构建与度量：每个引擎都跑过 matched-cost 基线和盲评判，只有数据支持的赢才保留，其余作为负向结果记录在案。全部目的就是用数字（而非感觉）回答一个问题——*scaffold 是否能打败一次精心提示的单次调用？*
+**Dialectica** 是基于 Google ADK 的可审计推理工作流与评测工具箱。它提供可组合执行内核与验证器制导修复，并将研究模式与强单次调用、重复调用对照比较。它要回答的是：*什么时候，额外编排值得其可靠性、质量或成本收益？* 真实调用、失败尝试、未知用量和无法确定的评判都属于证据。
 
-> **一句话结论。** 在自包含任务上，纯 LLM scaffold（ToT、GAN、AB-MCTS scorer）*不*能在结果质量上打败 prompt-matched 单次调用——它们只是重排模型自己的思考。**辩证是唯一测出的例外**：把 synthesis 条调硬、螺旋加深后，它在开放式 meta-task 上确实打败 prompt-matched 单次调用（连续打分下从 **−0.500 到 +0.600 NET**，两次运行确认，见结论 #9）。引擎通过加入单次前向传播拿不到的信息来赢：**工具**、**ground-truth 验证**，或——在开放式 meta-task 上——**异构模型独立性**（实测：异构 reflection 在 10 题池上对单次 **10-0-0**；杠杆是 roster，不是 float scorer 或额外对抗 stage）。见[评测](#评测)。
+> **历史观察。** 测试过的 ToT/GAN/scorer 编排在自包含任务上没有胜过当时的强单次调用对照。工具访问和客观验证修复带来了能力或成本收益。开放式实验中，异构 reflection（十题池 **10-0-0**）和调好的辩证（三题、单一评判，见结论 #9）出现收益。这些结果的评测覆盖有限，不能推出关于推理计算的普遍定律。新研究模式必须通过独立对照，才考虑进入公开 API。见[评测](#评测)。
 
 受 [karpathy/autoresearch](https://github.com/karpathy/autoresearch)、Sakana AI 的 AB-MCTS / 集体智能系列、以及 Claude Code 可组合工作流启发。
 
@@ -71,7 +71,7 @@ asyncio.run(main())
 - **Resume**——`agent()` 调用记入 `.dialectica/workflows/<run_id>/`；`Workflow(..., resume_run_id=...)` 从缓存重放最长不变前缀。
 - **护栏**——每 run 最多 1000 次 `agent()`；`parallel`/`pipeline` 每次最多 4096 项。
 - **`Workflow(..., meta={...})`**——可选元数据；`phase()` 标题须与 `meta.phases` 一致。
-- **诚实适用范围**：无 `tools` 的纯 schema 工作流仍是纯 LLM scaffold，受下方负向结论约束。
+- **诚实适用范围**：无 `tools` 的纯 schema 工作流仍是纯 LLM scaffold；收益需按任务、模型和实际成本验证。
 
 ### 与 Claude Workflow 的对应——小模型能从这里得到什么
 
@@ -88,14 +88,14 @@ asyncio.run(main())
 | IDE `/workflows` UI、完整 agent 类型库（Plan 等） | ❌ 仅 API |
 | 宿主深度集成（终端、文件树） | 自行注入 `tools` |
 
-**这能让小参数模型「更强」吗？** 只有 workflow **加入了单次前向传播拿不到的信息** 时才行——与[评测](#评测)核心结论同一条定律。Workflow **形态本身不是智商放大器**。
+**这能让小参数模型「更强」吗？** 历史上的收益涉及工具、客观反馈、异构模型或调好的辩证。它们都有模型、任务和预算条件，不能证明收益的必要条件。需要为每个模型设置强单次调用基线，并记录实际成本，再判断编排是否有价值。
 
 | 场景 | 用法 | 小模型收益 |
 |---|---|---|
 | 必须读代码、跑命令、探测 API | `agent(tools=[...])`，可选 `parallel` | ✅ **实测真赢**——hidden-oracle 小模型 + tools **8/8**，单次调用 **0/8** |
 | 输出可校验（测试、schema、linter） | `create_repair_engine` + verifier | ✅ **成本赢**——best-of-N 可靠性约 ⅓ 调用；通过率与 matched-cost 打平 |
 | 开放式 meta-task（调研、评审、设计） | 异构 reflection：`create_reflection_engine`（或 `create_quality_workflow_engine(..., mode="reflection")`） | ✅ **实测赢**——异构 reflection 在 meta+default 上对单次 **10-0-0**（结论 #7）；杠杆是 roster 异构性 |
-| 自包含推理（无工具、无 verifier） | 强单次 prompt 或更大模型 | ❌ 同模型 `phase`/`parallel` / 对抗 scaffold 打不过一次精心 prompt 的单次调用 |
+| 自包含推理（无工具、无 verifier） | 强单次 prompt 或更大模型 | 历史测试中的同模型 scaffold 未胜过当时的强单次调用对照 |
 
 **小模型实用配方：**
 
@@ -104,7 +104,7 @@ asyncio.run(main())
 3. **调研 / 评审 / 开放式反思** — `create_reflection_engine(problem)` + 异构 roster（默认经 cliproxy 的 `qwen` + `glm`）。**不要**默认开 adversarial/dialectic——结论 #7 显示相对异构 reflection 无一致增益。
 4. **控成本** — `Workflow(..., budget_unit="tokens")`；fan-out 用小模型，综合或最后一跳 repair 再用大模型。
 
-`parallel` 与并发上限能降墙钟时间，不能抬高封闭式推理题的天花板。Context cache（见[配置](#配置)）在**单次 `agent()` 内的多轮 tool loop** 上省 token——独立 `agent()` 之间不会自动共享，除非自行管理 session。
+`parallel` 与并发上限控制调度，并可能降低墙钟时间。额外采样或交互是否提升质量，需要单独比较。Context cache（见[配置](#配置)）在**单次 `agent()` 内的多轮 tool loop** 上省 token——独立 `agent()` 之间不会自动共享，除非自行管理 session。
 
 ### 🛠️ 执行制导修复——验证器在环（`create_repair_engine`）
 可验证任务：**生成 → 跑注入的验证器 → 据具体失败修复 → 重试**，直到通过或
@@ -125,8 +125,7 @@ asyncio.run(main())
 
 ## 模式（不随包发布，仅供参考）
 
-`examples/patterns/`（与 `evals/` 一样是开发工具，不随 wheel 打包）保留了所有
-被 evals 判定**不值得** ship 成稳定 API 的引擎的可运行参考实现。每个模式都保留
+`examples/patterns/`（与 `evals/` 一样是开发工具，不随 wheel 打包）保留可运行的研究模式：既有历史评测未支持进入稳定 API 的变体，也有仍待验证的新机制。每个模式都保留
 被降级引擎原本的工厂函数名/签名/返回形态，内部重建在 `Workflow` 内核之上而非
 自建 agent。（当初测量它们的 `evals/*.py` 脚本已于 2026-08 清理中移除；实测判决
 见上表与下方核心结论。）
@@ -158,7 +157,7 @@ from examples.patterns.tot_gan_pattern import create_engine
 
 引擎是否真的打败一次强模型调用？仓库附带评测工具（`evals/`，开发工具——不随
 包发布），用数据回答：每题由引擎**和**单次调用基线各解一次；**盲评判**对两答案
-各评两次并交换位置（不一致记 tie）；LLM 调用通过测试 mock 的同一 `run_agent`
+各评两次并交换位置（历史流程将不一致记为 tie；新流程保留为无法确定）；历史调用通过同一 `run_agent`
 接缝计数。
 
 ```bash
@@ -175,12 +174,16 @@ uv run python -m evals.workflow_ablation        # 同构 reflection vs 单次（
 
 ### 核心结论（实测，无预设结论）
 
+下列编号结论记录当时测试过的任务、模型和评测协议，其质量排序不是普遍定律。
+旧评判将位置分歧记为平局；新的来源约束评测将其保留为无法确定。
+名义调用次数相等不能证明 token 或费用相等。
+
 1. **引擎真正赢的地方——能力，不是质量。** 在需要*行动*的任务上（agentic 隐藏
    oracle 基准），小模型用 `agent(tools=[...])` 得 **8/8**，单次调用 **0/8**：它探测
    隐藏函数、推断规则、实现之——单次调用无从知晓任意规则。这是真正的价值类别。
 
-2. **scaffold 不赢的地方——自包含结果质量。** 与 *matched-cost* 基线相比，**无
-   纯 LLM scaffold 打败单次调用**：dialectic 模式 vs prompt-matched 强基线在各档模型上
+2. **scaffold 不赢的地方——自包含结果质量。** 在历史的 *matched-cost* 比较中，**测试过的
+   纯 LLM scaffold 未胜过当时的单次调用对照**：dialectic 模式 vs prompt-matched 强基线在各档模型上
    **0-3-2**（早先 4-1-0 的"赢"是 prompt+长度，不是结构）。**repair** 引擎打败
    *单次*调用，但在通过率上与 *matched-cost best-of-K* **打平**——其真正优势是
    **成本**（best-of-N 可靠性，约 1/3 调用）。
@@ -242,16 +245,86 @@ uv run python -m evals.workflow_ablation        # 同构 reflection vs 单次（
 
 9. **调好的辩证在开放式 meta-task 上打败 prompt-matched 单次调用（2026-08-05）。** 0-3-2（结论 #2）并不是全部：那个辩证没调到位。两处纯 LLM、同模型的改动——**调硬 `SYNTHESIS_PROMPT`**（做一个绑定决策、给出精确可测触发、说明每边赢的条件、保留具体数字——与 reflection 对 synthesis 的同一标准）和**加深螺旋**（`max_rounds` 3 → 5）——把辩证对 prompt-matched 强单次调用的 NET 从 **−0.500 翻到 +0.600**，经**两次独立运行**确认（+0.100、+0.600）。方法论很关键：这次用的是**连续 0-10 打分**（盲评判对每个答案按 `DEFAULT_CRITERIA` 打分，NET = 平均分差），而非离散胜/负/平——后者的 ±4 逐次摆动让早期测量不可读。被否的方向：再调硬 THESIS prompt（−0.333）和每轮两个对手（`perspectives=2`，−0.567）都回退并弃用。注意：在 3 个 meta 问题上、单一 judge（gpt-5.5）、连续打分设计下测得；同样的调法在完整 5-meta 题池上尚未实测。
 
-### 这些结论共同指向的定律
+### 研究更新：历史结论有适用条件
 
-scaffold 打败一次前向传播，**当且仅当**它加入了单次传播无法获得的信息——**工具**
-（`agent(tools=...)`）、**ground-truth 验证**（repair），或**独立样本**（meta-task
-上的异构模型——#6；经异构性的 ensemble 健壮性——#5）。对一个模型在单上下文上的纯
-重排（ToT、GAN、辩证、对同族候选的 LLM-judge scorer）在自包含质量上与单次打平。
-Sakana AI 的研究合集从另一侧收敛到同一定律：那里每个真正的赢也都由模型外部的
-ground-truth oracle 支撑。这条定律正是为什么 ship 出去的 API 现在只剩两样东西——
-能加能力的内核原语，和能加 ground truth 的那一个引擎——以及为什么其余全部搬去了
-`examples/patterns/`（`reflection_pattern.py` 为经实测的 meta-task 参考）。
+截至 **2026-10-04**，本次研究升级已筛选 **32 篇一手来源论文**，完成
+**7 组真实模型研究、576 次生成试验**。
+[论文矩阵](docs/research/2026-10-03-literature.md)保存来源日期、阅读深度和本地实现决定；
+筛选不代表全部 32 篇都经过全文审阅或复现。
+[完成审计](docs/research/2026-10-04-completion-audit.md)将验收要求与已保存的验证记录对应，
+[原始记录完整性审计](docs/research/results/2026-10-04-heldout-v1/final-integrity-audit.json)
+核对各组研究的结果和用量。生成试验指实验分组的一次运行，不等于单次模型调用；
+校准和评判成本另行记录。
+
+[冻结的七组留出集实验](docs/research/2026-10-04-heldout-protocol.md)已全部完成。
+最终依赖更新前，已核验全部 576 次生成试验、报告/协议/分析绑定及逐调用用量之和。
+整批上报 **3,631,216 token / 3,789 个可观察模型轮次**，含校准和评判，保留
+**30 次生成失败**。本批未知用量为零；先前网关失败中的未知用量仍单独保留。
+这些是上报成本，不是服务端账单，也不包含不可观察的底层 HTTP 重试计数。
+
+| 留出集比较 | 观察结果 | 采用决定 |
+|---|---|---|
+| [来源约束决策](docs/research/2026-10-04-heldout-evidence-result.md) | 自我修正相对 Gemini 单次、异构反思相对 Qwen 单次出现探索性正向评判信号；未证明优于 GPT 单次 | 反思保留为参考模式；合成引用核验和评判一致不能证明决策正确或人类偏好对齐 |
+| [断言 K=6](docs/research/2026-10-04-heldout-claims-k6-result.md) | 断言 6/24；共识/自我修正 7/24；单次 4/24 | 断言相对单次的差值区间包含零，不新增稳定 API |
+| [断言 K=3](docs/research/2026-10-04-heldout-claims-k3-result.md) | 断言/自我修正 7/24；单次/共识 3/24 | 断言相对单次的差值区间包含零，不新增稳定 API |
+| [元推理预算 12](docs/research/2026-10-04-heldout-meta-budget12-result.md) | 单次 5/24；共识 3/24；自我修正 8/24；分阶段 2/24；直接 3/24 | 相对单次的差值区间均包含零，控制器保留为研究模式 |
+| [元推理预算 6](docs/research/2026-10-04-heldout-meta-budget6-result.md) | 单次 5/24；共识 4/24；自我修正 10/24；分阶段 4/24；直接 0/24 | 差值区间均包含零；自我修正的较好点估计不足以支持采用 |
+| 强单次对照：[元推理](docs/research/2026-10-04-heldout-strong-meta-result.md) / [断言](docs/research/2026-10-04-heldout-strong-claim-result.md) | GPT 在两种输出约束下各 24/24 | 仅是本题池的天花板，不能证明普遍成功或新机制在 GPT 上的收益 |
+
+[候选与选择诊断](docs/research/2026-10-04-heldout-selection-diagnostics.md)显示：
+相同候选上的断言加权没有改变最终正确性；元推理控制器的正确候选覆盖较低；
+自我修正则会丢失中途正确答案。失败的断言试验覆盖信息不完整，不能填成零。
+这些事后描述性诊断用于指导未来研究，不用于在留出题集上调参。
+区间条件于小题池，属于未做多重比较校正的探索性结果；实际 token 成本不相等。
+公开 API 仍为 Workflow 与验证器制导修复。
+
+上述数字描述当时测试过的模型、任务和流程，不能证明“只有加入外部信息才能赢”的
+必要充分定律。小题池、任务饱和、提示要求不对等、仅按调用次数计成本，以及单一
+judge，都限制了结论的外推范围。
+
+近期反证促成了上述受控实验：[关键主张验证](https://arxiv.org/abs/2608.11994) 和
+[结构化元推理](https://arxiv.org/abs/2609.38147) 报告了重新分配推理计算的增益，
+同时也有预算与模型限制。这些是作者的结果，尚非本项目复现。当前研究升级的假设、
+来源和验收条件记录在[升级契约](docs/research/2026-10-03-upgrade.md) 与
+[论文矩阵](docs/research/2026-10-03-literature.md)。新的优势声明必须有强提示匹配基线、
+按实验分组的完整成本收据、保留题集、重复试验和可靠评判；E2E 只能证明执行链路。
+
+新增的[关键断言证伪研究模式](examples/patterns/claim_falsification_pattern.py)
+实现独立断言评估和加权候选选择。[比较脚本](evals/claim_ablation.py) 保存评估调用成本、
+原始候选、正确答案覆盖率，以及相同候选上的无权重选择结果。首轮真实模型开发实验
+在十四项目题上出现零覆盖率，详见[试跑诊断](docs/research/2026-10-04-pilot-diagnostics.md)。
+重复留出集比较已完成，未建立选择收益或明确质量优势，因此暂不进入公开 API。
+
+[元推理研究模式](examples/patterns/meta_reasoning_pattern.py) 已实现分阶段控制器与
+直接控制器对照、选择性上下文和已有产物选择；尚未测出质量优势。
+[来源约束决策评测](evals/evidence_ablation.py) 分别记录生成、校准与评判成本，
+并将位置偏差、不同评判的分歧及校准失败保留为无法确定。首轮真实调用中，
+引用核对通过但评判发生位置分歧，因此没有胜负结论。调用预算计的是工作流
+agent 步骤；底层重试可能产生更多请求，不能据此声称请求、token 或费用相等。
+
+新的比较脚本会在首次模型调用前保存配置、题目、源码与依赖指纹以及分析规则，
+包括评判校准调用；已有实验路径不可复用。完整的客观验证报告可以这样分析：
+
+```bash
+uv run python -m evals.objective_analysis results.json --output analysis.json
+```
+
+分析先在题目内平均重复试验，再按题目进行配对重采样。生成失败保留在可靠性分母中，
+未知用量阻止完整的已上报成本声明；缺失配对、重复试验或模型组使用不同题池都会报错。
+默认拒绝冻结源码或规则发生变化的分析；历史诊断可显式使用
+`--exploratory-reanalysis` 并保存差异。区间属于探索性分析，未进行多重比较校正。
+全对或全错时出现的退化区间，不能证明确定性或普遍优势。
+
+完成的来源约束决策报告使用独立分析入口：
+
+```bash
+uv run python -m evals.evidence_analysis evidence.json --output evidence.analysis.json
+```
+
+它将各候选模式分别与每个已声明的单模型基线比较，无法确定的偏好保留为 [-1, +1]
+边界，而非平局。结果包含按题目重采样的不确定性，以及生成、校准、评判的分项成本。
+仅对有效判决计算的偏好只是筛选后证据的诊断，不能证明人类认可；题目、重复试验或
+基线比较不完整时，分析会拒绝。
 
 ### 早期 advice 矩阵（2026-06-10/11）——已被取代
 
@@ -318,6 +391,18 @@ export DIALECTICA_MAX_LLM_CALLS=50               # 限制每次 ADK 调用内的
 会保留，收到最终累计报告时则替换中间值，避免重复计算。非零时 token 合计只是
 已知部分，不能理解为这些调用免费。
 
+`TokenUsage.model_calls` 记录 ADK 在派发前观察到的模型轮次，包括运行时重试、
+工具循环与缓存短路，并写入预算、日志和实验收据。工作流 `spent_calls()` 仍计
+agent 步骤；SDK 和供应商内部重试不在这个计数中，不能据此声称准确的 HTTP
+请求数或计费次数。缺少该字段的旧日志仍可读取，其默认零表示当时未记录。
+`tokens` 预算限制已上报的输出 token（含已上报的思考 token）；输入、总量与
+缓存用量分别记录。
+
+显式模型配置格式错误、供应商不支持或缺少 OpenAI/OpenRouter 凭据时，现在会
+在派发前报错，不再静默换成 Google 模型。请使用 `provider:model`，取消设置
+`DEFAULT_MODEL_CONFIG` 才会选择原生默认模型，并提供所选供应商需要的凭据。
+`openrouter:vendor/model` 会经 OpenRouter 路由；依赖旧回退行为的调用方需要调整。
+
 `DIALECTICA_TOOL_WORKERS` 使用 ADK 对普通调用新增的同步工具线程池支持。
 依赖调用线程的工具应保持未设置；Python 无法强制停止已经在线程中运行的同步工具。
 两项设置均要求正整数。`DIALECTICA_MAX_LLM_CALLS` 设置后覆盖原生 `ADK_MAX_LLM_CALLS`；
@@ -325,7 +410,10 @@ export DIALECTICA_MAX_LLM_CALLS=50               # 限制每次 ADK 调用内的
 达到上限后直接失败，不会重启工具循环。它与外层 Workflow 按 `agent()` 步骤或
 上报 token 计量的预算分别生效。
 
-`uv.lock` 已将全部依赖更新至能够共同解析的最新版本。部分上游约束仍会阻止
+`uv.lock` 的实验版本已随源码归档。实验完成后，重新执行完整的
+`uv lock --upgrade`，解析 94 个包并将 zipp 更新为 4.1.1；
+[依赖审计](docs/research/2026-10-04-dependency-audit.md)区分冻结实验环境与最终安装环境。
+部分上游约束仍会阻止
 采用绝对最新版：tokenizers 要求 Hugging Face Hub <2；LiteLLM 要求 OpenAI <3
 及 importlib-metadata <9；ADK 将 OpenTelemetry 限制为至多 1.42.1、websockets <16。
 FastAPI 0.142.2 要求 OpenTelemetry >=1.44，因此保留可兼容的 0.141.1。
@@ -408,7 +496,7 @@ uv sync                                         # 安装依赖
 uv run pytest                                   # 模拟，快，无需 API key
 uv run pytest -m e2e                            # 真实 repair 与工具/schema/线程池测试（需所选模型凭据）
 uv run pytest -m e2e_access                     # 实时访问列表测试（需 OPENAI_API_BASE + OPENAI_API_KEY + DEFAULT_MODEL_CONFIG=openai:...）
-uv run pytest -m 'e2e or e2e_access'             # 通过已配置的 OpenAI 兼容服务运行全部六项
+uv run pytest -m 'e2e or e2e_access'             # 通过已配置的 OpenAI 兼容服务运行全部九项
 uv run ruff format && uv run ruff check         # 格式化 / lint
 ```
 
@@ -429,6 +517,13 @@ repair、关闭/开启同步工具线程池时的 tools + schema，以及并行�
 用量保留（重试后成功和最终失败均核对上报 token 的精确合计）。最终缓存事件
 计量修复后，重新运行这两项真实失败场景：**2 项通过，耗时 21.17 秒**。
 结果适用于 OpenAI 兼容路由；Gemini 直连凭据已失效，当前 GLM 路由受套餐/路由问题阻断。
+
+最终实验后环境验收（2026-10-04）：**212 项离线测试通过；9 项真实模型 E2E
+通过、零跳过，耗时 114.77 秒**。异构反思使用 Gemini Flash Lite 与 GPT-5.5。
+lint、格式、打包和依赖检查见[完成审计](docs/research/2026-10-04-completion-audit.md)。
+首轮最终真实验收的 8 项通过和 1 项历史模型路由失败均保留；配置可用异构模型后，
+全部断言原样通过。仍有一条上游 Pydantic `ReadOnly` 提示；通过的运行未观察到未处理
+的异步任务失败。这证明执行链路及事件返回前失败的用量保留，不证明质量优势。
 
 库不调用 `logging.basicConfig`——日志配置由消费应用负责。在唯一接缝
 `agent_runtime.run_agent()` 处 mock LLM——绝不 patch ADK 内部或各阶段 agent

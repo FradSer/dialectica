@@ -1,0 +1,171 @@
+{
+  "schema": "objective-analysis-v1",
+  "split": "dev",
+  "baseline": "single",
+  "bootstrap_draws": 2000,
+  "seed": 10429,
+  "resampling_unit": "task; repeats averaged within task",
+  "inference_scope": "exploratory; no multiplicity correction",
+  "failure_policy": "failed generation counts as incorrect system outcome",
+  "cost_scope": "reported tokens only; provider billing and hidden retries opaque",
+  "limitations": [
+    "Intervals condition on this task pool, not all possible tasks.",
+    "Degenerate bootstrap at a floor/ceiling does not prove certainty.",
+    "Small task pools and multiple comparisons limit adoption claims."
+  ],
+  "strata": [
+    {
+      "model": "shared_roster",
+      "arms": {
+        "single": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0.25,
+          "interval": [
+            0,
+            0.75
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 0,
+          "reported_tokens": 1188,
+          "mean_reported_tokens": 297.0,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 4,
+          "model_calls": 4,
+          "seconds": 11.805538416840136
+        },
+        "consensus": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0.25,
+          "interval": [
+            0,
+            0.75
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 0,
+          "reported_tokens": 7125,
+          "mean_reported_tokens": 1781.25,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 24,
+          "model_calls": 24,
+          "seconds": 77.14764279103838
+        },
+        "self_refine": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0.5,
+          "interval": [
+            0,
+            1
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 0,
+          "reported_tokens": 15799,
+          "mean_reported_tokens": 3949.75,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 24,
+          "model_calls": 24,
+          "seconds": 81.09946349915117
+        },
+        "staged": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 19283,
+          "mean_reported_tokens": 4820.75,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 20,
+          "model_calls": 20,
+          "seconds": 70.62854054104537
+        },
+        "direct": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 6143,
+          "mean_reported_tokens": 1535.75,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 8,
+          "model_calls": 8,
+          "seconds": 28.392538167303428
+        }
+      },
+      "comparisons": [
+        {
+          "arm": "consensus",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        },
+        {
+          "arm": "self_refine",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": 0.25,
+          "interval": [
+            0,
+            0.75
+          ],
+          "degenerate_bootstrap": false
+        },
+        {
+          "arm": "staged",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": -0.25,
+          "interval": [
+            -0.75,
+            0
+          ],
+          "degenerate_bootstrap": false
+        },
+        {
+          "arm": "direct",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": -0.25,
+          "interval": [
+            -0.75,
+            0
+          ],
+          "degenerate_bootstrap": false
+        }
+      ]
+    }
+  ],
+  "predeclaration_status": "exploratory_reanalysis",
+  "source_drift": {
+    "evals/experiment_protocol.py": {
+      "expected": "5c9d84ec34215da2bc679206af82877e2d65862930b706ff90a56fc391f55c67",
+      "actual": "09675d4d874a23518d95b5246f17bf27bb557578d9b7cf0cefa30d80303ffbab"
+    },
+    "evals/objective_analysis.py": {
+      "expected": "b1ba4238a8cbe8b9aee32917dbd04155fc3c4aa5fd3c5e862c8eefed537cb8a6",
+      "actual": "e71da924efc2cea48667fafab2a9f380b657e4c27cd7faf8292f2ea2ae75eb77"
+    }
+  },
+  "rule_drift": false
+}

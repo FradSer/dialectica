@@ -1,0 +1,129 @@
+{
+  "protocol": "meta-ablation-v1",
+  "split": "dev",
+  "family": "state",
+  "difficulty": 8,
+  "models": [
+    "openai:gpt-5.5"
+  ],
+  "allowance": 1,
+  "allowance_unit": "workflow_agent_steps",
+  "token_parity": false,
+  "dollar_parity": false,
+  "repeats": 1,
+  "arms": [
+    "single"
+  ],
+  "order_seed": 10426,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "state-dev-000",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"state\":[39,10,49,8,85,27]}",
+          "artifacts": [
+            {
+              "answer": "{\"state\":[39,10,49,8,85,27]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 10.058707624906674,
+        "usage": {
+          "prompt_tokens": 607,
+          "output_tokens": 344,
+          "total_tokens": 951,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\":[39,10,49,8,85,27]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 607,
+              "output_tokens": 344,
+              "total_tokens": 951,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 10.055339875165373
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "state-dev-001",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"state\":[55,41,28,27,87,72]}",
+          "artifacts": [
+            {
+              "answer": "{\"state\":[55,41,28,27,87,72]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 8.478910459205508,
+        "usage": {
+          "prompt_tokens": 608,
+          "output_tokens": 360,
+          "total_tokens": 968,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Track registers 0..5, initially (27, 7, 45, 55, 90, 28). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: if_add(2,4,32)\n2: move(1,2,3)\n3: swap(2,5,34)\n4: if_add(1,5,24)\n5: add(4,0,31)\n6: swap(3,0,34)\n7: add(1,0,37)\n8: if_add(2,4,31)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\":[55,41,28,27,87,72]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 608,
+              "output_tokens": 360,
+              "total_tokens": 968,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 8.477817375212908
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    }
+  ]
+}

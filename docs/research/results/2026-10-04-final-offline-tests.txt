@@ -1,0 +1,39 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/FradSer/Developer/FradSer/dialectica
+configfile: pyproject.toml
+testpaths: tests
+plugins: asyncio-1.4.0, bdd-9.0.0, anyio-4.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 221 items / 9 deselected / 212 selected
+
+tests/test_adk_runtime.py .....................                          [  9%]
+tests/test_adk_tool_schema.py .......                                    [ 13%]
+tests/test_agent_factory.py ......                                       [ 16%]
+tests/test_agent_runtime.py .......                                      [ 19%]
+tests/test_claim_ablation.py ...                                         [ 20%]
+tests/test_claim_falsification.py ......                                 [ 23%]
+tests/test_eval_judge_integrity.py .....                                 [ 25%]
+tests/test_eval_measurement.py .....                                     [ 28%]
+tests/test_evidence_ablation.py ........                                 [ 32%]
+tests/test_evidence_analysis.py ....                                     [ 33%]
+tests/test_evidence_eval.py ...                                          [ 35%]
+tests/test_evidence_tasks.py ..                                          [ 36%]
+tests/test_example_patterns_smoke.py ..........                          [ 41%]
+tests/test_experiment_protocol.py ..                                     [ 41%]
+tests/test_failed_usage.py ..........                                    [ 46%]
+tests/test_llm_config.py ...............                                 [ 53%]
+tests/test_meta_ablation.py ...                                          [ 55%]
+tests/test_meta_reasoning.py ........                                    [ 58%]
+tests/test_objective_analysis.py ............                            [ 64%]
+tests/test_reflection_budget.py .                                        [ 65%]
+tests/test_repair_feature.py ..........                                  [ 69%]
+tests/test_research_campaign.py ......                                   [ 72%]
+tests/test_research_tasks.py ...                                         [ 74%]
+tests/test_resilience_feature.py .....                                   [ 76%]
+tests/test_runtime_journal_regressions.py ..........                     [ 81%]
+tests/test_state_tasks.py ..                                             [ 82%]
+tests/test_workflow_feature.py ..................................        [ 98%]
+tests/test_workflow_resume_feature.py ....                               [100%]
+
+====================== 212 passed, 9 deselected in 18.23s ======================

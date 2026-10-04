@@ -1,0 +1,238 @@
+{
+  "protocol": "meta-ablation-v1",
+  "split": "dev",
+  "family": "portfolio",
+  "difficulty": 14,
+  "models": [
+    "openai:gpt-5.5"
+  ],
+  "allowance": 1,
+  "allowance_unit": "workflow_agent_steps",
+  "token_parity": false,
+  "dollar_parity": false,
+  "repeats": 1,
+  "arms": [
+    "single"
+  ],
+  "order_seed": 10426,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "portfolio-dev-000",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,3,6,7,9,13]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,3,6,7,9,13]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 77.58507733279839,
+        "usage": {
+          "prompt_tokens": 638,
+          "output_tokens": 4118,
+          "total_tokens": 4756,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 100. Mutually exclusive pairs (never select both): ((0, 1), (0, 5), (1, 10), (3, 8), (4, 7), (5, 8), (5, 9)).\nProjects (zero-based IDs):\n0: reward=60, cost=7\n1: reward=30, cost=20\n2: reward=48, cost=28\n3: reward=68, cost=9\n4: reward=30, cost=12\n5: reward=59, cost=5\n6: reward=48, cost=4\n7: reward=54, cost=21\n8: reward=67, cost=23\n9: reward=76, cost=27\n10: reward=47, cost=23\n11: reward=22, cost=26\n12: reward=44, cost=27\n13: reward=77, cost=20\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,3,6,7,9,13]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 638,
+              "output_tokens": 4118,
+              "total_tokens": 4756,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 77.58303129207343
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,1,2,3,5,9,13]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,1,2,3,5,9,13]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 66.49195166607387,
+        "usage": {
+          "prompt_tokens": 638,
+          "output_tokens": 3600,
+          "total_tokens": 4238,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 89. Mutually exclusive pairs (never select both): ((2, 7), (3, 10), (4, 9), (7, 9), (9, 11), (11, 13), (12, 13)).\nProjects (zero-based IDs):\n0: reward=80, cost=16\n1: reward=84, cost=11\n2: reward=32, cost=9\n3: reward=83, cost=9\n4: reward=50, cost=22\n5: reward=35, cost=9\n6: reward=57, cost=27\n7: reward=27, cost=9\n8: reward=54, cost=27\n9: reward=55, cost=24\n10: reward=10, cost=20\n11: reward=21, cost=19\n12: reward=62, cost=12\n13: reward=79, cost=9\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,1,2,3,5,9,13]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 638,
+              "output_tokens": 3600,
+              "total_tokens": 4238,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 66.49000774999149
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-dev-002",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,1,2,4,8,12]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,1,2,4,8,12]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 72.05349679198116,
+        "usage": {
+          "prompt_tokens": 638,
+          "output_tokens": 3817,
+          "total_tokens": 4455,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 111. Mutually exclusive pairs (never select both): ((0, 13), (1, 9), (2, 6), (2, 11), (5, 11), (7, 9), (10, 13)).\nProjects (zero-based IDs):\n0: reward=88, cost=20\n1: reward=73, cost=16\n2: reward=26, cost=13\n3: reward=30, cost=19\n4: reward=89, cost=25\n5: reward=9, cost=10\n6: reward=24, cost=20\n7: reward=28, cost=27\n8: reward=79, cost=26\n9: reward=77, cost=25\n10: reward=17, cost=17\n11: reward=14, cost=22\n12: reward=33, cost=11\n13: reward=81, cost=28\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,1,2,4,8,12]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 638,
+              "output_tokens": 3817,
+              "total_tokens": 4455,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 72.04973708302714
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-dev-003",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,1,6,10,11,12,13]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,1,6,10,11,12,13]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 58.0323032499291,
+        "usage": {
+          "prompt_tokens": 638,
+          "output_tokens": 3129,
+          "total_tokens": 3767,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 72. Mutually exclusive pairs (never select both): ((0, 3), (1, 2), (1, 3), (2, 6), (4, 8), (5, 10), (8, 10)).\nProjects (zero-based IDs):\n0: reward=51, cost=7\n1: reward=64, cost=14\n2: reward=17, cost=10\n3: reward=56, cost=8\n4: reward=61, cost=25\n5: reward=49, cost=15\n6: reward=23, cost=7\n7: reward=9, cost=15\n8: reward=34, cost=19\n9: reward=47, cost=16\n10: reward=84, cost=6\n11: reward=52, cost=18\n12: reward=47, cost=14\n13: reward=64, cost=6\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,1,6,10,11,12,13]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 638,
+              "output_tokens": 3129,
+              "total_tokens": 3767,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 58.031179167097434
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    }
+  ],
+  "predeclaration_digest": "ac3f3cd9f7ce2ee510a944a5614fefdaff7723652ccf77b0076379bf2d52af28"
+}

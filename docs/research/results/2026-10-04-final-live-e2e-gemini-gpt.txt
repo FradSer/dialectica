@@ -1,0 +1,19 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/FradSer/Developer/FradSer/dialectica
+configfile: pyproject.toml
+testpaths: tests
+plugins: asyncio-1.4.0, bdd-9.0.0, anyio-4.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 221 items / 212 deselected / 9 selected
+
+tests/test_e2e_access_list_live.py ......                                [ 66%]
+tests/test_e2e_live.py ...                                               [100%]
+
+=============================== warnings summary ===============================
+tests/test_e2e_access_list_live.py::test_access_list_makes_prior_output_visible_to_a_live_model
+  /Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:1480: UserWarning: Item 'summary' on TypedDict class 'ChatCompletionReasoningItem' is using the `ReadOnly` qualifier. Pydantic will not protect items from any mutation on dictionary instances.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========== 9 passed, 212 deselected, 1 warning in 114.77s (0:01:54) ===========

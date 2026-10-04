@@ -1,0 +1,159 @@
+{
+  "schema": "objective-analysis-v1",
+  "split": "dev",
+  "baseline": "single",
+  "bootstrap_draws": 2000,
+  "seed": 10429,
+  "resampling_unit": "task; repeats averaged within task",
+  "inference_scope": "exploratory; no multiplicity correction",
+  "failure_policy": "failed generation counts as incorrect system outcome",
+  "cost_scope": "reported tokens only; provider billing and hidden retries opaque",
+  "limitations": [
+    "Intervals condition on this task pool, not all possible tasks.",
+    "Degenerate bootstrap at a floor/ceiling does not prove certainty.",
+    "Small task pools and multiple comparisons limit adoption claims."
+  ],
+  "strata": [
+    {
+      "model": "shared_roster",
+      "arms": {
+        "single": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 2433,
+          "mean_reported_tokens": 608.25,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 4,
+          "model_calls": null,
+          "seconds": 21.55174316652119
+        },
+        "consensus": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 14608,
+          "mean_reported_tokens": 3652.0,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 24,
+          "model_calls": null,
+          "seconds": 74.22691149893217
+        },
+        "self_refine": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 15904,
+          "mean_reported_tokens": 3976.0,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 24,
+          "model_calls": null,
+          "seconds": 72.21710629179142
+        },
+        "staged": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 20795,
+          "mean_reported_tokens": 5198.75,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 20,
+          "model_calls": null,
+          "seconds": 66.37156358221546
+        },
+        "direct": {
+          "tasks": 4,
+          "trials": 4,
+          "success_rate": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 5814,
+          "mean_reported_tokens": 1453.5,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 8,
+          "model_calls": null,
+          "seconds": 28.715097666019574
+        }
+      },
+      "comparisons": [
+        {
+          "arm": "consensus",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        },
+        {
+          "arm": "self_refine",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        },
+        {
+          "arm": "staged",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        },
+        {
+          "arm": "direct",
+          "baseline": "single",
+          "tasks": 4,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        }
+      ]
+    }
+  ]
+}

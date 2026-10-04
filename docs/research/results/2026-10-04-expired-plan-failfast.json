@@ -1,0 +1,63 @@
+{
+  "protocol": "meta-ablation-v1",
+  "split": "dev",
+  "family": "state",
+  "difficulty": 8,
+  "models": [
+    "openai:zai/glm-5.3-flash"
+  ],
+  "allowance": 6,
+  "allowance_unit": "calls",
+  "token_parity": false,
+  "dollar_parity": false,
+  "repeats": 1,
+  "arms": [
+    "single"
+  ],
+  "order_seed": 10426,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "state-dev-000",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": null,
+        "error": "RateLimitError",
+        "calls": 1,
+        "failures": 1,
+        "seconds": 16.737910208059475,
+        "usage": {
+          "prompt_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "cached_tokens": 0,
+          "unknown_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/zai/glm-5.3-flash",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": null,
+            "error": "RateLimitError",
+            "usage": {
+              "prompt_tokens": 0,
+              "output_tokens": 0,
+              "total_tokens": 0,
+              "cached_tokens": 0,
+              "unknown_calls": 1
+            },
+            "seconds": 16.73463675007224
+          }
+        ]
+      },
+      "passed": null
+    }
+  ]
+}

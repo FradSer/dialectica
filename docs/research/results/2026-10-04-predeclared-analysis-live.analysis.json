@@ -1,0 +1,45 @@
+{
+  "schema": "objective-analysis-v1",
+  "split": "dev",
+  "baseline": "single",
+  "bootstrap_draws": 2000,
+  "seed": 10429,
+  "resampling_unit": "task; repeats averaged within task",
+  "inference_scope": "exploratory; no multiplicity correction",
+  "failure_policy": "failed generation counts as incorrect system outcome",
+  "cost_scope": "reported tokens only; provider billing and hidden retries opaque",
+  "limitations": [
+    "Intervals condition on this task pool, not all possible tasks.",
+    "Degenerate bootstrap at a floor/ceiling does not prove certainty.",
+    "Small task pools and multiple comparisons limit adoption claims."
+  ],
+  "strata": [
+    {
+      "model": "shared_roster",
+      "arms": {
+        "single": {
+          "tasks": 1,
+          "trials": 1,
+          "success_rate": 1,
+          "interval": [
+            1,
+            1
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 297,
+          "mean_reported_tokens": 297.0,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 1,
+          "model_calls": 1,
+          "seconds": 4.7758057080209255
+        }
+      },
+      "comparisons": []
+    }
+  ],
+  "predeclaration_status": "verified",
+  "source_drift": {},
+  "rule_drift": false
+}

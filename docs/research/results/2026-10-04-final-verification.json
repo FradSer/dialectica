@@ -1,0 +1,74 @@
+{
+  "environment": {
+    "google-adk": "2.11.0",
+    "litellm": "1.103.2",
+    "pydantic": "2.13.5",
+    "zipp": "4.1.1"
+  },
+  "commands": [
+    {
+      "command": [
+        "uv",
+        "run",
+        "pytest"
+      ],
+      "exit_code": 0,
+      "output": "2026-10-04-final-offline-tests.txt",
+      "sha256": "0ad4005c7b4db191dab80aaf3836406b9b0079e7a66e150e684037b79abc5de4"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "ruff",
+        "check",
+        "."
+      ],
+      "exit_code": 0,
+      "output": "2026-10-04-final-lint.txt",
+      "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+    },
+    {
+      "command": [
+        "uv",
+        "run",
+        "ruff",
+        "format",
+        "--check",
+        "."
+      ],
+      "exit_code": 0,
+      "output": "2026-10-04-final-format.txt",
+      "sha256": "c0e5e25bab31b3d55ca20587ad32a798a72f9d0cca80c542239bf4d1472695fc"
+    },
+    {
+      "command": [
+        "uv",
+        "build"
+      ],
+      "exit_code": 0,
+      "output": "2026-10-04-final-build.txt",
+      "sha256": "4ac41774a64dce0e40943c913ef1102b596f202fa3963ef67830f3ab39088661"
+    },
+    {
+      "command": [
+        "uv",
+        "pip",
+        "check"
+      ],
+      "exit_code": 0,
+      "output": "2026-10-04-final-dependencies.txt",
+      "sha256": "848b8af8ff4e8f16c2d70cc238a3a3c96d67119079d3ffdd0c58280e35ea159d"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exit_code": 0,
+      "output": "2026-10-04-final-whitespace.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ]
+}

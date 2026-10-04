@@ -1,0 +1,76 @@
+{
+  "protocol": "meta-ablation-v1",
+  "split": "dev",
+  "family": "portfolio",
+  "difficulty": 8,
+  "models": [
+    "openai:gemini-3.5-flash-lite"
+  ],
+  "allowance": 1,
+  "allowance_unit": "workflow_agent_steps",
+  "token_parity": false,
+  "dollar_parity": false,
+  "repeats": 1,
+  "arms": [
+    "single"
+  ],
+  "order_seed": 10426,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "portfolio-dev-000",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "```json\n{\"selected\": [3, 4, 5, 7]}\n```",
+          "artifacts": [
+            {
+              "answer": "```json\n{\"selected\": [3, 4, 5, 7]}\n```"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 4.7758057080209255,
+        "usage": {
+          "prompt_tokens": 277,
+          "output_tokens": 20,
+          "total_tokens": 297,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 49. Mutually exclusive pairs (never select both): ((0, 2), (0, 7), (2, 5), (2, 7)).\nProjects (zero-based IDs):\n0: reward=60, cost=18\n1: reward=30, cost=26\n2: reward=48, cost=20\n3: reward=68, cost=13\n4: reward=30, cost=7\n5: reward=59, cost=12\n6: reward=48, cost=21\n7: reward=54, cost=7\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "```json\n{\"selected\": [3, 4, 5, 7]}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 277,
+              "output_tokens": 20,
+              "total_tokens": 297,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 4.773730291984975
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": false,
+      "coverage": true
+    }
+  ],
+  "predeclaration_digest": "eb705bd6dfcf68911b05de1843dd7c51683097642322fbdd59bac00501a5b933"
+}

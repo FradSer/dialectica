@@ -1,0 +1,411 @@
+{
+  "protocol": "evidence-ablation-v1",
+  "split": "dev",
+  "models": [
+    "openai:gemini-3.5-flash-lite"
+  ],
+  "judges": [
+    "openai:gemini-3.5-flash-lite",
+    "openai:qwen3.8-flash"
+  ],
+  "judge_families_declared": [
+    "gemini",
+    "qwen"
+  ],
+  "allowance": 2,
+  "allowance_unit": "workflow_agent_steps",
+  "token_parity": false,
+  "dollar_parity": false,
+  "repeats": 1,
+  "arms": [
+    "single",
+    "self_refine"
+  ],
+  "order_seed": 10427,
+  "calibration_scope": "obvious factual violation only",
+  "grounding_scope": "quote identity and output structure, not decision quality",
+  "calibration": [
+    {
+      "model": "openai:gemini-3.5-flash-lite",
+      "passed": true,
+      "receipt": {
+        "name": "judge",
+        "output": {
+          "status": "valid",
+          "winner": "candidate",
+          "verdicts": [
+            {
+              "winner": "A",
+              "reasoning": "Answer A strictly adheres to the budget constraints of 100 thousand dollars, respects data privacy rules regarding unapproved vendors by keeping records internal, and proposes a feasible, low-cost next step (a 1 thousand dollar synthetic-data evaluation) with a measurable trigger for production. Answer B explicitly violates the budget constraint of 100 thousand dollars by suggesting a 500 thousand dollar spend, violates data security rules by sending sensitive customer records to an unapproved vendor, and fabricates facts not present in the task description."
+            },
+            {
+              "winner": "B",
+              "reasoning": "Answer A hallucinates facts directly contradicting the source text by claiming a budget of 500 thousand dollars (source says 100 thousand) and that vendor approval is granted (source says vendor approval has not been granted). Furthermore, A directly violates the rule against sending sensitive customer records to an unapproved vendor. Answer B adheres strictly to all constraints, utilizing the feasible 1 thousand dollar synthetic-data evaluation, respecting the budget, protecting sensitive data, and setting a measurable, compliant trigger for any future action."
+            }
+          ]
+        },
+        "error": null,
+        "calls": 2,
+        "failures": 0,
+        "seconds": 8.700202666921541,
+        "usage": {
+          "prompt_tokens": 744,
+          "output_tokens": 248,
+          "total_tokens": 992,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "evidence_judge_0",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "TASK AND EVIDENCE:\nSynthetic case: Budget is 100 thousand dollars. Sensitive customer records cannot be sent to an unapproved vendor. Vendor approval has not been granted. A two-week synthetic-data evaluation costs 1 thousand dollars. Decide the next action with a measurable trigger; factual feasibility is mandatory.\nANONYMOUS ANSWER A:\nRun the two-week synthetic-data evaluation for 1 thousand dollars. Keep customer records internal. Consider production only after documented security approval and a measured workload test; evaluation alone does not establish production compliance. Stop at the authorized evaluation spend.\nANONYMOUS ANSWER B:\nImmediately send all sensitive customer records to the unapproved vendor. Spend 500 thousand dollars now. The source confirms vendor approval and a budget of 500 thousand dollars, so no further checks are needed.\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.\n\nReturn your answer as a single JSON object.",
+            "system_instruction": "You are a evidence_judge_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "{\n  \"reasoning\": \"Answer A strictly adheres to the budget constraints of 100 thousand dollars, respects data privacy rules regarding unapproved vendors by keeping records internal, and proposes a feasible, low-cost next step (a 1 thousand dollar synthetic-data evaluation) with a measurable trigger for production. Answer B explicitly violates the budget constraint of 100 thousand dollars by suggesting a 500 thousand dollar spend, violates data security rules by sending sensitive customer records to an unapproved vendor, and fabricates facts not present in the task description.\",\n  \"winner\": \"A\"\n}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 372,
+              "output_tokens": 126,
+              "total_tokens": 498,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 5.403943250188604
+          },
+          {
+            "label": "evidence_judge_1",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "TASK AND EVIDENCE:\nSynthetic case: Budget is 100 thousand dollars. Sensitive customer records cannot be sent to an unapproved vendor. Vendor approval has not been granted. A two-week synthetic-data evaluation costs 1 thousand dollars. Decide the next action with a measurable trigger; factual feasibility is mandatory.\nANONYMOUS ANSWER A:\nImmediately send all sensitive customer records to the unapproved vendor. Spend 500 thousand dollars now. The source confirms vendor approval and a budget of 500 thousand dollars, so no further checks are needed.\nANONYMOUS ANSWER B:\nRun the two-week synthetic-data evaluation for 1 thousand dollars. Keep customer records internal. Consider production only after documented security approval and a measured workload test; evaluation alone does not establish production compliance. Stop at the authorized evaluation spend.\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.\n\nReturn your answer as a single JSON object.",
+            "system_instruction": "You are a evidence_judge_1 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "{\n  \"reasoning\": \"Answer A hallucinates facts directly contradicting the source text by claiming a budget of 500 thousand dollars (source says 100 thousand) and that vendor approval is granted (source says vendor approval has not been granted). Furthermore, A directly violates the rule against sending sensitive customer records to an unapproved vendor. Answer B adheres strictly to all constraints, utilizing the feasible 1 thousand dollar synthetic-data evaluation, respecting the budget, protecting sensitive data, and setting a measurable, compliant trigger for any future action.\",\n  \"winner\": \"B\"\n}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 372,
+              "output_tokens": 122,
+              "total_tokens": 494,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 3.29144220915623
+          }
+        ]
+      }
+    },
+    {
+      "model": "openai:qwen3.8-flash",
+      "passed": true,
+      "receipt": {
+        "name": "judge",
+        "output": {
+          "status": "valid",
+          "winner": "candidate",
+          "verdicts": [
+            {
+              "winner": "A",
+              "reasoning": "Answer A is factually consistent with the source constraints: it respects the $100k budget, adheres to the prohibition on sending sensitive data to an unapproved vendor by using synthetic data, and correctly identifies the cost of the evaluation ($1k). It provides a measurable trigger for future action (documented security approval) and avoids overcommitting. Answer B is fundamentally flawed and infeasible: it violates the explicit constraint against sending records to an unapproved vendor, fabricates facts (claiming the source confirms vendor approval when it states approval has not been granted), and proposes a spend ($500k) that exceeds the stated total budget ($100k)."
+            },
+            {
+              "winner": "B",
+              "reasoning": "Answer A is factually incorrect and violates the core constraints of the problem. It claims a budget of $500k (actual: $100k) and asserts vendor approval exists (actual: not granted), leading to an infeasible and non-compliant action (sending sensitive data). Answer B correctly identifies the feasible path within the $100k budget ($1k evaluation), respects the constraint against sending data to unapproved vendors, and establishes measurable triggers for future steps (security approval and workload tests). Therefore, B is the only valid and safe decision."
+            }
+          ]
+        },
+        "error": null,
+        "calls": 2,
+        "failures": 0,
+        "seconds": 5.619234416168183,
+        "usage": {
+          "prompt_tokens": 784,
+          "output_tokens": 291,
+          "total_tokens": 1075,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "evidence_judge_0",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "TASK AND EVIDENCE:\nSynthetic case: Budget is 100 thousand dollars. Sensitive customer records cannot be sent to an unapproved vendor. Vendor approval has not been granted. A two-week synthetic-data evaluation costs 1 thousand dollars. Decide the next action with a measurable trigger; factual feasibility is mandatory.\nANONYMOUS ANSWER A:\nRun the two-week synthetic-data evaluation for 1 thousand dollars. Keep customer records internal. Consider production only after documented security approval and a measured workload test; evaluation alone does not establish production compliance. Stop at the authorized evaluation spend.\nANONYMOUS ANSWER B:\nImmediately send all sensitive customer records to the unapproved vendor. Spend 500 thousand dollars now. The source confirms vendor approval and a budget of 500 thousand dollars, so no further checks are needed.\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.\n\nReturn your answer as a single JSON object.",
+            "system_instruction": "You are a evidence_judge_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "{\n  \"winner\": \"A\",\n  \"reasoning\": \"Answer A is factually consistent with the source constraints: it respects the $100k budget, adheres to the prohibition on sending sensitive data to an unapproved vendor by using synthetic data, and correctly identifies the cost of the evaluation ($1k). It provides a measurable trigger for future action (documented security approval) and avoids overcommitting. Answer B is fundamentally flawed and infeasible: it violates the explicit constraint against sending records to an unapproved vendor, fabricates facts (claiming the source confirms vendor approval when it states approval has not been granted), and proposes a spend ($500k) that exceeds the stated total budget ($100k).\"\n}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 392,
+              "output_tokens": 156,
+              "total_tokens": 548,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 3.477810916956514
+          },
+          {
+            "label": "evidence_judge_1",
+            "model": "openai/qwen3.8-flash",
+            "prompt": "TASK AND EVIDENCE:\nSynthetic case: Budget is 100 thousand dollars. Sensitive customer records cannot be sent to an unapproved vendor. Vendor approval has not been granted. A two-week synthetic-data evaluation costs 1 thousand dollars. Decide the next action with a measurable trigger; factual feasibility is mandatory.\nANONYMOUS ANSWER A:\nImmediately send all sensitive customer records to the unapproved vendor. Spend 500 thousand dollars now. The source confirms vendor approval and a budget of 500 thousand dollars, so no further checks are needed.\nANONYMOUS ANSWER B:\nRun the two-week synthetic-data evaluation for 1 thousand dollars. Keep customer records internal. Consider production only after documented security approval and a measured workload test; evaluation alone does not establish production compliance. Stop at the authorized evaluation spend.\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.\n\nReturn your answer as a single JSON object.",
+            "system_instruction": "You are a evidence_judge_1 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "{\n  \"winner\": \"B\",\n  \"reasoning\": \"Answer A is factually incorrect and violates the core constraints of the problem. It claims a budget of $500k (actual: $100k) and asserts vendor approval exists (actual: not granted), leading to an infeasible and non-compliant action (sending sensitive data). Answer B correctly identifies the feasible path within the $100k budget ($1k evaluation), respects the constraint against sending data to unapproved vendors, and establishes measurable triggers for future steps (security approval and workload tests). Therefore, B is the only valid and safe decision.\"\n}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 392,
+              "output_tokens": 135,
+              "total_tokens": 527,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 2.1393033338245004
+          }
+        ]
+      }
+    }
+  ],
+  "rows": [
+    {
+      "task_id": "evidence-dev-000",
+      "task": "This is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single",
+        "self_refine"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "```json\n{\n  \"decision\": \"Run a limited pilot\",\n  \"trigger\": \"If the largest customer formally demands the new feature before the final two weeks, switch to the full feature launch.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S1\",\n      \"quote\": \"The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\",\n      \"inference\": \"The team possesses sufficient remaining budget ($74k) to afford the $24k pilot while retaining contingency funds.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"quote\": \"A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\",\n      \"inference\": \"The pilot leaves three engineers available for stabilization work to address reliability concerns while testing unvalidated demand.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"One renewing customer explicitly values the feature, but the largest customer prioritizes reliability.\",\n      \"inference\": \"The pilot balances satisfying the renewing customer who values the feature while consuming fewer resources, leaving capacity to address reliability.\"\n    }\n  ],\n  \"risks\": [\n    \"Unvalidated demand estimates may result in the pilot failing to secure the renewing customer.\",\n    \"Running a pilot while the service had recent release-induced incidents could still trigger reliability failures during the critical pre-renewal window.\"\n  ],\n  \"assumptions\": [\n    \"The remaining three engineers can adequately mitigate reliability risks during the pilot's three-week duration.\"\n  ]\n}\n```"
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 5.528685458935797,
+        "usage": {
+          "prompt_tokens": 417,
+          "output_tokens": 360,
+          "total_tokens": 777,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "This is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.",
+            "system_instruction": "You are a single_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "```json\n{\n  \"decision\": \"Run a limited pilot\",\n  \"trigger\": \"If the largest customer formally demands the new feature before the final two weeks, switch to the full feature launch.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S1\",\n      \"quote\": \"The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\",\n      \"inference\": \"The team possesses sufficient remaining budget ($74k) to afford the $24k pilot while retaining contingency funds.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"quote\": \"A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\",\n      \"inference\": \"The pilot leaves three engineers available for stabilization work to address reliability concerns while testing unvalidated demand.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"One renewing customer explicitly values the feature, but the largest customer prioritizes reliability.\",\n      \"inference\": \"The pilot balances satisfying the renewing customer who values the feature while consuming fewer resources, leaving capacity to address reliability.\"\n    }\n  ],\n  \"risks\": [\n    \"Unvalidated demand estimates may result in the pilot failing to secure the renewing customer.\",\n    \"Running a pilot while the service had recent release-induced incidents could still trigger reliability failures during the critical pre-renewal window.\"\n  ],\n  \"assumptions\": [\n    \"The remaining three engineers can adequately mitigate reliability risks during the pilot's three-week duration.\"\n  ]\n}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 417,
+              "output_tokens": 360,
+              "total_tokens": 777,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 5.527399707818404
+          }
+        ]
+      },
+      "grounded": true,
+      "judges": [],
+      "comparison": null,
+      "grounding_feedback": ""
+    },
+    {
+      "task_id": "evidence-dev-000",
+      "task": "This is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.",
+      "repeat": 0,
+      "arm": "self_refine",
+      "order": [
+        "single",
+        "self_refine"
+      ],
+      "receipt": {
+        "name": "self_refine",
+        "output": {
+          "final_answer": "```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If the largest customer waives reliability requirements in writing and guarantees renewal early, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"The largest customer prioritizes reliability, and failing this requirement risks losing them during the renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The 4-week stabilization fits comfortably within the 6 weeks until renewal using a portion of the available 5 engineers.\"\n    }\n  ],\n  \"risks\": [\n    \"Postponing the new feature risks losing the renewing customer who explicitly values it.\",\n    \"Stabilization ties up resources without validating feature demand or generating immediate new revenue.\"\n  ],\n  \"assumptions\": [\n    \"Three engineers working for four weeks will successfully resolve the root causes of the severe incidents.\"\n  ]\n}\n```"
+        },
+        "error": null,
+        "calls": 2,
+        "failures": 0,
+        "seconds": 11.538710583001375,
+        "usage": {
+          "prompt_tokens": 1157,
+          "output_tokens": 552,
+          "total_tokens": 1709,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        },
+        "records": [
+          {
+            "label": "self_refine_0",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "This is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.",
+            "system_instruction": "You are a self_refine_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If incident rates drop to zero for two consecutive weeks and the largest customer confirms reliability satisfaction ahead of schedule, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"Prioritizing stabilization aligns directly with customer contractual or operational demands for the critical pre-renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The team has sufficient engineering capacity (5 engineers) and time (6 weeks) to complete the 4-week stabilization before renewal.\"\n    }\n  ],\n  \"risks\": [\n    \"Failing to deliver the new feature may cause the renewing customer who explicitly values it to churn.\",\n    \"Stabilizing the existing service consumes budget and time without proving demand for the unvalidated new feature.\"\n  ],\n  \"assumptions\": [\n    \"Stabilizing the service will successfully eliminate severe incidents caused by release changes within the 4-week timeframe.\"\n  ]\n}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 423,
+              "output_tokens": 286,
+              "total_tokens": 709,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 8.143175541888922
+          },
+          {
+            "label": "self_refine_1",
+            "model": "openai/gemini-3.5-flash-lite",
+            "prompt": "This is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.\nPREVIOUS ANSWER:\n```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If incident rates drop to zero for two consecutive weeks and the largest customer confirms reliability satisfaction ahead of schedule, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"Prioritizing stabilization aligns directly with customer contractual or operational demands for the critical pre-renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The team has sufficient engineering capacity (5 engineers) and time (6 weeks) to complete the 4-week stabilization before renewal.\"\n    }\n  ],\n  \"risks\": [\n    \"Failing to deliver the new feature may cause the renewing customer who explicitly values it to churn.\",\n    \"Stabilizing the existing service consumes budget and time without proving demand for the unvalidated new feature.\"\n  ],\n  \"assumptions\": [\n    \"Stabilizing the service will successfully eliminate severe incidents caused by release changes within the 4-week timeframe.\"\n  ]\n}\n```\nCheck factual support, feasibility and the strongest competing option. Correct flaws; retain sound decisions.",
+            "system_instruction": "You are a self_refine_1 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": "```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If the largest customer waives reliability requirements in writing and guarantees renewal early, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"The largest customer prioritizes reliability, and failing this requirement risks losing them during the renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The 4-week stabilization fits comfortably within the 6 weeks until renewal using a portion of the available 5 engineers.\"\n    }\n  ],\n  \"risks\": [\n    \"Postponing the new feature risks losing the renewing customer who explicitly values it.\",\n    \"Stabilization ties up resources without validating feature demand or generating immediate new revenue.\"\n  ],\n  \"assumptions\": [\n    \"Three engineers working for four weeks will successfully resolve the root causes of the severe incidents.\"\n  ]\n}\n```",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 734,
+              "output_tokens": 266,
+              "total_tokens": 1000,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "seconds": 3.393622500123456
+          }
+        ]
+      },
+      "grounded": true,
+      "judges": [
+        {
+          "model": "openai:gemini-3.5-flash-lite",
+          "receipt": {
+            "name": "judge",
+            "output": {
+              "status": "valid",
+              "winner": "baseline",
+              "verdicts": [
+                {
+                  "winner": "B",
+                  "reasoning": "Answer B provides a superior operational strategy by choosing to run the limited pilot. S1, S3, and S4 show that a scoped pilot costs $24k and takes 2 engineers for 3 weeks, leaving 3 engineers and sufficient budget from the $74k authorized to also handle stabilization needs. This directly balances the competing priorities mentioned in S4 (satisfying the customer who values the feature and protecting reliability for the largest customer). Answer A chooses full stabilization, which misses the window of opportunity to satisfy the customer explicitly valuing the feature. Answer B includes valid quotes, accurate numbers, and a sensible trigger."
+                },
+                {
+                  "winner": "A",
+                  "reasoning": "Answer A provides a balanced decision that addresses both the feature demand from a renewing customer and the reliability needs of the largest customer by running a limited pilot and leaving engineering capacity for stability. Its trigger and claims closely adhere to the text. Answer B chooses stabilization, which is also a strong defensible position given the strict reliability requirements of the largest customer (S2, S4). However, Answer A utilizes the evidence slightly better to balance multiple competing stakeholder demands under tight resource constraints while explicitly citing exact figures and maintaining realistic assumptions."
+                }
+              ]
+            },
+            "error": null,
+            "calls": 2,
+            "failures": 0,
+            "seconds": 8.381133041810244,
+            "usage": {
+              "prompt_tokens": 2326,
+              "output_tokens": 266,
+              "total_tokens": 2592,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "records": [
+              {
+                "label": "evidence_judge_0",
+                "model": "openai/gemini-3.5-flash-lite",
+                "prompt": "TASK AND EVIDENCE:\nThis is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.\nANONYMOUS ANSWER A:\n```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If the largest customer waives reliability requirements in writing and guarantees renewal early, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"The largest customer prioritizes reliability, and failing this requirement risks losing them during the renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The 4-week stabilization fits comfortably within the 6 weeks until renewal using a portion of the available 5 engineers.\"\n    }\n  ],\n  \"risks\": [\n    \"Postponing the new feature risks losing the renewing customer who explicitly values it.\",\n    \"Stabilization ties up resources without validating feature demand or generating immediate new revenue.\"\n  ],\n  \"assumptions\": [\n    \"Three engineers working for four weeks will successfully resolve the root causes of the severe incidents.\"\n  ]\n}\n```\nANONYMOUS ANSWER B:\n```json\n{\n  \"decision\": \"Run a limited pilot\",\n  \"trigger\": \"If the largest customer formally demands the new feature before the final two weeks, switch to the full feature launch.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S1\",\n      \"quote\": \"The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\",\n      \"inference\": \"The team possesses sufficient remaining budget ($74k) to afford the $24k pilot while retaining contingency funds.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"quote\": \"A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\",\n      \"inference\": \"The pilot leaves three engineers available for stabilization work to address reliability concerns while testing unvalidated demand.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"One renewing customer explicitly values the feature, but the largest customer prioritizes reliability.\",\n      \"inference\": \"The pilot balances satisfying the renewing customer who values the feature while consuming fewer resources, leaving capacity to address reliability.\"\n    }\n  ],\n  \"risks\": [\n    \"Unvalidated demand estimates may result in the pilot failing to secure the renewing customer.\",\n    \"Running a pilot while the service had recent release-induced incidents could still trigger reliability failures during the critical pre-renewal window.\"\n  ],\n  \"assumptions\": [\n    \"The remaining three engineers can adequately mitigate reliability risks during the pilot's three-week duration.\"\n  ]\n}\n```\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.",
+                "system_instruction": "You are a evidence_judge_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+                "raw_output": "{\n  \"reasoning\": \"Answer B provides a superior operational strategy by choosing to run the limited pilot. S1, S3, and S4 show that a scoped pilot costs $24k and takes 2 engineers for 3 weeks, leaving 3 engineers and sufficient budget from the $74k authorized to also handle stabilization needs. This directly balances the competing priorities mentioned in S4 (satisfying the customer who values the feature and protecting reliability for the largest customer). Answer A chooses full stabilization, which misses the window of opportunity to satisfy the customer explicitly valuing the feature. Answer B includes valid quotes, accurate numbers, and a sensible trigger.\",\n  \"winner\": \"B\"\n}",
+                "error": null,
+                "usage": {
+                  "prompt_tokens": 1163,
+                  "output_tokens": 144,
+                  "total_tokens": 1307,
+                  "cached_tokens": 0,
+                  "unknown_calls": 0
+                },
+                "seconds": 3.796425082953647
+              },
+              {
+                "label": "evidence_judge_1",
+                "model": "openai/gemini-3.5-flash-lite",
+                "prompt": "TASK AND EVIDENCE:\nThis is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.\nANONYMOUS ANSWER A:\n```json\n{\n  \"decision\": \"Run a limited pilot\",\n  \"trigger\": \"If the largest customer formally demands the new feature before the final two weeks, switch to the full feature launch.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S1\",\n      \"quote\": \"The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\",\n      \"inference\": \"The team possesses sufficient remaining budget ($74k) to afford the $24k pilot while retaining contingency funds.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"quote\": \"A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\",\n      \"inference\": \"The pilot leaves three engineers available for stabilization work to address reliability concerns while testing unvalidated demand.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"One renewing customer explicitly values the feature, but the largest customer prioritizes reliability.\",\n      \"inference\": \"The pilot balances satisfying the renewing customer who values the feature while consuming fewer resources, leaving capacity to address reliability.\"\n    }\n  ],\n  \"risks\": [\n    \"Unvalidated demand estimates may result in the pilot failing to secure the renewing customer.\",\n    \"Running a pilot while the service had recent release-induced incidents could still trigger reliability failures during the critical pre-renewal window.\"\n  ],\n  \"assumptions\": [\n    \"The remaining three engineers can adequately mitigate reliability risks during the pilot's three-week duration.\"\n  ]\n}\n```\nANONYMOUS ANSWER B:\n```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If the largest customer waives reliability requirements in writing and guarantees renewal early, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"The largest customer prioritizes reliability, and failing this requirement risks losing them during the renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The 4-week stabilization fits comfortably within the 6 weeks until renewal using a portion of the available 5 engineers.\"\n    }\n  ],\n  \"risks\": [\n    \"Postponing the new feature risks losing the renewing customer who explicitly values it.\",\n    \"Stabilization ties up resources without validating feature demand or generating immediate new revenue.\"\n  ],\n  \"assumptions\": [\n    \"Three engineers working for four weeks will successfully resolve the root causes of the severe incidents.\"\n  ]\n}\n```\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.",
+                "system_instruction": "You are a evidence_judge_1 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+                "raw_output": "{\n  \"reasoning\": \"Answer A provides a balanced decision that addresses both the feature demand from a renewing customer and the reliability needs of the largest customer by running a limited pilot and leaving engineering capacity for stability. Its trigger and claims closely adhere to the text. Answer B chooses stabilization, which is also a strong defensible position given the strict reliability requirements of the largest customer (S2, S4). However, Answer A utilizes the evidence slightly better to balance multiple competing stakeholder demands under tight resource constraints while explicitly citing exact figures and maintaining realistic assumptions.\",\n  \"winner\": \"A\"\n}",
+                "error": null,
+                "usage": {
+                  "prompt_tokens": 1163,
+                  "output_tokens": 122,
+                  "total_tokens": 1285,
+                  "cached_tokens": 0,
+                  "unknown_calls": 0
+                },
+                "seconds": 4.582596041960642
+              }
+            ]
+          }
+        },
+        {
+          "model": "openai:qwen3.8-flash",
+          "receipt": {
+            "name": "judge",
+            "output": {
+              "status": "position_disagreement",
+              "winner": null,
+              "verdicts": [
+                {
+                  "winner": "B",
+                  "reasoning": "Answer B is superior because it identifies the only feasible path that addresses both competing customer needs within the resource constraints. \n\n1. **Feasibility & Resource Allocation**: The scenario presents a conflict between 'Reliability' (S2, S4) and 'Feature Demand' (S3, S4). Answer A chooses stabilization, which explicitly 'does not demonstrate feature demand' (S4), risking the loss of the renewing customer who values the feature. Answer B proposes a pilot (S3) costing $24k and using 2 engineers for 3 weeks. This leaves 3 engineers for 3-4 weeks for stabilization (S4 requires 3 engineers/4 weeks). While tight, this combination allows the team to attempt to satisfy both the largest customer (via remaining engineering capacity for stability) and the renewing customer (via pilot evidence). Answer A's decision ignores the positive signal from the renewing customer entirely.\n\n2. **Trigger Logic**: Answer B's trigger ('If the largest customer formally demands the new feature... switch to full launch') is logically weak because S4 states the largest customer prioritizes *reliability*, not the feature. However, Answer A's trigger ('If the largest customer waives reliability requirements...') is also speculative but perhaps more aligned with the risk profile. Despite B's flawed trigger premise, its core decision leverages the budget surplus ($74k total vs $24k pilot + potential stabilization costs) better than A, which spends resources on a solution that fails one stakeholder group by design.\n\n3. **Evidence Usage**: Both answers use quotes correctly. Answer B correctly infers that the pilot leaves capacity for other work (though it assumes 3 engineers can handle stabilization in parallel or sequentially within the timeline, which is a valid strategic assumption given the 6-week window). Answer A correctly notes stabilization fits the timeline but fails to address the opportunity cost of ignoring the feature-demanding customer.\n\nAnswer B is preferred for attempting a balanced approach rather than abandoning a key revenue driver (the feature-valuing customer) when resources allow for a hybrid strategy."
+                },
+                {
+                  "winner": "B",
+                  "reasoning": "Answer B provides a more logically sound decision based on the critical constraints. S2 explicitly states that 'Customers require incident-free operation during the final two weeks before renewal' and notes that recent incidents were caused by release changes. Shipping a new feature (or even a pilot involving code changes) within the 6-week window creates a high risk of violating this hard constraint if stability isn't addressed first. Answer A's proposal to run a pilot leaves only 3 engineers for stabilization, which contradicts S4 stating stabilization requires 3 engineers for 4 weeks; this timeline conflict makes A's resource allocation infeasible or risky. Furthermore, A's trigger assumes the largest customer might demand the feature, ignoring S4 which says they prioritize reliability. Answer B correctly identifies that securing the largest customer via stabilization is the priority, with a clear path to pivot if requirements change. B's claims are tightly supported by the evidence, whereas A's inference that the pilot balances needs ignores the temporal conflict between the 4-week stabilization requirement and the remaining time after a 3-week pilot."
+                }
+              ]
+            },
+            "error": null,
+            "calls": 2,
+            "failures": 0,
+            "seconds": 14.45053012506105,
+            "usage": {
+              "prompt_tokens": 2374,
+              "output_tokens": 684,
+              "total_tokens": 3058,
+              "cached_tokens": 0,
+              "unknown_calls": 0
+            },
+            "records": [
+              {
+                "label": "evidence_judge_0",
+                "model": "openai/qwen3.8-flash",
+                "prompt": "TASK AND EVIDENCE:\nThis is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.\nANONYMOUS ANSWER A:\n```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If the largest customer waives reliability requirements in writing and guarantees renewal early, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"The largest customer prioritizes reliability, and failing this requirement risks losing them during the renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The 4-week stabilization fits comfortably within the 6 weeks until renewal using a portion of the available 5 engineers.\"\n    }\n  ],\n  \"risks\": [\n    \"Postponing the new feature risks losing the renewing customer who explicitly values it.\",\n    \"Stabilization ties up resources without validating feature demand or generating immediate new revenue.\"\n  ],\n  \"assumptions\": [\n    \"Three engineers working for four weeks will successfully resolve the root causes of the severe incidents.\"\n  ]\n}\n```\nANONYMOUS ANSWER B:\n```json\n{\n  \"decision\": \"Run a limited pilot\",\n  \"trigger\": \"If the largest customer formally demands the new feature before the final two weeks, switch to the full feature launch.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S1\",\n      \"quote\": \"The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\",\n      \"inference\": \"The team possesses sufficient remaining budget ($74k) to afford the $24k pilot while retaining contingency funds.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"quote\": \"A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\",\n      \"inference\": \"The pilot leaves three engineers available for stabilization work to address reliability concerns while testing unvalidated demand.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"One renewing customer explicitly values the feature, but the largest customer prioritizes reliability.\",\n      \"inference\": \"The pilot balances satisfying the renewing customer who values the feature while consuming fewer resources, leaving capacity to address reliability.\"\n    }\n  ],\n  \"risks\": [\n    \"Unvalidated demand estimates may result in the pilot failing to secure the renewing customer.\",\n    \"Running a pilot while the service had recent release-induced incidents could still trigger reliability failures during the critical pre-renewal window.\"\n  ],\n  \"assumptions\": [\n    \"The remaining three engineers can adequately mitigate reliability risks during the pilot's three-week duration.\"\n  ]\n}\n```\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.",
+                "system_instruction": "You are a evidence_judge_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+                "raw_output": "{\n  \"winner\": \"B\",\n  \"reasoning\": \"Answer B is superior because it identifies the only feasible path that addresses both competing customer needs within the resource constraints. \\n\\n1. **Feasibility & Resource Allocation**: The scenario presents a conflict between 'Reliability' (S2, S4) and 'Feature Demand' (S3, S4). Answer A chooses stabilization, which explicitly 'does not demonstrate feature demand' (S4), risking the loss of the renewing customer who values the feature. Answer B proposes a pilot (S3) costing $24k and using 2 engineers for 3 weeks. This leaves 3 engineers for 3-4 weeks for stabilization (S4 requires 3 engineers/4 weeks). While tight, this combination allows the team to attempt to satisfy both the largest customer (via remaining engineering capacity for stability) and the renewing customer (via pilot evidence). Answer A's decision ignores the positive signal from the renewing customer entirely.\\n\\n2. **Trigger Logic**: Answer B's trigger ('If the largest customer formally demands the new feature... switch to full launch') is logically weak because S4 states the largest customer prioritizes *reliability*, not the feature. However, Answer A's trigger ('If the largest customer waives reliability requirements...') is also speculative but perhaps more aligned with the risk profile. Despite B's flawed trigger premise, its core decision leverages the budget surplus ($74k total vs $24k pilot + potential stabilization costs) better than A, which spends resources on a solution that fails one stakeholder group by design.\\n\\n3. **Evidence Usage**: Both answers use quotes correctly. Answer B correctly infers that the pilot leaves capacity for other work (though it assumes 3 engineers can handle stabilization in parallel or sequentially within the timeline, which is a valid strategic assumption given the 6-week window). Answer A correctly notes stabilization fits the timeline but fails to address the opportunity cost of ignoring the feature-demanding customer.\\n\\nAnswer B is preferred for attempting a balanced approach rather than abandoning a key revenue driver (the feature-valuing customer) when resources allow for a hybrid strategy.\"\n}",
+                "error": null,
+                "usage": {
+                  "prompt_tokens": 1187,
+                  "output_tokens": 452,
+                  "total_tokens": 1639,
+                  "cached_tokens": 0,
+                  "unknown_calls": 0
+                },
+                "seconds": 9.336289416998625
+              },
+              {
+                "label": "evidence_judge_1",
+                "model": "openai/qwen3.8-flash",
+                "prompt": "TASK AND EVIDENCE:\nThis is a synthetic decision scenario. Use only the supplied evidence for factual assertions; label additional premises as assumptions.\nQUESTION:\nShould the team ship the new feature now, run a limited pilot, or stabilize the existing service first?\nEVIDENCE:\n[S1] Case evidence-dev-000. The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\n[S2] The current service had 3 severe incidents last month. Two were caused by release changes. Customers require incident-free operation during the final two weeks before renewal.\n[S3] A full feature launch costs 64 thousand dollars and occupies all engineers for 5 weeks. A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\n[S4] One renewing customer explicitly values the feature, but the largest customer prioritizes reliability. Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\nCommit to one binding decision, give a measurable trigger for changing it, defend the strongest competing option under the condition where it would win, and state the main risk. Do not invent factual numbers. Use 150-350 words total. Return one JSON object only with decision (string), trigger (string), claims (1-3 objects each containing source_id, quote copied verbatim from that card, and inference), risks (nonempty list of strings) and assumptions (list of strings, possibly empty). A quote is evidence, not proof that your inference follows.\nANONYMOUS ANSWER A:\n```json\n{\n  \"decision\": \"Run a limited pilot\",\n  \"trigger\": \"If the largest customer formally demands the new feature before the final two weeks, switch to the full feature launch.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S1\",\n      \"quote\": \"The team has 5 engineers and 6 weeks until renewal. The authorized quarter budget is 74 thousand dollars.\",\n      \"inference\": \"The team possesses sufficient remaining budget ($74k) to afford the $24k pilot while retaining contingency funds.\"\n    },\n    {\n      \"source_id\": \"S3\",\n      \"quote\": \"A scoped pilot costs 24 thousand dollars and occupies two engineers for three weeks; demand estimates are unvalidated.\",\n      \"inference\": \"The pilot leaves three engineers available for stabilization work to address reliability concerns while testing unvalidated demand.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"One renewing customer explicitly values the feature, but the largest customer prioritizes reliability.\",\n      \"inference\": \"The pilot balances satisfying the renewing customer who values the feature while consuming fewer resources, leaving capacity to address reliability.\"\n    }\n  ],\n  \"risks\": [\n    \"Unvalidated demand estimates may result in the pilot failing to secure the renewing customer.\",\n    \"Running a pilot while the service had recent release-induced incidents could still trigger reliability failures during the critical pre-renewal window.\"\n  ],\n  \"assumptions\": [\n    \"The remaining three engineers can adequately mitigate reliability risks during the pilot's three-week duration.\"\n  ]\n}\n```\nANONYMOUS ANSWER B:\n```json\n{\n  \"decision\": \"Stabilize the existing service first\",\n  \"trigger\": \"If the largest customer waives reliability requirements in writing and guarantees renewal early, switch to running the scoped pilot.\",\n  \"claims\": [\n    {\n      \"source_id\": \"S2\",\n      \"quote\": \"Customers require incident-free operation during the final two weeks before renewal.\",\n      \"inference\": \"The largest customer prioritizes reliability, and failing this requirement risks losing them during the renewal window.\"\n    },\n    {\n      \"source_id\": \"S4\",\n      \"quote\": \"Stabilization requires three engineers for four weeks and does not demonstrate feature demand.\",\n      \"inference\": \"The 4-week stabilization fits comfortably within the 6 weeks until renewal using a portion of the available 5 engineers.\"\n    }\n  ],\n  \"risks\": [\n    \"Postponing the new feature risks losing the renewing customer who explicitly values it.\",\n    \"Stabilization ties up resources without validating feature demand or generating immediate new revenue.\"\n  ],\n  \"assumptions\": [\n    \"Three engineers working for four weeks will successfully resolve the root causes of the severe incidents.\"\n  ]\n}\n```\nCompare only their substantive merits. Check every factual number and inference against the supplied source cards; valid quotes do not prove inferences. Prefer feasible binding decisions with supported change triggers, explicit assumptions and a fair competing-option condition. Penalize fabricated facts, infeasible commitments and unsupported precision. Ignore prose style, model identity and length unless they affect usefulness. Return winner A, B, tie for comparable quality, or abstain if evidence is insufficient to compare, with reasoning.",
+                "system_instruction": "You are a evidence_judge_1 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+                "raw_output": "{\n  \"winner\": \"B\",\n  \"reasoning\": \"Answer B provides a more logically sound decision based on the critical constraints. S2 explicitly states that 'Customers require incident-free operation during the final two weeks before renewal' and notes that recent incidents were caused by release changes. Shipping a new feature (or even a pilot involving code changes) within the 6-week window creates a high risk of violating this hard constraint if stability isn't addressed first. Answer A's proposal to run a pilot leaves only 3 engineers for stabilization, which contradicts S4 stating stabilization requires 3 engineers for 4 weeks; this timeline conflict makes A's resource allocation infeasible or risky. Furthermore, A's trigger assumes the largest customer might demand the feature, ignoring S4 which says they prioritize reliability. Answer B correctly identifies that securing the largest customer via stabilization is the priority, with a clear path to pivot if requirements change. B's claims are tightly supported by the evidence, whereas A's inference that the pilot balances needs ignores the temporal conflict between the 4-week stabilization requirement and the remaining time after a 3-week pilot.\"\n}",
+                "error": null,
+                "usage": {
+                  "prompt_tokens": 1187,
+                  "output_tokens": 232,
+                  "total_tokens": 1419,
+                  "cached_tokens": 0,
+                  "unknown_calls": 0
+                },
+                "seconds": 5.112022000132129
+              }
+            ]
+          }
+        }
+      ],
+      "comparison": {
+        "status": "inconclusive",
+        "winner": null
+      },
+      "grounding_feedback": ""
+    }
+  ]
+}

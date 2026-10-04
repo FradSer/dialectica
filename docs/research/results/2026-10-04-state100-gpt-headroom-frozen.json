@@ -1,0 +1,238 @@
+{
+  "protocol": "meta-ablation-v1",
+  "split": "dev",
+  "family": "state",
+  "difficulty": 100,
+  "models": [
+    "openai:gpt-5.5"
+  ],
+  "allowance": 1,
+  "allowance_unit": "workflow_agent_steps",
+  "token_parity": false,
+  "dollar_parity": false,
+  "repeats": 1,
+  "arms": [
+    "single"
+  ],
+  "order_seed": 10426,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "state-dev-000",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"state\":[80,14,3,17,1,17]}",
+          "artifacts": [
+            {
+              "answer": "{\"state\":[80,14,3,17,1,17]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 69.84575824998319,
+        "usage": {
+          "prompt_tokens": 1543,
+          "output_tokens": 3614,
+          "total_tokens": 5157,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\n9: swap(1,0,28)\n10: swap(5,1,39)\n11: move(3,5,20)\n12: swap(1,0,21)\n13: move(2,4,11)\n14: add(3,2,8)\n15: if_add(5,3,4)\n16: move(2,4,2)\n17: swap(0,4,34)\n18: if_add(3,5,7)\n19: swap(2,0,10)\n20: add(4,5,14)\n21: add(5,0,32)\n22: move(0,2,17)\n23: add(5,2,36)\n24: if_add(3,4,29)\n25: add(5,1,6)\n26: move(2,0,12)\n27: swap(4,3,21)\n28: add(0,1,16)\n29: if_add(4,1,39)\n30: add(2,5,5)\n31: move(4,5,4)\n32: move(4,2,36)\n33: move(1,2,29)\n34: if_add(1,4,21)\n35: swap(4,1,23)\n36: move(4,5,31)\n37: add(2,3,26)\n38: swap(0,1,35)\n39: add(0,2,8)\n40: add(0,2,1)\n41: swap(1,0,24)\n42: if_add(5,3,35)\n43: swap(0,4,15)\n44: swap(5,3,8)\n45: move(5,2,37)\n46: if_add(2,5,6)\n47: add(2,3,39)\n48: add(1,5,3)\n49: swap(5,4,20)\n50: add(3,5,30)\n51: move(3,5,34)\n52: if_add(2,5,13)\n53: if_add(1,4,1)\n54: swap(1,2,37)\n55: if_add(0,2,7)\n56: add(3,1,16)\n57: add(5,3,4)\n58: add(1,0,22)\n59: add(3,4,19)\n60: swap(4,2,6)\n61: if_add(2,3,26)\n62: add(1,5,17)\n63: swap(0,3,7)\n64: move(0,1,31)\n65: add(1,4,9)\n66: if_add(3,5,32)\n67: move(5,4,24)\n68: move(5,2,39)\n69: add(2,0,34)\n70: swap(2,3,35)\n71: swap(0,4,36)\n72: if_add(3,0,25)\n73: add(1,0,24)\n74: add(1,3,19)\n75: swap(3,2,36)\n76: add(2,0,8)\n77: add(2,0,16)\n78: add(0,4,34)\n79: if_add(3,4,33)\n80: move(4,2,6)\n81: add(5,2,11)\n82: add(0,1,12)\n83: swap(2,5,16)\n84: add(3,0,19)\n85: swap(0,2,33)\n86: swap(0,4,36)\n87: if_add(3,2,28)\n88: move(3,0,19)\n89: move(0,4,12)\n90: move(3,5,38)\n91: swap(5,1,39)\n92: move(3,1,21)\n93: move(5,2,4)\n94: add(0,4,35)\n95: move(5,4,35)\n96: swap(4,0,15)\n97: swap(4,1,29)\n98: if_add(2,3,39)\n99: add(3,4,16)\n100: move(2,5,28)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\":[80,14,3,17,1,17]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 1543,
+              "output_tokens": 3614,
+              "total_tokens": 5157,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 69.84189979196526
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "state-dev-001",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"state\":[61,45,57,54,91,95]}",
+          "artifacts": [
+            {
+              "answer": "{\"state\":[61,45,57,54,91,95]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 60.44870970817283,
+        "usage": {
+          "prompt_tokens": 1543,
+          "output_tokens": 3231,
+          "total_tokens": 4774,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Track registers 0..5, initially (4, 68, 79, 6, 64, 29). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: add(5,0,27)\n2: add(3,0,12)\n3: add(5,0,28)\n4: add(3,0,25)\n5: swap(5,1,34)\n6: swap(2,0,6)\n7: swap(1,0,7)\n8: if_add(5,2,17)\n9: move(0,3,31)\n10: add(2,5,16)\n11: move(5,0,3)\n12: add(2,4,11)\n13: if_add(5,1,17)\n14: if_add(1,3,25)\n15: move(0,1,10)\n16: move(1,2,25)\n17: if_add(2,5,23)\n18: move(2,1,30)\n19: if_add(0,4,16)\n20: if_add(2,5,7)\n21: if_add(3,5,27)\n22: swap(4,5,37)\n23: add(0,4,36)\n24: if_add(0,4,14)\n25: swap(0,1,4)\n26: add(5,4,5)\n27: move(4,0,37)\n28: add(3,2,34)\n29: swap(4,1,23)\n30: if_add(0,1,33)\n31: swap(1,0,8)\n32: if_add(1,3,7)\n33: add(1,4,9)\n34: move(0,4,25)\n35: add(4,1,35)\n36: if_add(0,5,28)\n37: add(4,0,6)\n38: add(2,5,14)\n39: move(1,4,10)\n40: swap(5,2,15)\n41: add(2,0,37)\n42: move(2,3,13)\n43: move(2,4,24)\n44: if_add(2,0,36)\n45: move(0,3,4)\n46: move(4,3,35)\n47: swap(5,2,29)\n48: move(3,4,17)\n49: add(4,5,24)\n50: swap(1,3,2)\n51: move(2,3,17)\n52: swap(3,5,8)\n53: swap(1,0,4)\n54: add(0,4,7)\n55: if_add(4,0,29)\n56: swap(5,0,15)\n57: if_add(0,2,18)\n58: if_add(5,2,32)\n59: move(1,4,9)\n60: swap(2,0,6)\n61: add(3,1,1)\n62: swap(3,1,18)\n63: move(0,1,29)\n64: add(4,3,9)\n65: if_add(4,2,36)\n66: add(5,1,2)\n67: move(5,4,20)\n68: move(3,4,13)\n69: move(0,3,13)\n70: if_add(1,3,21)\n71: add(4,1,8)\n72: swap(2,5,12)\n73: add(4,1,29)\n74: add(3,5,40)\n75: move(2,3,10)\n76: add(2,1,30)\n77: move(1,2,38)\n78: add(0,4,13)\n79: move(5,3,38)\n80: move(4,2,22)\n81: add(1,3,39)\n82: move(2,0,34)\n83: add(1,4,23)\n84: swap(2,3,26)\n85: add(2,4,21)\n86: swap(3,2,18)\n87: add(4,1,11)\n88: swap(5,0,28)\n89: add(1,2,24)\n90: move(3,0,13)\n91: swap(1,0,30)\n92: swap(5,4,24)\n93: add(2,0,3)\n94: add(2,5,14)\n95: if_add(3,1,11)\n96: move(1,3,6)\n97: move(0,3,32)\n98: move(1,5,35)\n99: move(0,4,1)\n100: add(5,2,36)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\":[61,45,57,54,91,95]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 1543,
+              "output_tokens": 3231,
+              "total_tokens": 4774,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 60.44746766705066
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "state-dev-002",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"state\":[42,2,78,79,36,11]}",
+          "artifacts": [
+            {
+              "answer": "{\"state\":[42,2,78,79,36,11]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 76.9344803749118,
+        "usage": {
+          "prompt_tokens": 1552,
+          "output_tokens": 4163,
+          "total_tokens": 5715,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Track registers 0..5, initially (29, 89, 78, 9, 49, 28). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: move(4,5,15)\n2: swap(3,5,11)\n3: move(3,1,2)\n4: move(0,1,13)\n5: move(0,5,17)\n6: add(0,3,6)\n7: if_add(0,3,21)\n8: if_add(0,5,18)\n9: if_add(3,0,15)\n10: if_add(5,0,12)\n11: move(3,0,28)\n12: move(1,0,10)\n13: if_add(3,1,6)\n14: swap(3,5,9)\n15: if_add(3,1,26)\n16: add(5,2,36)\n17: if_add(1,5,29)\n18: if_add(3,0,40)\n19: swap(1,4,36)\n20: move(2,0,28)\n21: move(0,5,36)\n22: swap(0,5,31)\n23: swap(2,1,33)\n24: swap(1,2,39)\n25: swap(5,2,22)\n26: move(3,2,35)\n27: add(0,4,15)\n28: swap(3,0,22)\n29: add(2,3,9)\n30: add(3,1,21)\n31: move(2,0,18)\n32: if_add(3,4,27)\n33: if_add(4,2,13)\n34: move(4,3,19)\n35: move(4,0,11)\n36: move(4,2,27)\n37: add(4,2,34)\n38: if_add(4,3,34)\n39: move(2,1,14)\n40: add(0,3,21)\n41: if_add(2,4,33)\n42: move(4,2,13)\n43: if_add(0,5,33)\n44: add(5,4,14)\n45: swap(1,5,21)\n46: move(3,5,1)\n47: move(4,5,25)\n48: move(1,3,18)\n49: add(2,1,25)\n50: swap(5,1,13)\n51: if_add(4,1,3)\n52: move(5,1,27)\n53: add(5,2,13)\n54: if_add(3,2,9)\n55: move(0,5,31)\n56: if_add(2,0,20)\n57: move(1,5,23)\n58: if_add(1,4,15)\n59: add(1,3,33)\n60: add(0,1,38)\n61: swap(5,1,25)\n62: move(4,5,20)\n63: swap(5,2,34)\n64: if_add(2,4,2)\n65: swap(5,2,23)\n66: move(0,5,23)\n67: if_add(2,5,6)\n68: move(5,3,35)\n69: if_add(0,2,15)\n70: if_add(1,0,38)\n71: move(1,5,29)\n72: move(2,4,32)\n73: if_add(1,4,22)\n74: add(1,5,4)\n75: swap(1,0,34)\n76: add(3,5,21)\n77: move(5,1,33)\n78: move(0,1,1)\n79: move(1,2,17)\n80: swap(5,1,18)\n81: add(3,1,10)\n82: add(4,5,10)\n83: add(1,5,17)\n84: add(4,5,36)\n85: swap(2,0,21)\n86: add(1,3,8)\n87: add(0,1,12)\n88: if_add(4,1,38)\n89: move(3,2,33)\n90: swap(1,3,13)\n91: if_add(5,1,14)\n92: swap(1,3,28)\n93: if_add(1,2,12)\n94: if_add(2,1,15)\n95: add(3,1,28)\n96: swap(0,2,36)\n97: swap(0,2,34)\n98: if_add(1,3,9)\n99: swap(3,0,13)\n100: swap(5,3,32)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\":[42,2,78,79,36,11]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 1552,
+              "output_tokens": 4163,
+              "total_tokens": 5715,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 76.93337824987248
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "state-dev-003",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"state\":[19,39,65,69,81,21]}",
+          "artifacts": [
+            {
+              "answer": "{\"state\":[19,39,65,69,81,21]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 39.63650320796296,
+        "usage": {
+          "prompt_tokens": 1548,
+          "output_tokens": 2091,
+          "total_tokens": 3639,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Track registers 0..5, initially (24, 34, 8, 48, 13, 80). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: add(1,2,35)\n2: add(2,4,8)\n3: move(4,5,4)\n4: add(3,0,36)\n5: move(4,5,20)\n6: add(1,2,28)\n7: add(2,4,3)\n8: swap(3,4,33)\n9: add(4,5,40)\n10: move(4,0,5)\n11: if_add(4,5,24)\n12: swap(5,4,26)\n13: move(0,4,13)\n14: if_add(1,3,37)\n15: move(2,1,20)\n16: swap(5,1,39)\n17: add(3,2,23)\n18: move(3,0,13)\n19: swap(2,5,17)\n20: add(3,2,17)\n21: if_add(5,3,1)\n22: swap(5,4,4)\n23: swap(1,0,26)\n24: if_add(5,3,29)\n25: move(1,3,38)\n26: move(3,0,16)\n27: add(1,5,33)\n28: if_add(0,5,25)\n29: swap(0,4,6)\n30: swap(2,1,21)\n31: if_add(3,5,26)\n32: add(2,4,23)\n33: if_add(1,2,18)\n34: if_add(3,1,28)\n35: swap(2,0,9)\n36: if_add(4,3,32)\n37: add(5,0,2)\n38: add(0,4,12)\n39: move(4,0,29)\n40: move(5,3,13)\n41: if_add(4,1,4)\n42: if_add(2,0,23)\n43: move(0,3,17)\n44: move(5,0,31)\n45: move(2,4,14)\n46: if_add(0,4,33)\n47: if_add(3,5,9)\n48: add(4,3,34)\n49: swap(4,0,15)\n50: if_add(5,0,26)\n51: if_add(3,2,28)\n52: add(3,5,40)\n53: swap(1,0,22)\n54: move(5,0,38)\n55: if_add(2,4,26)\n56: add(1,0,18)\n57: move(0,2,33)\n58: swap(4,1,19)\n59: swap(2,0,23)\n60: swap(4,5,2)\n61: move(2,3,21)\n62: add(1,2,9)\n63: swap(2,3,11)\n64: move(3,4,22)\n65: swap(5,0,9)\n66: swap(5,1,11)\n67: swap(3,1,7)\n68: add(0,5,28)\n69: move(4,2,4)\n70: add(1,0,28)\n71: swap(0,3,18)\n72: if_add(4,1,28)\n73: if_add(5,4,28)\n74: swap(2,1,27)\n75: if_add(3,4,7)\n76: move(1,4,14)\n77: add(3,2,22)\n78: swap(1,3,4)\n79: swap(4,0,39)\n80: if_add(1,3,33)\n81: move(4,1,21)\n82: if_add(2,5,3)\n83: add(5,0,1)\n84: move(2,4,19)\n85: move(4,3,36)\n86: move(2,4,2)\n87: add(0,5,13)\n88: swap(5,1,24)\n89: move(2,3,21)\n90: move(0,3,27)\n91: add(1,0,2)\n92: swap(1,0,11)\n93: if_add(2,5,25)\n94: swap(5,2,31)\n95: if_add(0,5,8)\n96: move(2,4,38)\n97: move(4,1,27)\n98: move(4,0,38)\n99: add(3,0,4)\n100: move(3,0,19)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"state\":[19,39,65,69,81,21]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 1548,
+              "output_tokens": 2091,
+              "total_tokens": 3639,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 39.63553333282471
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    }
+  ],
+  "predeclaration_digest": "eeed225f34f680612a342435a0eb60f00d407cbf562c69f8490b832b50e7336d"
+}

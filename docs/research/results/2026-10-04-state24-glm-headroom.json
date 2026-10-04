@@ -1,0 +1,186 @@
+{
+  "protocol": "meta-ablation-v1",
+  "split": "dev",
+  "family": "state",
+  "difficulty": 24,
+  "models": [
+    "openai:glm-5.3-flash"
+  ],
+  "allowance": 6,
+  "repeats": 1,
+  "arms": [
+    "single"
+  ],
+  "order_seed": 10426,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "state-dev-000",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": null,
+        "error": "BadRequestError",
+        "calls": 1,
+        "failures": 1,
+        "seconds": 4.976526125101373,
+        "usage": {
+          "prompt_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "cached_tokens": 0,
+          "unknown_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/glm-5.3-flash",
+            "prompt": "Track registers 0..5, initially (85, 95, 77, 8, 12, 27). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: swap(2,1,8)\n2: swap(4,2,22)\n3: move(2,4,18)\n4: if_add(3,4,23)\n5: add(1,4,30)\n6: if_add(2,0,17)\n7: swap(0,4,23)\n8: add(2,3,38)\n9: swap(1,0,28)\n10: swap(5,1,39)\n11: move(3,5,20)\n12: swap(1,0,21)\n13: move(2,4,11)\n14: add(3,2,8)\n15: if_add(5,3,4)\n16: move(2,4,2)\n17: swap(0,4,34)\n18: if_add(3,5,7)\n19: swap(2,0,10)\n20: add(4,5,14)\n21: add(5,0,32)\n22: move(0,2,17)\n23: add(5,2,36)\n24: if_add(3,4,29)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": null,
+            "error": "BadRequestError",
+            "usage": {
+              "prompt_tokens": 0,
+              "output_tokens": 0,
+              "total_tokens": 0,
+              "cached_tokens": 0,
+              "unknown_calls": 1
+            },
+            "seconds": 4.97394649987109
+          }
+        ]
+      },
+      "passed": null
+    },
+    {
+      "task_id": "state-dev-001",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": null,
+        "error": "BadRequestError",
+        "calls": 1,
+        "failures": 1,
+        "seconds": 1.0381692920345813,
+        "usage": {
+          "prompt_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "cached_tokens": 0,
+          "unknown_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/glm-5.3-flash",
+            "prompt": "Track registers 0..5, initially (93, 84, 26, 68, 9, 11). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: move(2,0,12)\n2: swap(4,3,21)\n3: add(0,1,16)\n4: if_add(4,1,39)\n5: add(2,5,5)\n6: move(4,5,4)\n7: move(4,2,36)\n8: move(1,2,29)\n9: if_add(1,4,21)\n10: swap(4,1,23)\n11: move(4,5,31)\n12: add(2,3,26)\n13: swap(0,1,35)\n14: add(0,2,8)\n15: add(0,2,1)\n16: swap(1,0,24)\n17: if_add(5,3,35)\n18: swap(0,4,15)\n19: swap(5,3,8)\n20: move(5,2,37)\n21: if_add(2,5,6)\n22: add(2,3,39)\n23: add(1,5,3)\n24: swap(5,4,20)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": null,
+            "error": "BadRequestError",
+            "usage": {
+              "prompt_tokens": 0,
+              "output_tokens": 0,
+              "total_tokens": 0,
+              "cached_tokens": 0,
+              "unknown_calls": 1
+            },
+            "seconds": 1.0360820419155061
+          }
+        ]
+      },
+      "passed": null
+    },
+    {
+      "task_id": "state-dev-002",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": null,
+        "error": "BadRequestError",
+        "calls": 1,
+        "failures": 1,
+        "seconds": 0.5860128339845687,
+        "usage": {
+          "prompt_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "cached_tokens": 0,
+          "unknown_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/glm-5.3-flash",
+            "prompt": "Track registers 0..5, initially (52, 94, 54, 86, 2, 59). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: move(3,5,34)\n2: if_add(2,5,13)\n3: if_add(1,4,1)\n4: swap(1,2,37)\n5: if_add(0,2,7)\n6: add(3,1,16)\n7: add(5,3,4)\n8: add(1,0,22)\n9: add(3,4,19)\n10: swap(4,2,6)\n11: if_add(2,3,26)\n12: add(1,5,17)\n13: swap(0,3,7)\n14: move(0,1,31)\n15: add(1,4,9)\n16: if_add(3,5,32)\n17: move(5,4,24)\n18: move(5,2,39)\n19: add(2,0,34)\n20: swap(2,3,35)\n21: swap(0,4,36)\n22: if_add(3,0,25)\n23: add(1,0,24)\n24: add(1,3,19)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": null,
+            "error": "BadRequestError",
+            "usage": {
+              "prompt_tokens": 0,
+              "output_tokens": 0,
+              "total_tokens": 0,
+              "cached_tokens": 0,
+              "unknown_calls": 1
+            },
+            "seconds": 0.5790349999442697
+          }
+        ]
+      },
+      "passed": null
+    },
+    {
+      "task_id": "state-dev-003",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": null,
+        "error": "BadRequestError",
+        "calls": 1,
+        "failures": 1,
+        "seconds": 0.5856048751156777,
+        "usage": {
+          "prompt_tokens": 0,
+          "output_tokens": 0,
+          "total_tokens": 0,
+          "cached_tokens": 0,
+          "unknown_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/glm-5.3-flash",
+            "prompt": "Track registers 0..5, initially (59, 34, 40, 70, 42, 10). Execute the numbered operations in order. After each operation reduce every register modulo 97 to 0..96. add(i,j,n) adds n to register i (j is ignored). move(i,j,n) simultaneously subtracts n from i and adds n to j; insufficient balance is allowed. swap(i,j,n) swaps i and j (n is ignored). if_add(i,j,n) compares the pre-operation values: if register i > register j add n to i, otherwise add n to j.\n1: add(5,0,19)\n2: move(0,5,4)\n3: if_add(4,0,40)\n4: swap(3,4,13)\n5: add(0,2,11)\n6: add(0,1,12)\n7: swap(2,5,16)\n8: add(3,0,19)\n9: swap(0,2,33)\n10: swap(0,4,36)\n11: if_add(3,2,28)\n12: move(3,0,19)\n13: move(0,4,12)\n14: move(3,5,38)\n15: swap(5,1,39)\n16: move(3,1,21)\n17: move(5,2,4)\n18: add(0,4,35)\n19: move(5,4,35)\n20: swap(4,0,15)\n21: swap(4,1,29)\n22: if_add(2,3,39)\n23: add(3,4,16)\n24: move(2,5,28)\nReturn only {\"state\": [final register values in register order]}.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are a single_0 responsible for generating high-quality thoughts.\n\nYour task:\n- Generate creative, diverse, and well-reasoned thought branches\n- Each thought should be distinct and explore different angles\n- Build on the parent context when provided\n- Be specific and actionable, not vague or generic\n- Generate thoughts that advance the problem-solving process",
+            "raw_output": null,
+            "error": "BadRequestError",
+            "usage": {
+              "prompt_tokens": 0,
+              "output_tokens": 0,
+              "total_tokens": 0,
+              "cached_tokens": 0,
+              "unknown_calls": 1
+            },
+            "seconds": 0.5843606658745557
+          }
+        ]
+      },
+      "passed": null
+    }
+  ]
+}

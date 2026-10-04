@@ -1,0 +1,130 @@
+{
+  "schema": "objective-analysis-v1",
+  "split": "dev",
+  "baseline": "single",
+  "bootstrap_draws": 2000,
+  "seed": 10429,
+  "resampling_unit": "task; repeats averaged within task",
+  "inference_scope": "exploratory; no multiplicity correction",
+  "failure_policy": "failed generation counts as incorrect system outcome",
+  "cost_scope": "reported tokens only; provider billing and hidden retries opaque",
+  "limitations": [
+    "Intervals condition on this task pool, not all possible tasks.",
+    "Degenerate bootstrap at a floor/ceiling does not prove certainty.",
+    "Small task pools and multiple comparisons limit adoption claims."
+  ],
+  "strata": [
+    {
+      "model": "openai:gemini-3.5-flash-lite",
+      "arms": {
+        "single": {
+          "tasks": 2,
+          "trials": 2,
+          "success_rate": 0.5,
+          "interval": [
+            0,
+            1
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 0,
+          "reported_tokens": 1149,
+          "mean_reported_tokens": 574.5,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 2,
+          "model_calls": null,
+          "seconds": 20.8682364160195
+        },
+        "consensus": {
+          "tasks": 2,
+          "trials": 2,
+          "success_rate": 0.5,
+          "interval": [
+            0,
+            1
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 0,
+          "reported_tokens": 4471,
+          "mean_reported_tokens": 2235.5,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 8,
+          "model_calls": null,
+          "seconds": 39.71276337490417
+        },
+        "self_refine": {
+          "tasks": 2,
+          "trials": 2,
+          "success_rate": 0.5,
+          "interval": [
+            0,
+            1
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 0,
+          "reported_tokens": 5356,
+          "mean_reported_tokens": 2678.0,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 8,
+          "model_calls": null,
+          "seconds": 33.75273883296177
+        },
+        "claims": {
+          "tasks": 2,
+          "trials": 2,
+          "success_rate": 0.5,
+          "interval": [
+            0,
+            1
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 0,
+          "reported_tokens": 4593,
+          "mean_reported_tokens": 2296.5,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 8,
+          "model_calls": null,
+          "seconds": 31.264204666018486
+        }
+      },
+      "comparisons": [
+        {
+          "arm": "consensus",
+          "baseline": "single",
+          "tasks": 2,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        },
+        {
+          "arm": "self_refine",
+          "baseline": "single",
+          "tasks": 2,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        },
+        {
+          "arm": "claims",
+          "baseline": "single",
+          "tasks": 2,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        }
+      ]
+    }
+  ]
+}

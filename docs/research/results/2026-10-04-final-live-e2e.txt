@@ -1,0 +1,1357 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.11.13, pytest-9.1.1, pluggy-1.6.0
+rootdir: /Users/FradSer/Developer/FradSer/dialectica
+configfile: pyproject.toml
+testpaths: tests
+plugins: asyncio-1.4.0, bdd-9.0.0, anyio-4.15.1
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 221 items / 212 deselected / 9 selected
+
+tests/test_e2e_access_list_live.py ..F...                                [ 66%]
+tests/test_e2e_live.py ...                                               [100%]
+
+=================================== FAILURES ===================================
+_______ test_reflection_recipe_access_list_mode_runs_against_live_models _______
+
+    async def _drive_root_node() -> None:
+      try:
+        if use_scheduler:
+          # Rehydration warning: DynamicNodeScheduler relies on session.events scanning.
+          # Stateful live EUC/LRO streams may rehydrate freshly if not yet persisted.
+          scheduler = DynamicNodeScheduler(state=_LoopState())
+          root_ctx._workflow_scheduler = scheduler  # pylint: disable=protected-access
+    
+        try:
+>         await root_ctx._run_node_internal(  # pylint: disable=protected-access
+              root_node,
+              node_input=node_input,
+              resume_inputs=resume_inputs,
+          )
+
+.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py:250: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+.venv/lib/python3.11/site-packages/google/adk/agents/context.py:515: in _run_node_internal
+    return await _dynamic_node_scheduler.run_node_internal(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+ctx = <google.adk.agents.context.Context object at 0x113de1790>
+node = LlmAgent(name='tension', description='', rerun_on_resume=False, wait_for_output=False, retry_config=None, timeout=None...k=None, on_model_error_callback=None, before_tool_callback=None, after_tool_callback=None, on_tool_error_callback=None)
+node_input = UserContent(
+  parts=[
+    Part(
+      text="""What is the single core tension or trade-off in this problem — the oppo...rvices. They have 6 months and one senior architect. What is the binding recommendation?"""
+    ),
+  ],
+  role='user'
+)
+use_as_output = False, run_id = None, use_sub_branch = False
+override_branch = None, override_isolation_scope = None, raise_on_wait = False
+return_ctx = False, resume_inputs = None, skip_run_id_validation = False
+
+    async def run_node_internal(
+        ctx: Context,
+        node: NodeLike,
+        node_input: Any = None,
+        *,
+        use_as_output: bool = False,
+        run_id: str | None = None,
+        use_sub_branch: bool = False,
+        override_branch: str | None = None,
+        override_isolation_scope: str | None = None,
+        raise_on_wait: bool = False,
+        return_ctx: bool = False,
+        resume_inputs: dict[str, Any] | None = None,
+        skip_run_id_validation: bool = False,
+    ) -> Any:
+      """Executes a node dynamically (Internal Orchestration API)."""
+      from ._workflow import Workflow
+    
+      if not ctx._node_rerun_on_resume:
+        raise ValueError(
+            'A node must have rerun_on_resume=True. Reason is that dynamically'
+            ' scheduled nodes might be interrupted, and the workflow'
+            ' wakes-up/re-runs the parent node, so it can get the child node'
+            ' response.'
+        )
+    
+      built_node = build_node(node)
+    
+      if isinstance(node, BaseAgent) and isinstance(built_node, BaseAgent):
+        built_node.parent_agent = node.parent_agent
+    
+      if use_as_output:
+        if not isinstance(ctx.node, Workflow):
+          if ctx._output_delegated:
+            raise ValueError(
+                f'Node {ctx.node_path} already has a use_as_output delegate.'
+            )
+          ctx._output_delegated = True
+    
+      if ctx._workflow_scheduler is not None:
+        if run_id and run_id.isdigit() and not skip_run_id_validation:
+          raise ValueError(
+              f'Explicit run_id "{run_id}" for node "{built_node.name}"'
+              ' must contain non-numeric characters to prevent collision'
+              ' with auto-generated IDs.'
+          )
+    
+      scheduler = ctx._workflow_scheduler
+      if scheduler is None:
+        # No orchestrator installed one, so this call is not part of a replayable
+        # workflow. Use a transfer-only scheduler: it drives the sequential
+        # agent transfer loop but skips session event rehydration, keeping this
+        # path a direct pass-through to NodeRunner as it was before, without
+        # attaching a scheduler to ctx._workflow_scheduler.
+        #
+        # IMPORTANT: ctx._workflow_scheduler MUST remain None for standalone runs.
+        # Across ADK, `ctx._workflow_scheduler is not None` is the canonical check
+        # for whether execution is inside a workflow graph (e.g. for numeric run_id
+        # validation and replay semantics).
+        scheduler = DynamicNodeScheduler(
+            state=DynamicNodeState(), enable_replay=False
+        )
+    
+      child_ctx = await scheduler(
+          ctx,
+          built_node,
+          node_input,
+          node_name=built_node.name,
+          use_as_output=use_as_output,
+          run_id=run_id,
+          use_sub_branch=use_sub_branch,
+          override_branch=override_branch,
+          override_isolation_scope=override_isolation_scope,
+          resume_inputs=resume_inputs,
+      )
+    
+      transfer_to_agent = child_ctx.actions.transfer_to_agent if child_ctx else None
+      if child_ctx and child_ctx.actions.skip_summarization:
+        ctx.actions.skip_summarization = True
+    
+      if not return_ctx:
+        if child_ctx.error:
+          executed_name = child_ctx.node.name if child_ctx.node else built_node.name
+>         raise DynamicNodeFailError(
+              message=f'Dynamic node {executed_name} failed',
+              error=child_ctx.error,
+              error_node_path=child_ctx.error_node_path,
+          )
+E         google.adk.workflow._errors.DynamicNodeFailError: Dynamic node tension failed
+
+.venv/lib/python3.11/site-packages/google/adk/workflow/_dynamic_node_scheduler.py:740: DynamicNodeFailError
+
+During handling of the above exception, another exception occurred:
+
+    async def test_reflection_recipe_access_list_mode_runs_against_live_models():
+        """The shipped reflection recipe in access-list mode works on real models.
+    
+        Runs the canonical open-ended recipe (examples.patterns.reflection_pattern)
+        with ``use_access_lists=True`` against a heterogeneous cliproxy roster, so
+        critique/synthesize pull prior context through the kernel ``sees=``
+        primitive rather than inlined prompts. This proves the Fugu-style
+        selective-visibility wiring composes with the measured reflection recipe
+        end-to-end — the primitive isn't just exercised by synthetic kernel tests,
+        it carries a real multi-stage meta-task to a coherent answer.
+        """
+        from examples.patterns.reflection_pattern import create_reflection_engine
+    
+        fast_model = os.getenv("E2E_REFLECTION_FAST_MODEL", "openai:qwen3.6-flash")
+        strong_model = os.getenv("E2E_REFLECTION_STRONG_MODEL", "openai:glm-5.2")
+        engine = create_reflection_engine(
+            "A 12-person engineering team is deciding whether to migrate a stable "
+            "monolith to microservices. They have 6 months and one senior architect. "
+            "What is the binding recommendation?",
+            angle_models={
+                "broad": fast_model,
+                "critical": strong_model,
+                "practitioner": fast_model,
+                "stakeholder-opposition": strong_model,
+            },
+            frame_model=strong_model,
+            critique_model=fast_model,
+            synthesize_model=strong_model,
+            use_access_lists=True,
+        )
+>       result = await engine.run()
+                 ^^^^^^^^^^^^^^^^^^
+
+tests/test_e2e_access_list_live.py:132: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+examples/patterns/reflection_pattern.py:334: in run
+    final_answer = await wf.workflow(script)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^
+dialectica/workflow.py:679: in workflow
+    return await Workflow(script, args=args, registry_name=registry_name).run()
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+dialectica/workflow.py:762: in run
+    result = await self.script()
+             ^^^^^^^^^^^^^^^^^^^
+examples/patterns/reflection_pattern.py:243: in script
+    await wf.agent(
+dialectica/workflow.py:501: in agent
+    result = await _execute_agent()
+             ^^^^^^^^^^^^^^^^^^^^^^
+dialectica/workflow.py:472: in _execute_agent
+    response = await _call()
+               ^^^^^^^^^^^^^
+dialectica/workflow.py:451: in _call
+    response = await agent_runtime.run_agent(
+dialectica/agent_runtime.py:366: in run_agent
+    return await _run_agent_with_retries(
+dialectica/agent_runtime.py:396: in _run_agent_with_retries
+    response = await _call_agent_once(agent, instruction)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+dialectica/agent_runtime.py:275: in _call_agent_once
+    events = await runner.run_debug(
+.venv/lib/python3.11/site-packages/google/adk/runners.py:1933: in run_debug
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/runners.py:1240: in run_async
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/runners.py:590: in _run_node_async
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py:357: in run_node_async
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py:42: in _with_caller_context
+    async for item in a:
+.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py:283: in _run
+    await runner._cleanup_root_task(  # pylint: disable=protected-access
+.venv/lib/python3.11/site-packages/google/adk/runners.py:877: in _cleanup_root_task
+    await task
+.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py:259: in _drive_root_node
+    raise e.error
+.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py:138: in run
+    await self._execute_node(ctx, node_input)
+.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py:307: in _execute_node
+    await self._run_node_loop(ctx, node_input)
+.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py:321: in _run_node_loop
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py:190: in run
+    async for item in agen:
+.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py:683: in _run_impl
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py:494: in run_llm_agent_as_node
+    async for event in run_iter:
+.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py:328: in run_async
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py:422: in _run_with_lifecycle
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py:42: in _with_caller_context
+    async for item in a:
+.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py:392: in _run
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py:632: in _run_async_impl
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:333: in run_async
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:415: in _run_one_step_async
+    async for llm_response in agen:
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:607: in _call_llm_async
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py:309: in call_llm_async
+    async for event in agen:
+.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py:42: in _with_caller_context
+    async for item in a:
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py:273: in _call_llm_with_tracing
+    async for llm_response in agen:
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py:657: in _run_and_handle_error
+    async for response in agen:
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py:385: in run_and_handle_error
+    raise model_error
+.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py:358: in run_and_handle_error
+    async for llm_response in agen:
+.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py:3883: in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py:923: in acompletion
+    return await acompletion(
+.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py:114: in acompletion
+    return await _ADISPATCH.arun(
+.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py:83: in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/litellm/utils.py:2160: in wrapper_async
+    raise e
+.venv/lib/python3.11/site-packages/litellm/utils.py:1972: in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.11/site-packages/litellm/main.py:702: in acompletion
+    raise exception_type(
+.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py:2700: in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py:2461: in exception_type
+    _map_openai_exception(
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+model = 'openai/glm-5.2'
+original_exception = OpenAIError("Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}")
+custom_llm_provider = 'openai'
+error_str = "Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}"
+exception_type = 'OpenAIError', exception_provider = 'OpenAIException'
+extra_information = "\nModel: openai/glm-5.2\nAPI Base: `http://10.10.0.195:8317/v1`\nMessages: `[{'role': 'system', 'content': 'You are tension, a problem-solving assistant.\\n\\nYour task:\\n- Compl`"
+
+    def _map_openai_exception(
+        *,
+        model: str,
+        original_exception: _ProviderHTTPException,
+        custom_llm_provider: str,
+        error_str: str,
+        exception_type: str,
+        exception_provider: str,
+        extra_information: str,
+    ) -> None:
+        response: Final = _litellm_proxy_response(original_exception, custom_llm_provider)
+        # custom_llm_provider is openai, make it OpenAI
+        message = get_error_message(error_obj=original_exception)
+        if message is None:
+            if hasattr(original_exception, "message"):
+                message = original_exception.message
+            else:
+                message = str(original_exception)
+    
+        if message is not None and isinstance(
+            message, str
+        ):  # done to prevent user-confusion. Relevant issue - https://github.com/BerriAI/litellm/issues/1414
+            message = message.replace("OPENAI", custom_llm_provider.upper())
+            message = message.replace(
+                "openai.OpenAIError",
+                f"{custom_llm_provider}.{custom_llm_provider}Error",
+            )
+        if custom_llm_provider == "openai":
+            exception_provider = "OpenAI" + "Exception"
+        else:
+            exception_provider = custom_llm_provider[0].upper() + custom_llm_provider[1:] + "Exception"
+    
+        if ExceptionCheckers.is_error_str_rate_limit(
+            error_str, status_code=getattr(original_exception, "status_code", None)
+        ):
+            raise RateLimitError(
+                message=f"RateLimitError: {exception_provider} - {message}",
+                model=model,
+                llm_provider=custom_llm_provider,
+                response=response,
+                body=getattr(original_exception, "body", None),
+            )
+        elif ExceptionCheckers.is_error_str_context_window_exceeded(error_str):
+            raise ContextWindowExceededError(
+                message=f"ContextWindowExceededError: {exception_provider} - {message}",
+                llm_provider=custom_llm_provider,
+                model=model,
+                response=response,
+                litellm_debug_info=extra_information,
+            )
+        elif "invalid_request_error" in error_str and "model_not_found" in error_str:
+>           raise NotFoundError(
+                message=f"{exception_provider} - {message}",
+                llm_provider=custom_llm_provider,
+                model=model,
+                response=response,
+                litellm_debug_info=extra_information,
+E               litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+
+.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py:321: NotFoundError
+----------------------------- Captured stdout call -----------------------------
+
+[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new[0m
+LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'.
+
+
+[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new[0m
+LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'.
+
+
+[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new[0m
+LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'.
+
+
+[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new[0m
+LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'.
+
+
+[1;31mGive Feedback / Get Help: https://github.com/BerriAI/litellm/issues/new[0m
+LiteLLM.Info: If you need to debug this error, use `litellm._turn_on_debug()'.
+
+------------------------------ Captured log call -------------------------------
+ERROR    google_adk.google.adk.workflow._node_runner:_node_runner.py:164 Node execution failed with exception
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 946, in acompletion
+    headers, response = await self.make_openai_chat_completion_request(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 338, in async_wrapper
+    result: Final = await func(*args, **kwargs)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 479, in make_openai_chat_completion_request
+    raw_response = await openai_aclient.chat.completions.with_raw_response.create(**data, timeout=timeout)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_legacy_response.py", line 386, in wrapped
+    return cast(LegacyAPIResponse[R], await func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1992, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1777, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.BadRequestError: Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 649, in acompletion
+    response = await _resolve_dispatched_chat_response(init_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 714, in _resolve_dispatched_chat_response
+    return await pending
+           ^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 1006, in acompletion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+ERROR    google_adk.google.adk.workflow._node_runner:_node_runner.py:164 Node execution failed with exception
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 946, in acompletion
+    headers, response = await self.make_openai_chat_completion_request(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 338, in async_wrapper
+    result: Final = await func(*args, **kwargs)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 479, in make_openai_chat_completion_request
+    raw_response = await openai_aclient.chat.completions.with_raw_response.create(**data, timeout=timeout)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_legacy_response.py", line 386, in wrapped
+    return cast(LegacyAPIResponse[R], await func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1992, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1777, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.BadRequestError: Error code: 400 - {'error': {'message': 'unknown provider for model qwen3.6-flash', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 649, in acompletion
+    response = await _resolve_dispatched_chat_response(init_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 714, in _resolve_dispatched_chat_response
+    return await pending
+           ^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 1006, in acompletion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: Error code: 400 - {'error': {'message': 'unknown provider for model qwen3.6-flash', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model qwen3.6-flash
+ERROR    google_adk.google.adk.workflow._node_runner:_node_runner.py:164 Node execution failed with exception
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 946, in acompletion
+    headers, response = await self.make_openai_chat_completion_request(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 338, in async_wrapper
+    result: Final = await func(*args, **kwargs)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 479, in make_openai_chat_completion_request
+    raw_response = await openai_aclient.chat.completions.with_raw_response.create(**data, timeout=timeout)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_legacy_response.py", line 386, in wrapped
+    return cast(LegacyAPIResponse[R], await func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1992, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1777, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.BadRequestError: Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 649, in acompletion
+    response = await _resolve_dispatched_chat_response(init_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 714, in _resolve_dispatched_chat_response
+    return await pending
+           ^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 1006, in acompletion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+ERROR    google_adk.google.adk.workflow._node_runner:_node_runner.py:164 Node execution failed with exception
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 946, in acompletion
+    headers, response = await self.make_openai_chat_completion_request(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 338, in async_wrapper
+    result: Final = await func(*args, **kwargs)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 479, in make_openai_chat_completion_request
+    raw_response = await openai_aclient.chat.completions.with_raw_response.create(**data, timeout=timeout)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_legacy_response.py", line 386, in wrapped
+    return cast(LegacyAPIResponse[R], await func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1992, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1777, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.BadRequestError: Error code: 400 - {'error': {'message': 'unknown provider for model qwen3.6-flash', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 649, in acompletion
+    response = await _resolve_dispatched_chat_response(init_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 714, in _resolve_dispatched_chat_response
+    return await pending
+           ^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 1006, in acompletion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: Error code: 400 - {'error': {'message': 'unknown provider for model qwen3.6-flash', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model qwen3.6-flash
+ERROR    google_adk.google.adk.runners:runners.py:888 Root node g_critical failed.
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+    await root_ctx._run_node_internal(  # pylint: disable=protected-access
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+    return await _dynamic_node_scheduler.run_node_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+    raise DynamicNodeFailError(
+google.adk.workflow._errors.DynamicNodeFailError: Dynamic node g_critical failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+    await task
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+    raise e.error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+WARNING  dialectica.workflow:workflow.py:620 parallel thunk failed: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+ERROR    google_adk.google.adk.runners:runners.py:888 Root node g_broad failed.
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+    await root_ctx._run_node_internal(  # pylint: disable=protected-access
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+    return await _dynamic_node_scheduler.run_node_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+    raise DynamicNodeFailError(
+google.adk.workflow._errors.DynamicNodeFailError: Dynamic node g_broad failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+    await task
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+    raise e.error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model qwen3.6-flash
+WARNING  dialectica.workflow:workflow.py:620 parallel thunk failed: litellm.NotFoundError: OpenAIException - unknown provider for model qwen3.6-flash
+ERROR    google_adk.google.adk.runners:runners.py:888 Root node g_stakeholder_opposition failed.
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+    await root_ctx._run_node_internal(  # pylint: disable=protected-access
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+    return await _dynamic_node_scheduler.run_node_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+    raise DynamicNodeFailError(
+google.adk.workflow._errors.DynamicNodeFailError: Dynamic node g_stakeholder_opposition failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+    await task
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+    raise e.error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+WARNING  dialectica.workflow:workflow.py:620 parallel thunk failed: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+ERROR    google_adk.google.adk.runners:runners.py:888 Root node g_practitioner failed.
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+    await root_ctx._run_node_internal(  # pylint: disable=protected-access
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+    return await _dynamic_node_scheduler.run_node_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+    raise DynamicNodeFailError(
+google.adk.workflow._errors.DynamicNodeFailError: Dynamic node g_practitioner failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+    await task
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+    raise e.error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model qwen3.6-flash
+WARNING  dialectica.workflow:workflow.py:620 parallel thunk failed: litellm.NotFoundError: OpenAIException - unknown provider for model qwen3.6-flash
+ERROR    google_adk.google.adk.workflow._node_runner:_node_runner.py:164 Node execution failed with exception
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 946, in acompletion
+    headers, response = await self.make_openai_chat_completion_request(
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/logging_utils.py", line 338, in async_wrapper
+    result: Final = await func(*args, **kwargs)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 479, in make_openai_chat_completion_request
+    raw_response = await openai_aclient.chat.completions.with_raw_response.create(**data, timeout=timeout)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_legacy_response.py", line 386, in wrapped
+    return cast(LegacyAPIResponse[R], await func(*args, **kwargs))
+                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/resources/chat/completions/completions.py", line 2907, in create
+    return await self._post(
+           ^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1992, in post
+    return await self.request(cast_to, opts, stream=stream, stream_cls=stream_cls)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/openai/_base_client.py", line 1777, in request
+    raise self._make_status_error_from_response(err.response) from None
+openai.BadRequestError: Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 649, in acompletion
+    response = await _resolve_dispatched_chat_response(init_response)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 714, in _resolve_dispatched_chat_response
+    return await pending
+           ^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/llms/openai/openai.py", line 1006, in acompletion
+    raise OpenAIError(
+litellm.llms.openai.common_utils.OpenAIError: Error code: 400 - {'error': {'message': 'unknown provider for model glm-5.2', 'type': 'invalid_request_error', 'code': 'model_not_found', 'param': 'model'}}
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+ERROR    google_adk.google.adk.runners:runners.py:888 Root node tension failed.
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 250, in _drive_root_node
+    await root_ctx._run_node_internal(  # pylint: disable=protected-access
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/context.py", line 515, in _run_node_internal
+    return await _dynamic_node_scheduler.run_node_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_dynamic_node_scheduler.py", line 740, in run_node_internal
+    raise DynamicNodeFailError(
+google.adk.workflow._errors.DynamicNodeFailError: Dynamic node tension failed
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/runners.py", line 877, in _cleanup_root_task
+    await task
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner_utils.py", line 259, in _drive_root_node
+    raise e.error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 138, in run
+    await self._execute_node(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 307, in _execute_node
+    await self._run_node_loop(ctx, node_input)
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_node_runner.py", line 321, in _run_node_loop
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_base_node.py", line 190, in run
+    async for item in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 683, in _run_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/workflow/_llm_agent_wrapper.py", line 494, in run_llm_agent_as_node
+    async for event in run_iter:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 328, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 422, in _run_with_lifecycle
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/base_agent.py", line 392, in _run
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/agents/llm_agent.py", line 632, in _run_async_impl
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 333, in run_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 415, in _run_one_step_async
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 607, in _call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 309, in call_llm_async
+    async for event in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/utils/_runner_utils.py", line 42, in _with_caller_context
+    async for item in a:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_model_call.py", line 273, in _call_llm_with_tracing
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/base_llm_flow.py", line 657, in _run_and_handle_error
+    async for response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 385, in run_and_handle_error
+    raise model_error
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/flows/llm_flows/core/_finalizer.py", line 358, in run_and_handle_error
+    async for llm_response in agen:
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 3883, in generate_content_async
+    response = await self.llm_client.acompletion(**completion_args)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/google/adk/models/lite_llm.py", line 923, in acompletion
+    return await acompletion(
+           ^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/chat_completions/dispatch.py", line 114, in acompletion
+    return await _ADISPATCH.arun(
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/rust_bridge/dispatch.py", line 83, in arun
+    return await python(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 2160, in wrapper_async
+    raise e
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/utils.py", line 1972, in wrapper_async
+    result = await original_function(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/main.py", line 702, in acompletion
+    raise exception_type(
+          ^^^^^^^^^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2700, in exception_type
+    raise e  # it's already mapped
+    ^^^^^^^
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 2461, in exception_type
+    _map_openai_exception(
+  File "/Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/litellm/litellm_core_utils/exception_mapping_utils.py", line 321, in _map_openai_exception
+    raise NotFoundError(
+litellm.exceptions.NotFoundError: litellm.NotFoundError: OpenAIException - unknown provider for model glm-5.2
+=============================== warnings summary ===============================
+tests/test_e2e_access_list_live.py::test_access_list_makes_prior_output_visible_to_a_live_model
+  /Users/FradSer/Developer/FradSer/dialectica/.venv/lib/python3.11/site-packages/pydantic/_internal/_generate_schema.py:1480: UserWarning: Item 'summary' on TypedDict class 'ChatCompletionReasoningItem' is using the `ReadOnly` qualifier. Pydantic will not protect items from any mutation on dictionary instances.
+    warnings.warn(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_e2e_access_list_live.py::test_reflection_recipe_access_list_mode_runs_against_live_models
+=========== 1 failed, 8 passed, 212 deselected, 1 warning in 48.34s ============

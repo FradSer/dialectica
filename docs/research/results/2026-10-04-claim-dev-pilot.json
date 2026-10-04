@@ -1,0 +1,507 @@
+{
+  "protocol": "claim-ablation-v1",
+  "split": "dev",
+  "size": 14,
+  "models": [
+    "openai:gemini-3.5-flash-lite"
+  ],
+  "samples": 2,
+  "repeats": 1,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "portfolio-dev-000",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "single",
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\": [0, 3, 5, 6, 8, 9, 13]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 8, 9, 13]}",
+              "claims": [
+                "Project 0 (reward 60, cost 7) is selected, and its mutually exclusive partners 1, 5, and 5 are handled correctly since 5 is actually selected (wait, 0 and 5 are mutually exclusive, let's verify if 0 and 5 are both present: 0 and 5 cannot both be selected because (0, 5) is a mutually exclusive pair).",
+                "Let us re-verify the constraints: mutually exclusive pairs are (0,1), (0,5), (1,10), (3,8), (4,7), (5,8), (5,9).",
+                "In the proposed solution [0, 3, 5, 6, 8, 9, 13], project 0 and 5 are both present, which violates the mutual exclusion between 0 and 5.",
+                "Let us formulate a correct feasible set: try [0, 3, 4, 6, 8, 9, 13] with total cost: 7 + 9 + 12 + 4 + 23 + 27 + 20 = 102 (exceeds 100).",
+                "Let us check the exact optimal combination satisfying all constraints and total cost <= 100."
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 20.23037500004284,
+        "usage": {
+          "prompt_tokens": 414,
+          "output_tokens": 337,
+          "total_tokens": 751,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "A mutually exclusive pair was selected.",
+      "strict_passed": false,
+      "coverage": false
+    },
+    {
+      "task_id": "portfolio-dev-000",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "consensus",
+      "receipt": {
+        "name": "consensus",
+        "output": {
+          "final_answer": "{\"selected\": [0, 3, 5, 6, 7, 8, 9, 13]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 8, 9, 13]}",
+              "claims": [
+                "The total cost of the selected projects (0, 3, 5, 6, 8, 9, 13) is 7 + 9 + 5 + 4 + 23 + 27 + 20 = 95, which satisfies the budget constraint of at most 100.",
+                "The total reward is 60 + 68 + 59 + 48 + 67 + 76 + 77 = 455, which is maximal among all feasible subsets.",
+                "All mutually exclusive constraints are respected: none of the pairs (0,1), (0,5), (1,10), (3,8), (4,7), (5,8), or (5,9) are simultaneously selected.",
+                "Project 5 is selected with project 9, but the mutually exclusive pair constraint is (5,9), wait, let me check the pairs: (5, 9) is listed as mutually exclusive, so selecting both 5 and 9 is invalid! Let me re-evaluate.",
+                "The correct optimal subset avoiding all conflicts while maximizing reward under cost 100 must be verified thoroughly."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 7, 8, 9, 13]}",
+              "claims": [
+                "Project 0 (reward 60, cost 7) is mutually exclusive with projects 1 and 5, but selecting 0 and 5 together violates the constraint.",
+                "Project 3 (reward 68, cost 9) and Project 8 (reward 67, cost 23) are both included since they do not conflict with each other directly.",
+                "Project 5 (reward 59, cost 5) conflicts with 0, 8, and 9, meaning we must choose the highest-value combination among them.",
+                "Project 13 (reward 77, cost 20) is included as it provides one of the highest rewards per cost ratio without triggering any conflict.",
+                "The total cost of the selected subset {0, 3, 5, 6, 7, 8, 9, 13} is 7 + 9 + 5 + 4 + 21 + 23 + 27 + 20 = 116, wait, total cost must not exceed 100, let me re-evaluate the feasible set maximizing reward within 100 cost."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 7, 8, 9, 13]}",
+              "claims": [
+                "The total cost of the selected subset [0, 3, 5, 6, 7, 8, 9, 13] is exactly 7 + 9 + 5 + 4 + 21 + 23 + 27 + 20 = 116, which violates the budget constraint of 100, meaning this initial subset is invalid.",
+                "Evaluating alternative combinations respecting the budget of 100 and mutual exclusion constraints yields the optimal subset [0, 2, 3, 5, 6, 8, 13] with a total cost of 7 + 28 + 9 + 5 + 4 + 23 + 20 = 96.",
+                "The reward for the subset [0, 2, 3, 5, 6, 8, 13] sums to 60 + 48 + 68 + 59 + 48 + 67 + 77 = 427.",
+                "All mutually exclusive pairs ((0,1), (0,5), (1,10), (3,8), (4,7), (5,8), (5,9)) are strictly avoided in the chosen optimal subset [0, 2, 3, 5, 6, 8, 13].",
+                "No other feasible combination of projects yields a strictly greater total reward without exceeding the cost limit of 100."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 7, 9, 13]}",
+              "claims": [
+                "Project 13 is selected because it yields the highest reward (77) for a moderate cost (20) and violates no mutual exclusivity constraints.",
+                "Project 9 provides a high reward of 76 at cost 27, and although it conflicts with Project 5 in another branch, here we check the inclusion of both 5 and 9 against all constraints.",
+                "Project 0 (reward 60, cost 7) and Project 5 (reward 59, cost 5) are both selected, which is valid since the exclusion pair (0, 5) is not violated by selecting them together (wait, the prompt states (0, 5) is mutually exclusive, so they cannot both be selected). Let's re-verify: mutual exclusions include (0, 5). Thus, project 0 and project 5 cannot both be selected.",
+                "The correct optimal selection adhering strictly to all conflict pairs and the cost limit of 100 achieves a maximum total reward without violating any of the specified exclusions.",
+                "The total cost calculation across the chosen subset sums precisely to a value <= 100 while maximizing the objective reward function."
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 4,
+        "failures": 0,
+        "seconds": 15.795630665961653,
+        "usage": {
+          "prompt_tokens": 1656,
+          "output_tokens": 1264,
+          "total_tokens": 2920,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "The total project cost exceeds capacity.",
+      "strict_passed": false,
+      "coverage": false
+    },
+    {
+      "task_id": "portfolio-dev-000",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "self_refine",
+      "receipt": {
+        "name": "self_refine",
+        "output": {
+          "final_answer": "{\"selected\": [0, 2, 3, 6, 7, 9, 13]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 7, 8, 9, 10, 13]}",
+              "claims": [
+                "Project 0 (reward 60, cost 7) is selected because it has a high reward-to-cost ratio and allows mutually exclusive conflict resolution with projects 1 and 5.",
+                "Project 13 (reward 77, cost 20) is selected as it offers the highest absolute reward and easily satisfies the budget constraints.",
+                "The total cost of the selected subset sum to exactly 99, which satisfies the maximum cost constraint of 100.",
+                "All stated mutually exclusive pairs such as (0, 1), (0, 5), (1, 10), (3, 8), (4, 7), (5, 8), and (5, 9) are fully respected without violating any constraints.",
+                "The total reward achieved by this combination is 493, which represents the globally optimal outcome for the given instance."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 7, 8, 9, 10, 13]}",
+              "claims": [
+                "Project 0 (cost 7) and Project 5 (cost 5) are both selected, which violates the mutually exclusive pair constraint (0, 5).",
+                "Project 5 (cost 5) and Project 8 (cost 23) are both selected, which violates the mutually exclusive pair constraint (5, 8).",
+                "Project 3 (cost 9) and Project 8 (cost 23) are both selected, which violates the mutually exclusive pair constraint (3, 8).",
+                "The proposed subset violates multiple explicit mutually exclusive constraints defined in the problem description.",
+                "A corrected globally optimal subset obeying all exclusion and budget rules must be identified to replace the invalid selection."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 2, 3, 4, 6, 7, 9, 13]}",
+              "claims": [
+                "The total cost of the selected projects {0, 2, 3, 4, 6, 7, 9, 13} is 7 + 28 + 9 + 12 + 4 + 21 + 27 + 20 = 128, which is an error in calculation that must not exceed the budget of 100.",
+                "Let us re-evaluate the feasible combinations ensuring total cost <= 100 and maximizing total reward without breaking exclusion pairs.",
+                "Valid optimal combination: {0, 3, 6, 7, 9, 13} with costs 7 + 9 + 4 + 21 + 27 + 20 = 88 (<= 100).",
+                "Let's check exclusions for {0, 3, 6, 7, 9, 13}: pairs are (0,1), (0,5), (1,10), (3,8), (4,7), (5,8), (5,9). None of these pairs are in the subset.",
+                "Total reward for {0, 3, 6, 7, 9, 13} is 60 + 68 + 48 + 54 + 76 + 77 = 383, which is globally optimal."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 2, 3, 6, 7, 9, 13]}",
+              "claims": [
+                "The cost of the set {0, 2, 3, 6, 7, 9, 13} is 7 + 28 + 9 + 4 + 21 + 27 + 20 = 116, which exceeds the budget of 100, thus making this set invalid.",
+                "Let us evaluate a valid subset: {0, 3, 5, 6, 9, 13}, costs: 7+9+5+4+27+20 = 72.",
+                "Mutually exclusive pairs to avoid: (0,1), (0,5), (1,10), (3,8), (4,7), (5,8), (5,9). Set {0,3,5,6,9,13} contains (0,5) and (5,9), so it is invalid.",
+                "Consider the corrected feasible subset {0, 3, 6, 7, 9, 13} with total cost 7 + 9 + 4 + 21 + 27 + 20 = 88 <= 100.",
+                "The subset {0, 3, 6, 7, 9, 13} violates none of the mutually exclusive pairs and yields a maximum total reward of 383."
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 4,
+        "failures": 0,
+        "seconds": 14.273042916087434,
+        "usage": {
+          "prompt_tokens": 2494,
+          "output_tokens": 1164,
+          "total_tokens": 3658,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "The total project cost exceeds capacity.",
+      "strict_passed": false,
+      "coverage": false
+    },
+    {
+      "task_id": "portfolio-dev-000",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "claims",
+      "receipt": {
+        "name": "claims",
+        "output": {
+          "final_answer": "{\"selected\": [0, 3, 5, 6, 8, 9, 13]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 8, 9, 13]}",
+              "claims": [
+                "Project 0 (reward 60, cost 7) is selected despite conflicts with 1 and 5 because its inclusion combined with high-value projects yields a maximal total reward.",
+                "Mutually exclusive pairs such as (0,1), (0,5), (3,8), (4,7), (5,8), (5,9), and (1,10) are strictly respected in the final selection.",
+                "The total cost of the selected projects (0, 3, 5, 6, 8, 9, 13) is exactly 7 + 9 + 5 + 4 + 23 + 27 + 20 = 95, which satisfies the budget constraint of 100.",
+                "The total reward of the selected subset is 60 + 68 + 59 + 48 + 67 + 76 + 77 = 455, which is the globally optimal value achievable under all constraints.",
+                "Project 13 provides the highest reward-to-cost efficiency among heavy projects and is successfully included without violating any exclusivity constraints."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 3, 5, 6, 7, 8, 9, 10, 13]}",
+              "claims": [
+                "Project 0 (reward 60, cost 7) is selected, which requires excluding projects 1 and 5 due to mutual exclusivity constraints, but wait, project 5 is in the proposed solution which violates the constraint (0, 5). Let me re-evaluate.",
+                "Checking constraints: (0, 5) means 0 and 5 cannot both be selected. My answer includes both 0 and 5, which violates mutual exclusivity.",
+                "Recalculating valid selection without violating (0,5): if we drop 0 and keep 5, or drop 5 and keep 0.",
+                "Let's test subset excluding conflicts: (0, 1), (0, 5), (1, 10), (3, 8), (4, 7), (5, 8), (5, 9).",
+                "The final optimal subset satisfying all constraints and cost <= 100 must be rigorously verified for maximum reward."
+              ]
+            }
+          ],
+          "verdicts": [
+            {
+              "survived": [
+                true,
+                true,
+                true,
+                true,
+                true
+              ]
+            },
+            {
+              "survived": [
+                false,
+                true,
+                true,
+                true,
+                true
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 4,
+        "failures": 0,
+        "seconds": 11.391282708151266,
+        "usage": {
+          "prompt_tokens": 2181,
+          "output_tokens": 625,
+          "total_tokens": 2806,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "A mutually exclusive pair was selected.",
+      "strict_passed": false,
+      "coverage": false,
+      "same_candidate_consensus_passed": false
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "single",
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\": [0, 1, 2, 5, 12, 13]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 1, 2, 5, 12, 13]}",
+              "claims": [
+                "The total cost of the selected subset is 66, which strictly respects the budget limit of 89.",
+                "The total reward of the selected subset is 338, which is globally optimal under all conflict constraints.",
+                "None of the mutually exclusive pairs ((2, 7), (3, 10), (4, 9), (7, 9), (9, 11), (11, 13), (12, 13)) are violated by selecting projects {0, 1, 2, 5, 12, 13}.",
+                "Project 13 is included yielding a reward of 79 with a cost of 9 without conflicting with project 12 since project 12 is selected and 12-13 is a conflict, wait let me check: 12 and 13 is a conflict pair, so project 12 and 13 cannot both be selected. Let me re-evaluate the optimal subset: {0, 1, 2, 3, 5, 13} has cost 16+11+9+9+9+9 = 63 and reward 80+84+32+83+35+79 = 392, checking conflicts for {0,1,2,3,5,13}: pairs are (2,7), (3,10), (4,9), (7,9), (9,11), (11,13), (12,13) - none of these pairs are in the set except none. Wait, let's verify {0, 1, 2, 3, 5, 13} cost: 16+11+9+9+9+9 = 63 <= 89, reward: 80+84+32+83+35+79 = 392.",
+                "The optimal subset of projects maximizing total reward under the cost limit of 89 and all mutual exclusion constraints is {0, 1, 2, 3, 5, 13}."
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 4.216890708077699,
+        "usage": {
+          "prompt_tokens": 417,
+          "output_tokens": 500,
+          "total_tokens": 917,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "A mutually exclusive pair was selected.",
+      "strict_passed": false,
+      "coverage": false
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "consensus",
+      "receipt": {
+        "name": "consensus",
+        "output": {
+          "final_answer": "{\"selected\": [0, 1, 2, 5, 12, 13]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 1, 2, 5, 12, 13]}",
+              "claims": [
+                "Project 0 provides the highest reward-to-cost efficiency among high-value projects and must be included in the optimal set.",
+                "Project 1 is included due to its exceptionally high reward of 84 at a modest cost of 11.",
+                "Mutually exclusive constraints such as (2, 7), (3, 10), (4, 9), (7, 9), (9, 11), (11, 13), and (12, 13) are strictly satisfied.",
+                "The total cost of the selected projects (0, 1, 2, 5, 12, 13) is exactly 86, which does not exceed the budget limit of 89.",
+                "The total reward achieved by this selection is 394, which is globally maximal for the given constraints."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 1, 2, 3, 5, 6, 8, 12, 13]}",
+              "claims": [
+                "Project 0 (reward 80, cost 16) is highly cost-effective and must be included in the optimal subset.",
+                "Project 1 (reward 84, cost 11) offers the highest individual reward-to-cost ratio and is included.",
+                "Project 13 (reward 79, cost 9) and Project 3 (reward 83, cost 9) provide massive rewards at very low costs and are selected.",
+                "Mutually exclusive pair constraints (like (3,10), (2,7), (7,9), (9,11), (11,13), (12,13)) are fully respected, ensuring no forbidden pairs are chosen.",
+                "The total cost of the selected projects (0, 1, 2, 3, 5, 6, 8, 12, 13) equals exactly 89, perfectly satisfying the cost ceiling constraint while maximizing the total reward."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 1, 2, 5, 12, 13]}",
+              "claims": [
+                "The total cost of the selected projects (0, 1, 2, 5, 12, 13) is 16 + 11 + 9 + 9 + 12 + 9 = 56, which does not exceed the budget limit of 89.",
+                "The total reward is 80 + 84 + 32 + 35 + 62 + 79 = 372, which is the maximum possible under the constraints.",
+                "No mutually exclusive pairs are violated because the selected set only contains project 2 from the pair (2, 7), and none of the other constrained pairs intersect.",
+                "All project selections are unique and within the zero-based ID range of 0 to 13.",
+                "Excluding high-cost inefficient projects ensures the optimal balance between cost and reward within the 89 budget constraint."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 1, 2, 3, 5, 8, 12, 13]}",
+              "claims": [
+                "The total cost of the selected projects (0, 1, 2, 3, 5, 8, 12, 13) is 16 + 11 + 9 + 9 + 9 + 27 + 12 + 9 = 102, wait, let me recalculate: 16+11=27; +9=36; +9=45; +9=54; +27=81; +12=93; +9=102, which exceeds 89. Let's fix the subset.",
+                "Correct optimal subset within budget 89: Projects 0, 1, 3, 5, 12, 13 with costs 16 + 11 + 9 + 9 + 12 + 9 = 66 (<= 89) and total rewards 80 + 84 + 83 + 35 + 62 + 79 = 423.",
+                "Checking exclusivity constraints for {0, 1, 3, 5, 12, 13}: pairs involved are none of ((2, 7), (3, 10), (4, 9), (7, 9), (9, 11), (11, 13), (12, 13)) except 12 and 13 are both included? Wait, (12, 13) is a mutually exclusive pair! Both 12 and 13 cannot be selected together.",
+                "Let's replace project 12 with project 2 and 5? No, let's test {0, 1, 2, 3, 5, 8, 13}: costs 16+11+9+9+9+27+9 = 90 (exceeds 89 by 1).",
+                "Let's test {0, 1, 3, 5, 8, 13}: costs 16+11+9+9+27+9 = 81 (<= 89), rewards 80+84+83+35+54+79 = 415. No exclusivity violations. This is optimal."
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 4,
+        "failures": 0,
+        "seconds": 21.217738833045587,
+        "usage": {
+          "prompt_tokens": 1668,
+          "output_tokens": 1273,
+          "total_tokens": 2941,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "A mutually exclusive pair was selected.",
+      "strict_passed": false,
+      "coverage": false
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "self_refine",
+      "receipt": {
+        "name": "self_refine",
+        "output": {
+          "final_answer": "{\"selected\": [0, 1, 2, 3, 5, 8, 12]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 1, 2, 3, 5, 8, 12, 13]}",
+              "claims": [
+                "The total cost of the selected subset [0, 1, 2, 3, 5, 8, 12, 13] is exactly 16+11+9+9+9+27+12+9 = 102, wait, let me check the cost constraint limit: total cost must not exceed 89.",
+                "Let me re-evaluate a valid optimal subset under cost 89: subset [0, 1, 3, 5, 12, 13] has costs 16 + 11 + 9 + 9 + 12 + 9 = 66, which is <= 89.",
+                "Checking mutual exclusions for [0, 1, 3, 5, 12, 13]: pairs are (2,7), (3,10), (4,9), (7,9), (9,11), (11,13), (12,13). Project 13 and 12 are both in this list, which violates the mutual exclusion (12, 13)!",
+                "Correcting the selection to avoid (12,13) conflict: let's include project 13 and drop 12. Subset [0, 1, 3, 5, 8, 13] has cost 16+11+9+9+27+9 = 81 <= 89.",
+                "The total reward for [0, 1, 3, 5, 8, 13] is 80 + 84 + 83 + 35 + 54 + 79 = 415, and no mutually exclusive pairs are violated."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 1, 3, 5, 8, 13]}",
+              "claims": [
+                "The total cost for the selected subset [0, 1, 3, 5, 8, 13] is 16 + 11 + 9 + 9 + 27 + 9 = 81, which satisfies the maximum cost limit of 89.",
+                "The mutual exclusion constraint between project 12 and project 13 is satisfied because project 12 is excluded.",
+                "None of the other mutually exclusive pairs ((2, 7), (3, 10), (4, 9), (7, 9), (9, 11), (11, 13)) are violated by the selection [0, 1, 3, 5, 8, 13].",
+                "The total reward achieved by this selection is 80 + 84 + 83 + 35 + 54 + 79 = 415.",
+                "No other feasible combination of higher reward can be formed under the 89 cost limit and conflict rules."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 1, 2, 3, 5, 8, 12]}",
+              "claims": [
+                "The total cost for the subset [0, 1, 2, 3, 5, 8, 12] is 16 + 11 + 9 + 9 + 9 + 27 + 12 = 83, which respects the budget limit of 89.",
+                "The mutual exclusion constraint for pair (2, 7) is respected since project 7 is not selected.",
+                "The mutual exclusion constraint for pair (3, 10) is respected since project 10 is not selected.",
+                "The total reward generated by the selection [0, 1, 2, 3, 5, 8, 12] is 80 + 84 + 32 + 83 + 35 + 54 + 62 = 430.",
+                "All other mutual exclusion pairs are naturally satisfied as neither conflicting project is selected simultaneously."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 1, 2, 3, 5, 8, 12]}",
+              "claims": [
+                "The total cost of the selected projects (0, 1, 2, 3, 5, 8, 12) is 83, which does not exceed the maximum allowed cost of 89.",
+                "No mutually exclusive pairs among ((2, 7), (3, 10), (4, 9), (7, 9), (9, 11), (11, 13), (12, 13)) are violated by the selection.",
+                "The total reward obtained from the selected subset is 430, which is higher than or equal to any other feasible combination.",
+                "Each project ID in the selected subset is unique and chosen from the valid set of 0 through 13.",
+                "All individual project costs and rewards correctly correspond to the problem definition parameters."
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 4,
+        "failures": 0,
+        "seconds": 17.043122957926244,
+        "usage": {
+          "prompt_tokens": 2665,
+          "output_tokens": 1177,
+          "total_tokens": 3842,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "The total project cost exceeds capacity.",
+      "strict_passed": false,
+      "coverage": false
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "model": "openai:gemini-3.5-flash-lite",
+      "repeat": 0,
+      "arm": "claims",
+      "receipt": {
+        "name": "claims",
+        "output": {
+          "final_answer": "{\"selected\": [0, 1, 2, 3, 5, 6, 8, 12, 13]}",
+          "candidates": [
+            {
+              "answer": "{\"selected\": [0, 1, 2, 3, 5, 6, 8, 12, 13]}",
+              "claims": [
+                "Project 0 (reward 80, cost 16) is highly cost-effective and included in the optimal subset.",
+                "Project 1 (reward 84, cost 11) provides a high reward-to-cost ratio and is selected.",
+                "The total cost constraint of 89 is strictly respected by the chosen subset summing to a valid cost.",
+                "All mutually exclusive constraints, such as avoiding both 2 and 7 or 3 and 10, are fully satisfied.",
+                "The combination of selected projects maximizes the cumulative reward to the highest possible global optimum."
+              ]
+            },
+            {
+              "answer": "{\"selected\": [0, 1, 2, 3, 5, 12, 13]}",
+              "claims": [
+                "Project 0 (reward 80, cost 16) is highly cost-effective and must be included in the optimal set.",
+                "Project 1 (reward 84, cost 11) offers the highest reward-to-cost ratio and is included.",
+                "Projects 3, 12, and 13 provide high rewards (83, 62, 79 respectively) with low costs (9, 12, 9), fitting well within the budget limit of 89.",
+                "Project 2 (reward 32, cost 9) and Project 5 (reward 35, cost 9) are included to maximize total reward without violating the cost constraint of 89.",
+                "All mutually exclusive constraints (such as excluding both 2 and 7, 3 and 10, etc.) are strictly respected, and the total cost of the chosen subset [0, 1, 2, 3, 5, 12, 13] is exactly 16+11+9+9+9+12+9 = 75, which is under 89."
+              ]
+            }
+          ],
+          "verdicts": [
+            {
+              "survived": [
+                true,
+                true,
+                true,
+                true,
+                true
+              ]
+            },
+            {
+              "survived": [
+                true,
+                true,
+                true,
+                false,
+                false
+              ]
+            }
+          ]
+        },
+        "error": null,
+        "calls": 4,
+        "failures": 0,
+        "seconds": 14.800475958036259,
+        "usage": {
+          "prompt_tokens": 2114,
+          "output_tokens": 512,
+          "total_tokens": 2626,
+          "cached_tokens": 0,
+          "unknown_calls": 0
+        }
+      },
+      "passed": false,
+      "feedback": "The total project cost exceeds capacity.",
+      "strict_passed": false,
+      "coverage": false,
+      "same_candidate_consensus_passed": false
+    }
+  ]
+}
