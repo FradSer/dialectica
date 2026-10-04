@@ -73,6 +73,7 @@ async def test_cached_producer_restores_context_and_changed_tail(tmp_path):
         AuthenticationError("invalid key", "openai", "test"),
         NotFoundError("retired model", "openai", "test"),
         RateLimitError("Coding Plan expired error 1309", "openai", "test"),
+        RateLimitError("您的GLM Coding Plan套餐已到期，暂无法使用", "openai", "test"),
         RateLimitError("insufficient_quota", "openai", "test"),
     ],
 )

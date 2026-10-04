@@ -86,7 +86,10 @@ def run_repair(ctx):
             models=ctx["models"],
         )
         fake, _ = make_ensemble_fake(ctx["model_outputs"])
-        with patch("dialectica.agent_runtime.run_agent", fake):
+        with (
+            patch("dialectica.agent_runtime.run_agent", fake),
+            patch("dialectica.workflow._parse_model_config", return_value="offline"),
+        ):
             return asyncio.run(engine.run())
 
     engine = make_engine(ctx)

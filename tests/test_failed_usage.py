@@ -39,6 +39,7 @@ async def test_failed_tool_turn_is_metered_and_journaled(tmp_path):
 
     async def script():
         holder["id"] = wf.run_id()
+        holder["budget"] = wf.budget()
         return await wf.agent("lookup", tools=[lookup])
 
     with (
@@ -50,9 +51,13 @@ async def test_failed_tool_turn_is_metered_and_journaled(tmp_path):
     ):
         await Workflow(script, journal_dir=tmp_path).run()
     assert caught.value.dialectica_usage.total_tokens == 45
+    assert caught.value.dialectica_usage.model_calls == 3
+    assert holder["budget"].usage().model_calls == 3
+    assert holder["budget"].spent_calls() == 1
     journal = RunJournal.load(holder["id"], tmp_path)
     assert journal.entries[0].result_kind == "error"
     assert journal.entries[0].usage.total_tokens == 45
+    assert journal.entries[0].usage.model_calls == 3
     assert journal.lookup(0, journal.entries[0].cache_key) is None
 
 
@@ -68,6 +73,7 @@ async def test_failure_before_response_reports_unknown_usage():
     with pytest.raises(ConnectionError) as caught:
         await agent_runtime.run_agent(agent, "go", max_attempts=1)
     assert caught.value.dialectica_usage.unknown_calls == 1
+    assert caught.value.dialectica_usage.model_calls == 1
     assert caught.value.dialectica_usage.total_tokens == 0
 
 

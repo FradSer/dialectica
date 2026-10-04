@@ -12,7 +12,17 @@ import asyncio
 import json
 from unittest.mock import patch
 
+import pytest
+
 from tests.helpers import make_ensemble_fake
+
+
+@pytest.fixture(autouse=True)
+def offline_model_resolution(monkeypatch):
+    """These control-flow smokes use fake model labels and no provider credentials."""
+    monkeypatch.setattr(
+        "dialectica.workflow._parse_model_config", lambda model: "offline"
+    )
 
 
 def test_agentic_pattern_runs_a_tool_using_stage():

@@ -246,5 +246,7 @@ async def test_live_response_failure_before_event_keeps_usage(tmp_path, recover)
     journal = RunJournal.load(holder["id"], tmp_path)
     assert journal.entries[0].usage.total_tokens == sum(totals)
     assert journal.entries[0].usage.unknown_calls == 0
+    assert journal.entries[0].usage.model_calls == len(totals)
     assert journal.entries[0].result_kind == ("text" if recover else "error")
     assert budget_holder["budget"].usage().total_tokens == sum(totals)
+    assert budget_holder["budget"].usage().model_calls == len(totals)
