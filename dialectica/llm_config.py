@@ -23,7 +23,8 @@ def _log_credential_warnings(model_name: str) -> None:
             "GOOGLE_CLOUD_LOCATION"
         ):
             logger.warning(
-                "Using Vertex AI with '%s', but GOOGLE_CLOUD_PROJECT or GOOGLE_CLOUD_LOCATION not set.",
+                "Using Vertex AI with '%s', but GOOGLE_CLOUD_PROJECT or "
+                "GOOGLE_CLOUD_LOCATION not set.",
                 model_name,
             )
     else:

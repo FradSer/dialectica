@@ -93,7 +93,13 @@ from .workflow_journal import (
     deserialize_agent_result,
     serialize_agent_result,
 )
-from .workflow_registry import get_workflow as _get_registered_workflow
+from .workflow_registry import (
+    get_workflow as _get_registered_workflow,
+)
+from .workflow_registry import (
+    list_workflows,
+    register_workflow,
+)
 from .workflow_worktree import WorkflowWorktreeError, worktree_path, worktree_session
 
 logger = logging.getLogger(__name__)
@@ -240,7 +246,7 @@ def _to_identifier(label: str) -> str:
     ``"angle:skeptical"``); the label is for logs, so sanitize it here.
     """
     sanitized = "".join(ch if (ch.isalnum() or ch == "_") else "_" for ch in label)
-    if not sanitized or not sanitized[0].isalpha() and sanitized[0] != "_":
+    if not sanitized or (not sanitized[0].isalpha() and sanitized[0] != "_"):
         sanitized = "_" + sanitized
     return sanitized
 
@@ -616,7 +622,7 @@ async def parallel(thunks: Sequence[Callable[[], Awaitable[Any]]]) -> list[Any]:
     async def _run(thunk: Callable[[], Awaitable[Any]]) -> Any:
         try:
             return await thunk()
-        except Exception as e:  # noqa: BLE001 —Workflow contract: failure -> null
+        except Exception as e:  # noqa: BLE001 — workflow contract: failure -> null
             logger.warning("parallel thunk failed: %s", e)
             return None
 
@@ -778,15 +784,13 @@ __all__ = [
     "args",
     "budget",
     "in_workflow",
+    "list_workflows",
     "log",
     "parallel",
     "phase",
     "pipeline",
+    "register_workflow",
     "run_id",
     "workflow",
     "worktree_path",
 ]
-
-from .workflow_registry import list_workflows, register_workflow
-
-__all__ += ["list_workflows", "register_workflow"]

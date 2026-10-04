@@ -39,10 +39,14 @@ Your task:
 
 # Named subagent types mirroring Claude Code Workflow's agent_type option.
 AGENT_TYPE_PRESETS: dict[str, str] = {
-    "Explore": """You are in read-only exploration mode.
-- Search, read, and map the codebase or data — do not edit files or run mutating commands.
-- Report findings concretely: paths, symbols, and evidence.
-- Stop when you have enough context to answer the task; do not speculate beyond what you observed.""",
+    "Explore": (
+        "You are in read-only exploration mode.\n"
+        "- Search, read, and map the codebase or data — do not edit files or run "
+        "mutating commands.\n"
+        "- Report findings concretely: paths, symbols, and evidence.\n"
+        "- Stop when you have enough context to answer the task; do not speculate "
+        "beyond what you observed."
+    ),
 }
 
 

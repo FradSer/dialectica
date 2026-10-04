@@ -39,19 +39,23 @@ logger = logging.getLogger(__name__)
 # trace) — empty when it passed.
 Verifier = Callable[[str], tuple[bool, str]]
 
-SOLVE_PROMPT = """Solve the following problem. Reason it through, then provide your COMPLETE solution.{format_hint}
+SOLVE_PROMPT = (
+    "Solve the following problem. Reason it through, then provide your "
+    "COMPLETE solution.{format_hint}\n\n{problem}"
+)
 
-{problem}"""
-
-REPAIR_PROMPT = """Your solution did NOT pass verification. Below is every previous attempt and the EXACT failure each produced — use the full history so you do not repeat a fix that already failed, and do not restart from scratch unless the whole approach is wrong.
-
-**Problem:**
-{problem}
-
-**Previous attempts and their verifier failures (ground truth):**
-{history_block}
-
-Diagnose what specifically failed — and, if earlier fixes did not work, why — then provide your COMPLETE corrected solution.{format_hint}"""
+REPAIR_PROMPT = (
+    "Your solution did NOT pass verification. Below is every previous attempt and the "
+    "EXACT failure each produced — use the full history so you do not repeat a fix "
+    "that already failed, and do not restart from scratch unless the whole approach "
+    "is wrong.\n\n"
+    "**Problem:**\n"
+    "{problem}\n\n"
+    "**Previous attempts and their verifier failures (ground truth):**\n"
+    "{history_block}\n\n"
+    "Diagnose what specifically failed — and, if earlier fixes did not work, why — "
+    "then provide your COMPLETE corrected solution.{format_hint}"
+)
 
 
 class IterativeRepairEngine:
