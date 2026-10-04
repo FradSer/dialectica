@@ -77,14 +77,16 @@ class SelfRefineEngine:
                 if answers:
                     context = (
                         f"\nPREVIOUS ANSWER:\n{answers[-1]}\n"
-                        "Independently check every constraint, logic step, and calculation. "
-                        "Correct any flaw found and retain a correct answer."
+                        "Independently check every constraint, logic step, "
+                        "and calculation. Correct any flaw found and retain a "
+                        "correct answer."
                     )
                 model = self.models[step % len(self.models)]
                 answer = await wf.agent(
                     self.problem
                     + context
-                    + "\nSolve carefully and return your complete answer in the required format.",
+                    + "\nSolve carefully and return your complete answer in the "
+                    "required format.",
                     model=model,
                     label=f"self_refine-{step}",
                     sees=[],
