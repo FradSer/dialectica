@@ -1,0 +1,153 @@
+{
+  "schema": "experiment-predeclaration-v1",
+  "created_at": "2026-10-04T06:39:32.960463+00:00",
+  "configuration": {
+    "protocol": "selection-study-v1",
+    "split": "dev",
+    "count": 8,
+    "family": "portfolio",
+    "difficulty": 8,
+    "models": [
+      "openai:gemini-3.5-flash-lite"
+    ],
+    "steps": 8,
+    "repeats": 2,
+    "llm_pick": true,
+    "rules": [
+      "first",
+      "last",
+      "plurality",
+      "convergence",
+      "checker",
+      "llm_pick"
+    ],
+    "allowance_unit": "workflow_agent_steps",
+    "token_parity": false,
+    "dollar_parity": false,
+    "oracle_access": "evaluation only"
+  },
+  "tasks": [
+    {
+      "task_id": "portfolio-dev-000",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 49. Mutually exclusive pairs (never select both): ((0, 2), (0, 7), (2, 5), (2, 7)).\nProjects (zero-based IDs):\n0: reward=60, cost=18\n1: reward=30, cost=26\n2: reward=48, cost=20\n3: reward=68, cost=13\n4: reward=30, cost=7\n5: reward=59, cost=12\n6: reward=48, cost=21\n7: reward=54, cost=7\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    },
+    {
+      "task_id": "portfolio-dev-001",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 59. Mutually exclusive pairs (never select both): ((2, 5), (2, 6), (3, 5), (6, 7)).\nProjects (zero-based IDs):\n0: reward=69, cost=11\n1: reward=50, cost=21\n2: reward=87, cost=21\n3: reward=15, cost=22\n4: reward=22, cost=9\n5: reward=75, cost=29\n6: reward=54, cost=22\n7: reward=21, cost=14\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    },
+    {
+      "task_id": "portfolio-dev-002",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 62. Mutually exclusive pairs (never select both): ((1, 4), (2, 6), (4, 6), (4, 7)).\nProjects (zero-based IDs):\n0: reward=10, cost=22\n1: reward=21, cost=9\n2: reward=62, cost=27\n3: reward=79, cost=9\n4: reward=60, cost=27\n5: reward=37, cost=24\n6: reward=29, cost=20\n7: reward=31, cost=19\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    },
+    {
+      "task_id": "portfolio-dev-003",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 53. Mutually exclusive pairs (never select both): ((0, 1), (2, 6), (3, 4), (5, 7)).\nProjects (zero-based IDs):\n0: reward=66, cost=24\n1: reward=88, cost=4\n2: reward=39, cost=7\n3: reward=85, cost=8\n4: reward=88, cost=21\n5: reward=73, cost=21\n6: reward=26, cost=25\n7: reward=30, cost=24\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    },
+    {
+      "task_id": "portfolio-dev-004",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 47. Mutually exclusive pairs (never select both): ((1, 2), (1, 6), (2, 6), (3, 5)).\nProjects (zero-based IDs):\n0: reward=35, cost=18\n1: reward=73, cost=22\n2: reward=62, cost=26\n3: reward=84, cost=15\n4: reward=40, cost=6\n5: reward=32, cost=23\n6: reward=63, cost=4\n7: reward=26, cost=4\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    },
+    {
+      "task_id": "portfolio-dev-005",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 45. Mutually exclusive pairs (never select both): ((0, 5), (0, 6), (1, 5), (6, 7)).\nProjects (zero-based IDs):\n0: reward=9, cost=14\n1: reward=34, cost=10\n2: reward=47, cost=8\n3: reward=84, cost=25\n4: reward=52, cost=15\n5: reward=47, cost=7\n6: reward=64, cost=15\n7: reward=24, cost=19\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    },
+    {
+      "task_id": "portfolio-dev-006",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 45. Mutually exclusive pairs (never select both): ((1, 3), (1, 4), (2, 4), (3, 7)).\nProjects (zero-based IDs):\n0: reward=58, cost=12\n1: reward=35, cost=20\n2: reward=18, cost=7\n3: reward=14, cost=25\n4: reward=38, cost=4\n5: reward=29, cost=19\n6: reward=20, cost=15\n7: reward=79, cost=11\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    },
+    {
+      "task_id": "portfolio-dev-007",
+      "statement": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 60. Mutually exclusive pairs (never select both): ((0, 4), (2, 3), (4, 7), (6, 7)).\nProjects (zero-based IDs):\n0: reward=25, cost=21\n1: reward=60, cost=23\n2: reward=46, cost=12\n3: reward=85, cost=23\n4: reward=46, cost=25\n5: reward=26, cost=12\n6: reward=66, cost=21\n7: reward=87, cost=13\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted."
+    }
+  ],
+  "source_digests": {
+    "dialectica/__init__.py": "67be7770df08d032d43bb934a9bea4673a414c2384d3ea11de1e1bf73535c790",
+    "dialectica/adk_config.py": "494cb0017fa3d1a36e86ce70cd05b6b9725e11ec68d9ad338a76a82d220e0eb7",
+    "dialectica/agent_factory.py": "c942479e969b581180951bb39b8a9e67e3d1bd0724e69bc3b153989265501fab",
+    "dialectica/agent_runtime.py": "3395c5b1cc2edd15c062e3074264731c705b16c87f6adaacb65bfbea3936c988",
+    "dialectica/json_repair.py": "1c1a66c03d48eb764b1ecf506f3425713da67849de428327f387c295d768ce0f",
+    "dialectica/llm_config.py": "0a87c04584d85ea8c34deba1195f7a4213f49c14557535ac9dac892dc2b0e7f3",
+    "dialectica/repair.py": "b13de4ee39064ed86a79324674967898f3c281b4fe3b1ecf05ac4d3f5007639c",
+    "dialectica/workflow.py": "3528f80edbab58ffffe76a510ec0d647c5810f60478e54c6bf578098efd0de84",
+    "dialectica/workflow_journal.py": "0ef852d18bfcc73140900f910fd052f3ac935331151e194e255e0b8f60eac86a",
+    "dialectica/workflow_registry.py": "4dd067ec65c2a2c55ec6b4bd413ac389fd6d9e5f16b73678d717ac9232abdb4b",
+    "dialectica/workflow_worktree.py": "73561a8df6080202c207944f97a83ad38b1cb3ef420649bacf55df048994afec",
+    "evals/__init__.py": "eb99bf21216c1b66d153a1835ced743e55ac4a01df2a8565e5dad5c86d1b2ca2",
+    "evals/baseline.py": "33ff6de5f19dfbe92c8b170a235f62fcb07e14f1ab05519c5071f529ae972610",
+    "evals/claim_ablation.py": "3cbcb3543251f6dda4e5ddd4ce24f19809f2750cd4cb0bb3074da4357400aa54",
+    "evals/evidence_ablation.py": "ab1d39118a3f534c75e8aa410d95254b91fc480af49fe56fb2729e059f5688a5",
+    "evals/evidence_analysis.py": "982098c620ed17398b491661300a2313eefa7f843e028918b3a73185b58d9fec",
+    "evals/evidence_eval.py": "cc3b51928aa320fca607acecb6771a546a04f13fc161119ee46dd9fb8d7597a2",
+    "evals/evidence_tasks.py": "4153369fe12ba330fad308cfbf54531c2b004eedd17847b534b69e3f00718d47",
+    "evals/experiment_protocol.py": "a207fe1015b049b2f1ebc4c9b173989729bc27b9e7fb57db5bf42571fe8fd311",
+    "evals/harness.py": "cc7a76c23760495eccabdec01576e629ae24914ba32d5fc2442a0d3a38d90fad",
+    "evals/judge.py": "1970f36fd688d4aff57cc7553a8c5bf5f2070dc919fb0fac6ae8d7321607eebb",
+    "evals/measurement.py": "f8647ec0e8971e4cead7f3ef0bee00b36f65563ed6bcecc52a6dd8fdb36966cd",
+    "evals/meta_ablation.py": "b45656a06db186eb7244920328c8e7411684fc84de51614044470d8f67f57676",
+    "evals/meta_problems.py": "bab0e58db32eb7703f44cd8f6292d7eb86430966e58461c2ea24d756dc122bf8",
+    "evals/objective_analysis.py": "3332c44336f5cd13e856eebd75dab751cc42d24fd6b1ed338b0861142958f8c0",
+    "evals/problems.py": "60ac737979265437086d24d569f64cea22d5079d771b56552d8071fcb87bb882",
+    "evals/quality_workflow_ablation.py": "2a5619f7d971d9954db4749a0a548691e44b31473ba4c16c7c7f38a44abed2e4",
+    "evals/reflection_ablation.py": "f0759b425683cf93358f9c756c96a23cbddc175a4a16cfbe7bea9ac4bea90673",
+    "evals/research_ablation.py": "301d3876bc42ba7fbb25d6e8bf66111574de0446445d6a701265a96bbd24920a",
+    "evals/research_campaign.py": "e4917dc3cd6a68b7d304a29832d263de43ef870efe70a803c4fecd5d36d63dd5",
+    "evals/research_tasks.py": "f2d90a56f13abd15af77fa667ede9b164f6797043821e80298510b49b1d49eec",
+    "evals/selection_rules.py": "775002fc9a11df551c1c4014a90991109d096c9d6fc0433aa1bb65da1d73a4a7",
+    "evals/selection_study.py": "ef5a224084f41980dc8dedfc5e7a75b8ec48930b734fbb2c28a25c7ca29798cc",
+    "evals/workflow_ablation.py": "31da10cfe4cba2d78e2eb70ad3cfcdae6ec1cff6ec389709a4f6811d15af57f2",
+    "examples/patterns/__init__.py": "e505a8b4b6d31a5af933f6cc83a1d51f3e0aa92849d87ed80e7599c1905d9c6b",
+    "examples/patterns/_scoring.py": "ad2fedb0507ad3186fdd8a85252414b4b52ed3cec0d1e2817cce32a23c5c4d68",
+    "examples/patterns/agentic_pattern.py": "248d2e624db417b1fea53b3ab52a73f2ffbab32deb1ca92aa0cc2360256e3849",
+    "examples/patterns/claim_falsification_pattern.py": "f198bb8487f12e6231f0304ad5da3d34c85804c149bebf41255dd6292a77dcc7",
+    "examples/patterns/dialectic_pattern.py": "c3c456008b04eb1b31908e0c360b52d65d5224dddfab629eef68292dfeab283e",
+    "examples/patterns/ensemble_pattern.py": "cd21a0e53993101ed221b6b8a4048fb8e50adba418c1940bd1be87e805d327ca",
+    "examples/patterns/meta_reasoning_pattern.py": "8f62afbf4da7007f3e7b44c3aeb180472649d2395532cd984cec57ad7477fc76",
+    "examples/patterns/quality_workflow_pattern.py": "7638e4858046b4a6cfd313c0ea81b31402ec1f8c7b71ecd7486b95c87f6f15a5",
+    "examples/patterns/reflection_pattern.py": "98475897ff9edde0fa4c57f9945e74418636f29ffa98b6f3ab7180f5fc56f2d2",
+    "examples/patterns/tot_gan_pattern.py": "8aaa8e07eb6c23b140a48f51f19562a57369d6aed44f3d948d09d10335ce9e55",
+    "pyproject.toml": "71518183c8763a85d4b8c0ef32b8abecd115afa3ffd69e2d4a5dc016f6527e5f",
+    "uv.lock": "1c25fe22e36af014edc139e2a8c8099fb277c7fd2ba9cb0301935cea405513b5"
+  },
+  "dependencies": {
+    "google-adk": "2.11.0",
+    "litellm": "1.103.2",
+    "pydantic": "2.13.5"
+  },
+  "runtime_flags": {
+    "DIALECTICA_DISABLE_THINKING": null,
+    "DIALECTICA_CONTEXT_CACHE": null,
+    "DIALECTICA_WORKFLOW_CONCURRENCY": "4",
+    "LITELLM_LOCAL_MODEL_COST_MAP": null
+  },
+  "analysis_rules": {
+    "objective": {
+      "method": "objective-analysis-v1",
+      "baseline": "single",
+      "bootstrap_unit": "task; repeats averaged within task",
+      "draws": 2000,
+      "seed": 10429,
+      "interval": "95 percent percentile; exploratory, unadjusted",
+      "failures": "incorrect system outcomes, retained in denominator",
+      "unknown_usage": "cost incomplete, never interpreted as free",
+      "degenerate_interval": "floor/ceiling cannot establish certainty"
+    },
+    "evidence": {
+      "method": "evidence-analysis-v1",
+      "bootstrap_unit": "task; repeats averaged within task",
+      "draws": 2000,
+      "seed": 10433,
+      "unknown_preferences": "bounded between minus one and plus one, never imputed ties",
+      "validity": "both grounding gates and calibrated distinct recorded judge families",
+      "disagreement": "inconclusive, not a tie or win",
+      "baselines": "every declared roster model separately",
+      "inference": "exploratory panel preference; no general or human quality superiority claim"
+    }
+  },
+  "limits": [
+    "Workflow allowances do not enforce provider-request or dollar parity.",
+    "Provider-internal routing and retries may remain opaque.",
+    "Per-run freezing does not prevent tuning across separate experiments."
+  ],
+  "task_digest": "4c41cb8ece5aa964030d24ca5e03df3aef39393c3e969b1d0a0e823ff6197a8d",
+  "configuration_digest": "7b8efc62303e1629da0497e5440db6020fa786f21daa837a8562d22e4a742786"
+}

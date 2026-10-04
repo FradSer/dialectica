@@ -7,3 +7,7 @@ scopes:
       description: automated BDD scenarios and unit test suites in tests/; does not cover application source code
     - name: examples
       description: pattern implementations and usage demonstrations in examples/; does not cover core logic or evaluation harnesses
+    - name: core
+      description: core engine, agents, and processing logic in dialectica/; does not cover evaluation scripts or pattern examples
+    - name: ex
+      description: pattern implementations and usage demonstrations in examples/; does not cover core logic or evaluation harnesses

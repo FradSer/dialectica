@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Added
+
+- `examples/patterns/self_refine_pattern.py` (`create_self_refine_engine`) — reference pattern for iterative self-refinement over the `Workflow` kernel with configurable selection and early stopping policies (`last`, `convergence`, `plurality`, or custom `selector`).
+- `evals/selection_study.py` & `evals/selection_rules.py` — development study framework investigating oracle-free selection rules over saved candidate trajectories.
+- Research study report: `docs/research/2026-10-04-selection-dev-study.md` documenting intermediate candidate drift and checker-based recovery.
+
+### Changed
+
+- Explicit model configuration (`DEFAULT_MODEL_CONFIG` / `GENERATOR_MODEL_CONFIG` /
+  per-call `model=`) now fails before dispatch for malformed values, unsupported
+  providers or missing OpenAI/OpenRouter credentials, instead of silently
+  selecting a Google model. Callers that relied on the former fallback must
+  provide `provider:model` and the selected provider's credentials.
+
+### Docs
+
+- README restructured: measured findings, the 2026-10-04 research update and
+  dated live-verification snapshots moved to `docs/findings.md`
+  (`docs/findings.zh-CN.md`); the README keeps a results summary. Added a runtime
+  variable table, an evaluation script table and an up-to-date project structure.
+
 ## [0.7.0]
 
 ### BREAKING
