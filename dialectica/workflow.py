@@ -3,15 +3,15 @@
 A Python re-implementation of the orchestration surface Claude Code's ``Workflow``
 tool provides, built on this repo's single LLM seam (``agent_runtime.run_agent``).
 It exists so arbitrary multi-agent workflows — research, review, design,
-planning, the *meta-task* regime where generate -> adversarial-judge ->
-synthesize genuinely helps — can be expressed as plain Python instead of
+planning and experiments — can be expressed as plain Python instead of
 hardcoded into one fixed engine loop.
 
 The primitives:
 
   * ``agent(prompt, *, schema=None, tools=None, instructions="", label=None,
     phase=None, model=None, isolation=None, agent_type=None, sees=None)`` —
-    one LLM call. ``isolation="worktree"`` runs in a fresh git worktree;
+    one workflow step, potentially containing multiple model turns.
+    ``isolation="worktree"`` runs in a fresh git worktree;
     ``agent_type`` (e.g. ``"Explore"``) applies a preset charter; ``sees``
     is a per-step access list (Fugu-Ultra-style isolation — see below).
     See module body for full semantics.
@@ -22,18 +22,13 @@ The primitives:
   * ``parallel`` / ``pipeline`` — max 4,096 items per call; 1,000 ``agent()``
     calls per run.
 
-HONEST SCOPE: on *self-contained result-quality* tasks, no multi-agent scaffold
-in this repo beats a prompt-matched single call (see README Evaluation — the
-ToT+GAN engine goes 0-4-1 / 0-2-3 / 0-1-4 vs single / best-of-N / self-refine;
-flat self-refine is best). This module is an **orchestration layer for
-meta-tasks** (no ground truth, exploratory/judgmental — research, review,
-planning, design), NOT a self-contained-quality engine. The existing negative
-findings stand; composing a workflow over these primitives does not repeal
-them. ``agent(tools=...)`` is the one lever that can: a stage that reads a
-real file or runs a real command is grounded the way the agentic pattern is, not a
-pure-LLM rearrangement — but only if the caller actually injects tools. A
-workflow built entirely from schema-only judge/synthesize stages is still
-pure-LLM and still bound by the findings above.
+HONEST SCOPE: orchestration is an execution capability, not a quality guarantee.
+Historical and held-out comparisons in README describe specific tasks, models,
+budgets and evaluation protocols. Tools can supply external observations;
+verifiers can supply concrete feedback. Schema-only workflows may be useful,
+but their benefit requires comparison against strong single-call and repeated-
+call controls, including controller costs, failures and uncertainty. Local
+negative findings do not establish a universal impossibility law.
 
 PER-STEP ACCESS LISTS (``sees=``): a direct port of the anti-"orchestration
 collapse" mechanism Sakana's Fugu-Ultra uses. In a multi-step workflow the
@@ -55,9 +50,10 @@ Example — a 3-angle research fan-out + synthesis (mocked in tests):
     async def script():
         phase("Gather")
         angles = ["broad", "skeptical", "practitioner"]
-        findings = await parallel(
-            lambda: agent(f"Research angle: {a}") for a in angles
-        )
+        findings = await parallel([
+            lambda angle=angle: agent(f"Research angle: {angle}")
+            for angle in angles
+        ])
         phase("Synthesize")
         return await agent(
             "Synthesize: " + " | ".join(f for f in findings if f)
@@ -150,6 +146,7 @@ class Budget:
     _total_tokens: int = field(default=0, init=False, repr=False)
     _cached_tokens: int = field(default=0, init=False, repr=False)
     _unknown_calls: int = field(default=0, init=False, repr=False)
+    _model_calls: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.unit not in ("calls", "tokens"):
@@ -173,6 +170,7 @@ class Budget:
             total_tokens=self._total_tokens,
             cached_tokens=self._cached_tokens,
             unknown_calls=self._unknown_calls,
+            model_calls=self._model_calls,
         )
 
     def remaining(self) -> float:
@@ -192,6 +190,7 @@ class Budget:
         self._total_tokens += usage.total_tokens
         self._cached_tokens += usage.cached_tokens
         self._unknown_calls += usage.unknown_calls
+        self._model_calls += usage.model_calls
 
 
 # --- Run context (ContextVar so nested asyncio tasks see the same context) ---
@@ -402,7 +401,7 @@ async def agent(
             role_name=name,
             additional_context=instructions + worktree_note,
             model_config=_parse_model_config(model)
-            if model
+            if model is not None
             else get_model_config("GENERATOR"),
             tools=tools,
             output_schema=schema,

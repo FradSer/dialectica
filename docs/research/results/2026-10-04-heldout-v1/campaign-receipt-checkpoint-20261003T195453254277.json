@@ -1,0 +1,76 @@
+{
+  "scope": "completed observations only; unfinished studies excluded from completion claims",
+  "observed_at": "2026-10-03T19:54:53.254267+00:00",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876",
+  "reports": [
+    {
+      "study": "evidence-roster-budget12",
+      "status": "complete",
+      "rows": 96,
+      "report_sha256": "17cc046f8dfad470acbea3d10f810824853c6ced84c0c157e239116204d8c259",
+      "summary": {
+        "generation": {
+          "receipts": 96,
+          "receipt_errors": {
+            "TypeError": 1
+          },
+          "usage": {
+            "prompt_tokens": 452110,
+            "output_tokens": 224144,
+            "total_tokens": 676254,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 513
+          }
+        },
+        "calibration": {
+          "receipts": 2,
+          "receipt_errors": {},
+          "usage": {
+            "prompt_tokens": 1438,
+            "output_tokens": 458,
+            "total_tokens": 1896,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 4
+          }
+        },
+        "judging": {
+          "receipts": 354,
+          "receipt_errors": {},
+          "usage": {
+            "prompt_tokens": 960414,
+            "output_tokens": 158458,
+            "total_tokens": 1118872,
+            "cached_tokens": 3072,
+            "unknown_calls": 0,
+            "model_calls": 708
+          }
+        }
+      }
+    },
+    {
+      "study": "claims-gemini-k6",
+      "status": "running",
+      "rows": 33,
+      "report_sha256": "8179458a841ddd9191bb4a8b3ceca4f101ce1702b33340710f315c0ad9cbda7c",
+      "summary": {
+        "generation": {
+          "receipts": 33,
+          "receipt_errors": {
+            "TypeError": 5,
+            "ValueError": 3
+          },
+          "usage": {
+            "prompt_tokens": 115699,
+            "output_tokens": 86780,
+            "total_tokens": 202479,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 267
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "status": "complete",
+  "phase": "analysis",
+  "report": "meta-gemini-budget12.json",
+  "input_report_digest": "0f652131cc512a7f6b7a303942869076e61297fb5cc3ae1c9cc911b1d112502d",
+  "input_protocol_digest": "9779bdd7b850075e0e024cd06f39814bef25913948a3783e41ef3b07218297e9",
+  "input_task_digest": "41cdd2f00acffa38b4bd2cca62f426d1222566ca7ae7b13eda8e1bea044c6ac3",
+  "input_configuration_digest": "29393359ed3345a9442fd1f78ce67e3d7dab7e103d511fe8c580a542c0102220",
+  "analysis_digest": "11703af098ba5b765c91daf3276520339cbfbd8be1ae79967c0debf2df075330",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876"
+}

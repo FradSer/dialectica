@@ -49,6 +49,9 @@ class TokenUsage:
     ``output_tokens`` includes thinking tokens (billed as output). Token counts
     include only reported usage; ``unknown_calls`` counts model attempts with
     no final usage metadata, so missing reports are not presented as known zero cost.
+    ``model_calls`` counts ADK model turns observed before dispatch, including
+    runtime retries and cache short circuits. It does not count hidden SDK or
+    provider-internal retries, and is distinct from workflow agent steps.
     """
 
     prompt_tokens: int = 0
@@ -56,6 +59,7 @@ class TokenUsage:
     total_tokens: int = 0
     cached_tokens: int = 0
     unknown_calls: int = 0
+    model_calls: int = 0
 
 
 class AgentResponse(str):
@@ -134,7 +138,9 @@ class _UsageTracker:
     def usage(self) -> TokenUsage:
         return _combine_usage(
             _usage_from_events(event for event in self.events if event is not None),
-            TokenUsage(unknown_calls=self.calls - len(self.complete)),
+            TokenUsage(
+                model_calls=self.calls, unknown_calls=self.calls - len(self.complete)
+            ),
         )
 
     def reconcile(self, events: Iterable[Event]) -> None:
@@ -329,6 +335,7 @@ def _is_permanent_failure(error: Exception) -> bool:
             "subscription expired",
             "coding plan expired",
             "subscription has expired",
+            "套餐已到期",
         )
     )
 

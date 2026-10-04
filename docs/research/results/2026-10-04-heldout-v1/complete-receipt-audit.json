@@ -1,0 +1,171 @@
+{
+  "scope": "all seven completed studies; reported usage not provider billing",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876",
+  "verified_before_final_environment_edits": true,
+  "studies": [
+    {
+      "study": "evidence-roster-budget12",
+      "rows": 96,
+      "report_sha256": "17cc046f8dfad470acbea3d10f810824853c6ced84c0c157e239116204d8c259",
+      "analysis_sha256": "70ae8f264a2ed87eacb5d1a8f69e40c876ef1487b170eafab448db383adead0f",
+      "stages": {
+        "generation": {
+          "receipts": 96,
+          "errors": 1,
+          "usage": {
+            "prompt_tokens": 452110,
+            "output_tokens": 224144,
+            "total_tokens": 676254,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 513
+          }
+        },
+        "calibration": {
+          "receipts": 2,
+          "errors": 0,
+          "usage": {
+            "prompt_tokens": 1438,
+            "output_tokens": 458,
+            "total_tokens": 1896,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 4
+          }
+        },
+        "judging": {
+          "receipts": 354,
+          "errors": 0,
+          "usage": {
+            "prompt_tokens": 960414,
+            "output_tokens": 158458,
+            "total_tokens": 1118872,
+            "cached_tokens": 3072,
+            "unknown_calls": 0,
+            "model_calls": 708
+          }
+        }
+      }
+    },
+    {
+      "study": "claims-gemini-k6",
+      "rows": 96,
+      "report_sha256": "d7ddc4a8d37914f438ff85936c64bfa8e19aa9fbc174a7e5ed79e0fa6439ca0e",
+      "analysis_sha256": "5993613137549473b92b1f5d90b5a762d50a50426f4378a5058d72186ae2e1c8",
+      "stages": {
+        "generation": {
+          "receipts": 96,
+          "errors": 19,
+          "usage": {
+            "prompt_tokens": 330897,
+            "output_tokens": 215015,
+            "total_tokens": 545912,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 799
+          }
+        }
+      }
+    },
+    {
+      "study": "claims-gemini-k3",
+      "rows": 96,
+      "report_sha256": "cf54e8a053a01132f941a90c5a11f6f9318433542a64966172c4d0a4cb915183",
+      "analysis_sha256": "868512705d8c94c1a2b787ca96a97b110619f2afd511f31beae60631c489a75e",
+      "stages": {
+        "generation": {
+          "receipts": 96,
+          "errors": 10,
+          "usage": {
+            "prompt_tokens": 188022,
+            "output_tokens": 119575,
+            "total_tokens": 307597,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 443
+          }
+        }
+      }
+    },
+    {
+      "study": "strong-meta-single",
+      "rows": 24,
+      "report_sha256": "b8642bb826b4f8bdd305ce70abe64edde6b4c00faa3fbb34b93b3cdd9458b703",
+      "analysis_sha256": "cce16aaab433da898ed65d2b1ee15e865fe9a1f672f2d310c8c54e09fa0d25a5",
+      "stages": {
+        "generation": {
+          "receipts": 24,
+          "errors": 0,
+          "usage": {
+            "prompt_tokens": 13440,
+            "output_tokens": 26055,
+            "total_tokens": 39495,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 24
+          }
+        }
+      }
+    },
+    {
+      "study": "strong-claim-single",
+      "rows": 24,
+      "report_sha256": "46e44545e56d846cf3047faeb28734d871672a43682eba577740f8807e4c1a7a",
+      "analysis_sha256": "9b65adae86a46c7e78997aa5b305e5e19ee5e506c6e72f11da1ff92f4760a36f",
+      "stages": {
+        "generation": {
+          "receipts": 24,
+          "errors": 0,
+          "usage": {
+            "prompt_tokens": 15096,
+            "output_tokens": 33573,
+            "total_tokens": 48669,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 24
+          }
+        }
+      }
+    },
+    {
+      "study": "meta-gemini-budget12",
+      "rows": 120,
+      "report_sha256": "0f652131cc512a7f6b7a303942869076e61297fb5cc3ae1c9cc911b1d112502d",
+      "analysis_sha256": "11703af098ba5b765c91daf3276520339cbfbd8be1ae79967c0debf2df075330",
+      "stages": {
+        "generation": {
+          "receipts": 120,
+          "errors": 0,
+          "usage": {
+            "prompt_tokens": 387515,
+            "output_tokens": 164970,
+            "total_tokens": 552485,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 789
+          }
+        }
+      }
+    },
+    {
+      "study": "meta-gemini-budget6",
+      "rows": 120,
+      "report_sha256": "1799b43d6559c2e37f80072a262647982d4d478fa17fd36ab78afe1fa8d743a5",
+      "analysis_sha256": "aa1241c5a0e30b1f7ac3b57311f139cf32c47849e5a9afe1bb732782ee044353",
+      "stages": {
+        "generation": {
+          "receipts": 120,
+          "errors": 0,
+          "usage": {
+            "prompt_tokens": 242581,
+            "output_tokens": 97455,
+            "total_tokens": 340036,
+            "cached_tokens": 0,
+            "unknown_calls": 0,
+            "model_calls": 485
+          }
+        }
+      }
+    }
+  ]
+}

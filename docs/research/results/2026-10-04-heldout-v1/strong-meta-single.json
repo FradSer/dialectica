@@ -1,0 +1,1319 @@
+{
+  "protocol": "meta-ablation-v1",
+  "split": "heldout",
+  "count": 8,
+  "family": "portfolio",
+  "difficulty": 8,
+  "models": [
+    "openai:gpt-5.5"
+  ],
+  "allowance": 1,
+  "allowance_unit": "workflow_agent_steps",
+  "token_parity": false,
+  "dollar_parity": false,
+  "repeats": 3,
+  "arms": [
+    "single"
+  ],
+  "order_seed": 10430,
+  "oracle_access": "evaluation only",
+  "rows": [
+    {
+      "task_id": "portfolio-heldout-000",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[2,3,4]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[2,3,4]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 22.96595916687511,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1179,
+          "total_tokens": 1739,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 54. Mutually exclusive pairs (never select both): ((3, 5), (4, 5), (4, 6), (6, 7)).\nProjects (zero-based IDs):\n0: reward=36, cost=14\n1: reward=42, cost=19\n2: reward=52, cost=18\n3: reward=88, cost=24\n4: reward=86, cost=4\n5: reward=55, cost=15\n6: reward=27, cost=27\n7: reward=40, cost=15\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[2,3,4]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1179,
+              "total_tokens": 1739,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 22.96451170812361
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-000",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[2,3,4]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[2,3,4]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 20.346005250001326,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1049,
+          "total_tokens": 1609,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 54. Mutually exclusive pairs (never select both): ((3, 5), (4, 5), (4, 6), (6, 7)).\nProjects (zero-based IDs):\n0: reward=36, cost=14\n1: reward=42, cost=19\n2: reward=52, cost=18\n3: reward=88, cost=24\n4: reward=86, cost=4\n5: reward=55, cost=15\n6: reward=27, cost=27\n7: reward=40, cost=15\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[2,3,4]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1049,
+              "total_tokens": 1609,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 20.3447894169949
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-000",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[2,3,4]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[2,3,4]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 24.744461375055835,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1295,
+          "total_tokens": 1855,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 54. Mutually exclusive pairs (never select both): ((3, 5), (4, 5), (4, 6), (6, 7)).\nProjects (zero-based IDs):\n0: reward=36, cost=14\n1: reward=42, cost=19\n2: reward=52, cost=18\n3: reward=88, cost=24\n4: reward=86, cost=4\n5: reward=55, cost=15\n6: reward=27, cost=27\n7: reward=40, cost=15\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[2,3,4]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1295,
+              "total_tokens": 1855,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 24.74198408285156
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-001",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 18.122557459166273,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 924,
+          "total_tokens": 1484,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 59. Mutually exclusive pairs (never select both): ((0, 5), (2, 3), (3, 5), (6, 7)).\nProjects (zero-based IDs):\n0: reward=34, cost=27\n1: reward=64, cost=25\n2: reward=36, cost=15\n3: reward=72, cost=23\n4: reward=15, cost=18\n5: reward=32, cost=9\n6: reward=21, cost=12\n7: reward=74, cost=20\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 924,
+              "total_tokens": 1484,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 18.121303083142266
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-001",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 33.68106650002301,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1734,
+          "total_tokens": 2294,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 59. Mutually exclusive pairs (never select both): ((0, 5), (2, 3), (3, 5), (6, 7)).\nProjects (zero-based IDs):\n0: reward=34, cost=27\n1: reward=64, cost=25\n2: reward=36, cost=15\n3: reward=72, cost=23\n4: reward=15, cost=18\n5: reward=32, cost=9\n6: reward=21, cost=12\n7: reward=74, cost=20\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1734,
+              "total_tokens": 2294,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 33.680027625057846
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-001",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 20.07565337489359,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1033,
+          "total_tokens": 1593,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 59. Mutually exclusive pairs (never select both): ((0, 5), (2, 3), (3, 5), (6, 7)).\nProjects (zero-based IDs):\n0: reward=34, cost=27\n1: reward=64, cost=25\n2: reward=36, cost=15\n3: reward=72, cost=23\n4: reward=15, cost=18\n5: reward=32, cost=9\n6: reward=21, cost=12\n7: reward=74, cost=20\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1033,
+              "total_tokens": 1593,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 20.074622916057706
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-002",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,3,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,3,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 15.141958916094154,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 737,
+          "total_tokens": 1297,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 51. Mutually exclusive pairs (never select both): ((0, 1), (1, 7), (2, 4), (4, 6)).\nProjects (zero-based IDs):\n0: reward=83, cost=9\n1: reward=15, cost=22\n2: reward=55, cost=21\n3: reward=64, cost=17\n4: reward=57, cost=17\n5: reward=42, cost=5\n6: reward=11, cost=25\n7: reward=88, cost=13\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,3,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 737,
+              "total_tokens": 1297,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 15.140903749968857
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-002",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,3,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,3,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 22.238068791106343,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1149,
+          "total_tokens": 1709,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 51. Mutually exclusive pairs (never select both): ((0, 1), (1, 7), (2, 4), (4, 6)).\nProjects (zero-based IDs):\n0: reward=83, cost=9\n1: reward=15, cost=22\n2: reward=55, cost=21\n3: reward=64, cost=17\n4: reward=57, cost=17\n5: reward=42, cost=5\n6: reward=11, cost=25\n7: reward=88, cost=13\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,3,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1149,
+              "total_tokens": 1709,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 22.23586850007996
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-002",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,3,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,3,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 23.919913625111803,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1251,
+          "total_tokens": 1811,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 51. Mutually exclusive pairs (never select both): ((0, 1), (1, 7), (2, 4), (4, 6)).\nProjects (zero-based IDs):\n0: reward=83, cost=9\n1: reward=15, cost=22\n2: reward=55, cost=21\n3: reward=64, cost=17\n4: reward=57, cost=17\n5: reward=42, cost=5\n6: reward=11, cost=25\n7: reward=88, cost=13\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,3,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1251,
+              "total_tokens": 1811,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 23.918075792025775
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-003",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[3,5,6]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[3,5,6]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 17.842965832911432,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 909,
+          "total_tokens": 1469,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 43. Mutually exclusive pairs (never select both): ((1, 5), (2, 4), (2, 7), (4, 6)).\nProjects (zero-based IDs):\n0: reward=11, cost=28\n1: reward=21, cost=12\n2: reward=29, cost=7\n3: reward=38, cost=12\n4: reward=20, cost=14\n5: reward=51, cost=7\n6: reward=62, cost=23\n7: reward=33, cost=6\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[3,5,6]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 909,
+              "total_tokens": 1469,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 17.840476833982393
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-003",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[3,5,6]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[3,5,6]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 17.85930179222487,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 919,
+          "total_tokens": 1479,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 43. Mutually exclusive pairs (never select both): ((1, 5), (2, 4), (2, 7), (4, 6)).\nProjects (zero-based IDs):\n0: reward=11, cost=28\n1: reward=21, cost=12\n2: reward=29, cost=7\n3: reward=38, cost=12\n4: reward=20, cost=14\n5: reward=51, cost=7\n6: reward=62, cost=23\n7: reward=33, cost=6\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[3,5,6]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 919,
+              "total_tokens": 1479,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 17.856917917029932
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-003",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[3,5,6]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[3,5,6]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 25.084431666880846,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1323,
+          "total_tokens": 1883,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 43. Mutually exclusive pairs (never select both): ((1, 5), (2, 4), (2, 7), (4, 6)).\nProjects (zero-based IDs):\n0: reward=11, cost=28\n1: reward=21, cost=12\n2: reward=29, cost=7\n3: reward=38, cost=12\n4: reward=20, cost=14\n5: reward=51, cost=7\n6: reward=62, cost=23\n7: reward=33, cost=6\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[3,5,6]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1323,
+              "total_tokens": 1883,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 25.083367875078693
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-004",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,2,3,5]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,2,3,5]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 19.521835749968886,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 999,
+          "total_tokens": 1559,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 38. Mutually exclusive pairs (never select both): ((0, 4), (0, 6), (1, 5), (3, 4)).\nProjects (zero-based IDs):\n0: reward=34, cost=13\n1: reward=53, cost=19\n2: reward=17, cost=8\n3: reward=67, cost=8\n4: reward=11, cost=9\n5: reward=67, cost=7\n6: reward=34, cost=16\n7: reward=37, cost=16\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,2,3,5]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 999,
+              "total_tokens": 1559,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 19.520572500070557
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-004",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,2,3,5]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,2,3,5]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 23.53985945810564,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1235,
+          "total_tokens": 1795,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 38. Mutually exclusive pairs (never select both): ((0, 4), (0, 6), (1, 5), (3, 4)).\nProjects (zero-based IDs):\n0: reward=34, cost=13\n1: reward=53, cost=19\n2: reward=17, cost=8\n3: reward=67, cost=8\n4: reward=11, cost=9\n5: reward=67, cost=7\n6: reward=34, cost=16\n7: reward=37, cost=16\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,2,3,5]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1235,
+              "total_tokens": 1795,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 23.538572708843276
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-004",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[0,2,3,5]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[0,2,3,5]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 24.936303790891543,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1317,
+          "total_tokens": 1877,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 38. Mutually exclusive pairs (never select both): ((0, 4), (0, 6), (1, 5), (3, 4)).\nProjects (zero-based IDs):\n0: reward=34, cost=13\n1: reward=53, cost=19\n2: reward=17, cost=8\n3: reward=67, cost=8\n4: reward=11, cost=9\n5: reward=67, cost=7\n6: reward=34, cost=16\n7: reward=37, cost=16\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[0,2,3,5]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1317,
+              "total_tokens": 1877,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 24.93421670794487
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-005",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[4,5,6,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[4,5,6,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 19.28288516611792,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 996,
+          "total_tokens": 1556,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 42. Mutually exclusive pairs (never select both): ((1, 2), (1, 6), (3, 4), (3, 7)).\nProjects (zero-based IDs):\n0: reward=18, cost=22\n1: reward=47, cost=20\n2: reward=34, cost=6\n3: reward=26, cost=18\n4: reward=39, cost=12\n5: reward=88, cost=15\n6: reward=9, cost=4\n7: reward=36, cost=10\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[4,5,6,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 996,
+              "total_tokens": 1556,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 19.28132237493992
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-005",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[4,5,6,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[4,5,6,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 23.116208749823272,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1212,
+          "total_tokens": 1772,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 42. Mutually exclusive pairs (never select both): ((1, 2), (1, 6), (3, 4), (3, 7)).\nProjects (zero-based IDs):\n0: reward=18, cost=22\n1: reward=47, cost=20\n2: reward=34, cost=6\n3: reward=26, cost=18\n4: reward=39, cost=12\n5: reward=88, cost=15\n6: reward=9, cost=4\n7: reward=36, cost=10\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[4,5,6,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1212,
+              "total_tokens": 1772,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 23.11440237495117
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-005",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[4,5,6,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[4,5,6,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 18.108530208002776,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 917,
+          "total_tokens": 1477,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 42. Mutually exclusive pairs (never select both): ((1, 2), (1, 6), (3, 4), (3, 7)).\nProjects (zero-based IDs):\n0: reward=18, cost=22\n1: reward=47, cost=20\n2: reward=34, cost=6\n3: reward=26, cost=18\n4: reward=39, cost=12\n5: reward=88, cost=15\n6: reward=9, cost=4\n7: reward=36, cost=10\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[4,5,6,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 917,
+              "total_tokens": 1477,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 18.10679620807059
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-006",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,3,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,3,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 19.593522124923766,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1004,
+          "total_tokens": 1564,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 50. Mutually exclusive pairs (never select both): ((0, 4), (1, 4), (4, 6), (5, 6)).\nProjects (zero-based IDs):\n0: reward=83, cost=27\n1: reward=72, cost=16\n2: reward=26, cost=16\n3: reward=89, cost=17\n4: reward=63, cost=16\n5: reward=56, cost=11\n6: reward=9, cost=17\n7: reward=83, cost=6\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,3,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1004,
+              "total_tokens": 1564,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 19.590771124931052
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-006",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,3,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,3,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 22.461960250046104,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1134,
+          "total_tokens": 1694,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 50. Mutually exclusive pairs (never select both): ((0, 4), (1, 4), (4, 6), (5, 6)).\nProjects (zero-based IDs):\n0: reward=83, cost=27\n1: reward=72, cost=16\n2: reward=26, cost=16\n3: reward=89, cost=17\n4: reward=63, cost=16\n5: reward=56, cost=11\n6: reward=9, cost=17\n7: reward=83, cost=6\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,3,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1134,
+              "total_tokens": 1694,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 22.459805541904643
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-006",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,3,5,7]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,3,5,7]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 16.101680333027616,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 820,
+          "total_tokens": 1380,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 50. Mutually exclusive pairs (never select both): ((0, 4), (1, 4), (4, 6), (5, 6)).\nProjects (zero-based IDs):\n0: reward=83, cost=27\n1: reward=72, cost=16\n2: reward=26, cost=16\n3: reward=89, cost=17\n4: reward=63, cost=16\n5: reward=56, cost=11\n6: reward=9, cost=17\n7: reward=83, cost=6\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,3,5,7]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 820,
+              "total_tokens": 1380,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 16.100084207952023
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-007",
+      "repeat": 0,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,2,3,5]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,2,3,5]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 20.533690500073135,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1049,
+          "total_tokens": 1609,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 35. Mutually exclusive pairs (never select both): ((0, 2), (0, 4), (4, 7), (5, 7)).\nProjects (zero-based IDs):\n0: reward=11, cost=8\n1: reward=28, cost=4\n2: reward=26, cost=4\n3: reward=82, cost=8\n4: reward=39, cost=25\n5: reward=80, cost=19\n6: reward=27, cost=16\n7: reward=55, cost=5\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,2,3,5]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1049,
+              "total_tokens": 1609,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 20.531043709022924
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-007",
+      "repeat": 1,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,2,3,5]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,2,3,5]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 16.486050582956523,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 834,
+          "total_tokens": 1394,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 35. Mutually exclusive pairs (never select both): ((0, 2), (0, 4), (4, 7), (5, 7)).\nProjects (zero-based IDs):\n0: reward=11, cost=8\n1: reward=28, cost=4\n2: reward=26, cost=4\n3: reward=82, cost=8\n4: reward=39, cost=25\n5: reward=80, cost=19\n6: reward=27, cost=16\n7: reward=55, cost=5\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,2,3,5]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 834,
+              "total_tokens": 1394,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 16.48322895821184
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    },
+    {
+      "task_id": "portfolio-heldout-007",
+      "repeat": 2,
+      "arm": "single",
+      "order": [
+        "single"
+      ],
+      "receipt": {
+        "name": "single",
+        "output": {
+          "final_answer": "{\"selected\":[1,2,3,5]}",
+          "artifacts": [
+            {
+              "answer": "{\"selected\":[1,2,3,5]}"
+            }
+          ]
+        },
+        "error": null,
+        "calls": 1,
+        "failures": 0,
+        "seconds": 19.982151958858594,
+        "usage": {
+          "prompt_tokens": 560,
+          "output_tokens": 1036,
+          "total_tokens": 1596,
+          "cached_tokens": 0,
+          "unknown_calls": 0,
+          "model_calls": 1
+        },
+        "records": [
+          {
+            "label": "single_0",
+            "model": "openai/gpt-5.5",
+            "prompt": "Select a globally optimal subset of projects maximizing total reward. Each project can be selected at most once. Total cost must not exceed 35. Mutually exclusive pairs (never select both): ((0, 2), (0, 4), (4, 7), (5, 7)).\nProjects (zero-based IDs):\n0: reward=11, cost=8\n1: reward=28, cost=4\n2: reward=26, cost=4\n3: reward=82, cost=8\n4: reward=39, cost=25\n5: reward=80, cost=19\n6: reward=27, cost=16\n7: reward=55, cost=5\nReturn one JSON object only: {\"selected\": [project IDs]}. A feasible but suboptimal subset is incorrect. Any globally optimal subset is accepted.\nSolve carefully and return a complete answer in the task's required format.",
+            "system_instruction": "You are single_0, a problem-solving assistant.\n\nYour task:\n- Complete the requested task accurately and follow its output format\n- Use supplied tools when the task calls for them\n- Base factual claims on the information available; label assumptions",
+            "raw_output": "{\"selected\":[1,2,3,5]}",
+            "error": null,
+            "usage": {
+              "prompt_tokens": 560,
+              "output_tokens": 1036,
+              "total_tokens": 1596,
+              "cached_tokens": 0,
+              "unknown_calls": 0,
+              "model_calls": 1
+            },
+            "seconds": 19.980233249953017
+          }
+        ]
+      },
+      "passed": true,
+      "feedback": "",
+      "strict_passed": true,
+      "coverage": true
+    }
+  ],
+  "predeclaration_digest": "7a65310f270b61cfcbbc23aa0cc5146374321d5b7d3ee672130191202c31eee3"
+}

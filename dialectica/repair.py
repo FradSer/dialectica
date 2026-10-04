@@ -1,20 +1,17 @@
-"""Execution-guided repair — Dialectica's core engine, the one that structurally
-beats a single strong-model call.
+"""Execution-guided repair using an injected objective verifier.
 
-Controlled evals settled it: pure-LLM reasoning scaffolds (ToT, GAN, the
-dialectic) only rearrange the model's own thinking on the same context — they
-add no information, so they tie a prompt-matched single call. A scaffold beats
-one pass only by doing something one pass cannot: act on objective ground truth
-and react. This engine is that loop — generate -> run the verifier -> feed the
-CONCRETE failure back -> regenerate — until the verifier passes or attempts run
-out.
+Generate -> run the verifier -> feed concrete failure feedback back -> regenerate,
+until verification passes or attempts run out. Historical comparisons found
+cost savings from stopping on success at matched best-of-K reliability; those
+observations are task/model-specific, not universal superiority claims.
 
 The verifier is injected as a plain ``Callable[[answer], (passed, feedback)]``,
 so the engine is task-agnostic: it works for ANY objective checker — unit tests,
 a schema validator, a linter, a SQL ``EXPLAIN``, assertion-checked business
 logic — not just code. The consuming app supplies "how to check it"; the edge
-over one shot is the ground-truth feedback the single pass never sees (not an
-LLM self-score on the same model, which the evals showed adds nothing).
+over an unchecked attempt is access to the verifier's concrete feedback.
+The reliability of that feedback depends on the supplied checker; an LLM
+self-score is not automatically objective ground truth.
 
 Built on ``workflow.py``'s shared execution kernel: each attempt is one
 ``wf.agent(model=..., label=...)`` call inside a private ``Workflow`` script,

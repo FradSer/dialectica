@@ -1,0 +1,16 @@
+{
+  "scope": "completed observations only; not a complete study or quality analysis",
+  "observed_at": "2026-10-03T21:13:14.977059+00:00",
+  "report_sha256": "007c53c681e2f56bde3b4397fe7cd755de1ff878df40d48ccabe61e1bcbaf085",
+  "study": "meta-gemini-budget12",
+  "rows": 65,
+  "usage": {
+    "prompt_tokens": 216342,
+    "output_tokens": 88688,
+    "total_tokens": 305030,
+    "cached_tokens": 0,
+    "unknown_calls": 0,
+    "model_calls": 426
+  },
+  "receipt_errors": {}
+}

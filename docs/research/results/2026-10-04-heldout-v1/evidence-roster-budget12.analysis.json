@@ -1,0 +1,398 @@
+{
+  "schema": "evidence-analysis-v1",
+  "bootstrap_draws": 2000,
+  "seed": 10433,
+  "inference_scope": "exploratory panel preference; no multiplicity correction or human alignment proof",
+  "uncertainty_scope": "unknown outcomes bounded -1..+1; bootstrap conditions on observed tasks",
+  "cost_scope": "reported tokens only; provider billing and hidden retries opaque",
+  "costs": {
+    "generation": {
+      "reported_tokens": 676254,
+      "unknown_calls": 0,
+      "cost_complete": true,
+      "workflow_calls": 513,
+      "model_calls": 513,
+      "seconds": 2920.496895336546,
+      "failures": 1
+    },
+    "judging": {
+      "reported_tokens": 1118872,
+      "unknown_calls": 0,
+      "cost_complete": true,
+      "workflow_calls": 708,
+      "model_calls": 708,
+      "seconds": 3238.283671660349,
+      "failures": 0
+    },
+    "calibration": {
+      "reported_tokens": 1896,
+      "unknown_calls": 0,
+      "cost_complete": true,
+      "workflow_calls": 4,
+      "model_calls": 4,
+      "seconds": 12.96788820810616,
+      "failures": 0
+    }
+  },
+  "comparisons": [
+    {
+      "arm": "self_refine",
+      "baseline": "single",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 9,
+      "inconclusive_trials": 3,
+      "status_counts": {
+        "valid": 9,
+        "inconclusive": 3
+      },
+      "valid_only_net_preference": 1,
+      "identification_bounds": [
+        0.5,
+        1.0
+      ],
+      "outer_interval": [
+        0.16666666666666666,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "self_refine",
+      "baseline": "single_1",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 9,
+      "inconclusive_trials": 3,
+      "status_counts": {
+        "inconclusive": 3,
+        "valid": 9
+      },
+      "valid_only_net_preference": 1,
+      "identification_bounds": [
+        0.5,
+        1.0
+      ],
+      "outer_interval": [
+        -0.16666666666666666,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "self_refine",
+      "baseline": "single_2",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 2,
+      "inconclusive_trials": 10,
+      "status_counts": {
+        "inconclusive": 10,
+        "valid": 2
+      },
+      "valid_only_net_preference": 1,
+      "identification_bounds": [
+        -0.6666666666666666,
+        1.0
+      ],
+      "outer_interval": [
+        -1.0,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "reflection_homo",
+      "baseline": "single",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 4,
+      "inconclusive_trials": 8,
+      "status_counts": {
+        "inconclusive": 7,
+        "valid": 4,
+        "grounding_failed": 1
+      },
+      "valid_only_net_preference": 1,
+      "identification_bounds": [
+        -0.3333333333333333,
+        1.0
+      ],
+      "outer_interval": [
+        -0.8333333333333334,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "reflection_homo",
+      "baseline": "single_1",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 3,
+      "inconclusive_trials": 9,
+      "status_counts": {
+        "inconclusive": 8,
+        "grounding_failed": 1,
+        "valid": 3
+      },
+      "valid_only_net_preference": 0.3333333333333333,
+      "identification_bounds": [
+        -0.6666666666666666,
+        0.8333333333333334
+      ],
+      "outer_interval": [
+        -1.0,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "reflection_homo",
+      "baseline": "single_2",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 3,
+      "inconclusive_trials": 9,
+      "status_counts": {
+        "inconclusive": 7,
+        "grounding_failed": 1,
+        "valid": 3,
+        "judge_disagreement": 1
+      },
+      "valid_only_net_preference": -1,
+      "identification_bounds": [
+        -1.0,
+        0.5
+      ],
+      "outer_interval": [
+        -1.0,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "reflection_hetero",
+      "baseline": "single",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 8,
+      "inconclusive_trials": 4,
+      "status_counts": {
+        "inconclusive": 4,
+        "valid": 8
+      },
+      "valid_only_net_preference": 1,
+      "identification_bounds": [
+        0.3333333333333333,
+        1.0
+      ],
+      "outer_interval": [
+        -0.3333333333333333,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "reflection_hetero",
+      "baseline": "single_1",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 11,
+      "inconclusive_trials": 1,
+      "status_counts": {
+        "valid": 11,
+        "inconclusive": 1
+      },
+      "valid_only_net_preference": 1,
+      "identification_bounds": [
+        0.8333333333333334,
+        1.0
+      ],
+      "outer_interval": [
+        0.5,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "reflection_hetero",
+      "baseline": "single_2",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 2,
+      "inconclusive_trials": 10,
+      "status_counts": {
+        "inconclusive": 10,
+        "valid": 2
+      },
+      "valid_only_net_preference": 1,
+      "identification_bounds": [
+        -0.6666666666666666,
+        1.0
+      ],
+      "outer_interval": [
+        -1.0,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "staged",
+      "baseline": "single",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 4,
+      "inconclusive_trials": 8,
+      "status_counts": {
+        "inconclusive": 7,
+        "valid": 4,
+        "generation_failed": 1
+      },
+      "valid_only_net_preference": -0.5,
+      "identification_bounds": [
+        -0.8333333333333334,
+        0.5
+      ],
+      "outer_interval": [
+        -1.0,
+        0.8333333333333334
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "staged",
+      "baseline": "single_1",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 4,
+      "inconclusive_trials": 8,
+      "status_counts": {
+        "inconclusive": 7,
+        "valid": 4,
+        "generation_failed": 1
+      },
+      "valid_only_net_preference": -1,
+      "identification_bounds": [
+        -1.0,
+        0.3333333333333333
+      ],
+      "outer_interval": [
+        -1.0,
+        0.6666666666666666
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "staged",
+      "baseline": "single_2",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 6,
+      "inconclusive_trials": 6,
+      "status_counts": {
+        "inconclusive": 5,
+        "valid": 6,
+        "generation_failed": 1
+      },
+      "valid_only_net_preference": -1,
+      "identification_bounds": [
+        -1.0,
+        0.0
+      ],
+      "outer_interval": [
+        -1.0,
+        0.5
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "direct",
+      "baseline": "single",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 5,
+      "inconclusive_trials": 7,
+      "status_counts": {
+        "valid": 5,
+        "inconclusive": 7
+      },
+      "valid_only_net_preference": 0.6,
+      "identification_bounds": [
+        -0.3333333333333333,
+        0.8333333333333334
+      ],
+      "outer_interval": [
+        -0.6666666666666666,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "direct",
+      "baseline": "single_1",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 3,
+      "inconclusive_trials": 9,
+      "status_counts": {
+        "valid": 3,
+        "inconclusive": 9
+      },
+      "valid_only_net_preference": -1,
+      "identification_bounds": [
+        -1.0,
+        0.5
+      ],
+      "outer_interval": [
+        -1.0,
+        1.0
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    },
+    {
+      "arm": "direct",
+      "baseline": "single_2",
+      "tasks": 6,
+      "trials": 12,
+      "valid_trials": 8,
+      "inconclusive_trials": 4,
+      "status_counts": {
+        "valid": 8,
+        "inconclusive": 4
+      },
+      "valid_only_net_preference": -1,
+      "identification_bounds": [
+        -1.0,
+        -0.3333333333333333
+      ],
+      "outer_interval": [
+        -1.0,
+        0.3333333333333333
+      ],
+      "degenerate_task_bounds": false,
+      "limitations": "valid-only mean is selected evidence; degenerate intervals do not imply certainty"
+    }
+  ],
+  "predeclaration_status": "verified",
+  "source_drift": {},
+  "rule_drift": false,
+  "input_report_digest": "17cc046f8dfad470acbea3d10f810824853c6ced84c0c157e239116204d8c259",
+  "input_protocol_digest": "ca82233129497b99e75c5e0f60cd0ad88b2adef204a66b85630a5b61158e5fa6",
+  "input_task_digest": "cb764eec083505a32133cc95e8a887ff17974c342fe475aac872f196a9feb086",
+  "input_configuration_digest": "7b46d7ad54d1be0bd4a75e98ef7857f0d932be8bcc136c9c6902a996d046a8e4"
+}

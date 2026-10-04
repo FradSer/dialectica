@@ -1,0 +1,54 @@
+{
+  "scope": "completed observations only; not a complete-study result",
+  "observed_at": "2026-10-03T19:28:08.497911+00:00",
+  "report_sha256": "fa3bdb6a44068269c736b2e6c12078f1b1f4e5938065667774765b7034b48cda",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876",
+  "generation_rows": 82,
+  "fully_compared_rows": 50,
+  "summary": {
+    "calibration": {
+      "receipts": 2,
+      "calls": 4,
+      "call_failures": 0,
+      "receipt_errors": {},
+      "usage": {
+        "prompt_tokens": 1438,
+        "output_tokens": 458,
+        "total_tokens": 1896,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 4
+      }
+    },
+    "generation": {
+      "receipts": 82,
+      "calls": 435,
+      "call_failures": 0,
+      "receipt_errors": {
+        "TypeError": 1
+      },
+      "usage": {
+        "prompt_tokens": 381493,
+        "output_tokens": 189597,
+        "total_tokens": 571090,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 435
+      }
+    },
+    "judging": {
+      "receipts": 294,
+      "calls": 588,
+      "call_failures": 0,
+      "receipt_errors": {},
+      "usage": {
+        "prompt_tokens": 797960,
+        "output_tokens": 132154,
+        "total_tokens": 930114,
+        "cached_tokens": 3072,
+        "unknown_calls": 0,
+        "model_calls": 588
+      }
+    }
+  }
+}

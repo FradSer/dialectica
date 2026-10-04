@@ -1,0 +1,243 @@
+{
+  "protocol": "research-campaign-v1",
+  "studies": [
+    {
+      "name": "meta-gemini-budget6",
+      "kind": "meta",
+      "parameters": {
+        "models": [
+          "openai:gemini-3.5-flash-lite"
+        ],
+        "split": "heldout",
+        "count": 8,
+        "family": "portfolio",
+        "difficulty": 8,
+        "allowance": 6,
+        "repeats": 3,
+        "arms": [
+          "single",
+          "consensus",
+          "self_refine",
+          "staged",
+          "direct"
+        ],
+        "order_seed": 10430
+      }
+    },
+    {
+      "name": "meta-gemini-budget12",
+      "kind": "meta",
+      "parameters": {
+        "models": [
+          "openai:gemini-3.5-flash-lite"
+        ],
+        "split": "heldout",
+        "count": 8,
+        "family": "portfolio",
+        "difficulty": 8,
+        "allowance": 12,
+        "repeats": 3,
+        "arms": [
+          "single",
+          "consensus",
+          "self_refine",
+          "staged",
+          "direct"
+        ],
+        "order_seed": 10430
+      }
+    },
+    {
+      "name": "claims-gemini-k3",
+      "kind": "claim",
+      "parameters": {
+        "models": [
+          "openai:gemini-3.5-flash-lite"
+        ],
+        "split": "heldout",
+        "count": 8,
+        "size": 8,
+        "samples": 3,
+        "repeats": 3,
+        "arms": [
+          "single",
+          "consensus",
+          "self_refine",
+          "claims"
+        ],
+        "order_seed": 10431
+      }
+    },
+    {
+      "name": "claims-gemini-k6",
+      "kind": "claim",
+      "parameters": {
+        "models": [
+          "openai:gemini-3.5-flash-lite"
+        ],
+        "split": "heldout",
+        "count": 8,
+        "size": 8,
+        "samples": 6,
+        "repeats": 3,
+        "arms": [
+          "single",
+          "consensus",
+          "self_refine",
+          "claims"
+        ],
+        "order_seed": 10431
+      }
+    },
+    {
+      "name": "strong-meta-single",
+      "kind": "meta",
+      "parameters": {
+        "models": [
+          "openai:gpt-5.5"
+        ],
+        "split": "heldout",
+        "count": 8,
+        "family": "portfolio",
+        "difficulty": 8,
+        "allowance": 1,
+        "repeats": 3,
+        "arms": [
+          "single"
+        ],
+        "order_seed": 10430
+      }
+    },
+    {
+      "name": "strong-claim-single",
+      "kind": "claim",
+      "parameters": {
+        "models": [
+          "openai:gpt-5.5"
+        ],
+        "split": "heldout",
+        "count": 8,
+        "size": 8,
+        "samples": 1,
+        "repeats": 3,
+        "arms": [
+          "single"
+        ],
+        "order_seed": 10431
+      }
+    },
+    {
+      "name": "evidence-roster-budget12",
+      "kind": "evidence",
+      "parameters": {
+        "models": [
+          "openai:gemini-3.5-flash-lite",
+          "openai:qwen3.8-flash",
+          "openai:gpt-5.5"
+        ],
+        "judges": [
+          "openai:gemini-3.5-flash-lite",
+          "openai:qwen3.8-flash"
+        ],
+        "judge_families": [
+          "gemini",
+          "qwen"
+        ],
+        "split": "heldout",
+        "count": 6,
+        "allowance": 12,
+        "repeats": 2,
+        "arms": [
+          "single",
+          "self_refine",
+          "reflection_homo",
+          "reflection_hetero",
+          "staged",
+          "direct"
+        ],
+        "order_seed": 10427
+      }
+    }
+  ],
+  "study_order_seed": 10432,
+  "study_order": [
+    "evidence-roster-budget12",
+    "claims-gemini-k6",
+    "claims-gemini-k3",
+    "strong-meta-single",
+    "strong-claim-single",
+    "meta-gemini-budget12",
+    "meta-gemini-budget6"
+  ],
+  "source_archive": "sources.zip",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876",
+  "inference_scope": "exploratory repeated held-out comparisons; no universal superiority claim",
+  "cost_scope": "reported tokens and observable ADK turns; no token/dollar parity",
+  "judge_limit": "calibration tests obvious factual violations; generator/judge family overlap may bias preferences",
+  "rows": [
+    {
+      "study": "evidence-roster-budget12",
+      "status": "complete",
+      "phase": "analysis",
+      "output": "evidence-roster-budget12.json",
+      "analysis": "evidence-roster-budget12.analysis.json",
+      "analysis_status": "verified",
+      "terminal": "evidence-roster-budget12.terminal.json"
+    },
+    {
+      "study": "claims-gemini-k6",
+      "status": "complete",
+      "phase": "analysis",
+      "output": "claims-gemini-k6.json",
+      "analysis": "claims-gemini-k6.analysis.json",
+      "analysis_status": "verified",
+      "terminal": "claims-gemini-k6.terminal.json"
+    },
+    {
+      "study": "claims-gemini-k3",
+      "status": "complete",
+      "phase": "analysis",
+      "output": "claims-gemini-k3.json",
+      "analysis": "claims-gemini-k3.analysis.json",
+      "analysis_status": "verified",
+      "terminal": "claims-gemini-k3.terminal.json"
+    },
+    {
+      "study": "strong-meta-single",
+      "status": "complete",
+      "phase": "analysis",
+      "output": "strong-meta-single.json",
+      "analysis": "strong-meta-single.analysis.json",
+      "analysis_status": "verified",
+      "terminal": "strong-meta-single.terminal.json"
+    },
+    {
+      "study": "strong-claim-single",
+      "status": "complete",
+      "phase": "analysis",
+      "output": "strong-claim-single.json",
+      "analysis": "strong-claim-single.analysis.json",
+      "analysis_status": "verified",
+      "terminal": "strong-claim-single.terminal.json"
+    },
+    {
+      "study": "meta-gemini-budget12",
+      "status": "complete",
+      "phase": "analysis",
+      "output": "meta-gemini-budget12.json",
+      "analysis": "meta-gemini-budget12.analysis.json",
+      "analysis_status": "verified",
+      "terminal": "meta-gemini-budget12.terminal.json"
+    },
+    {
+      "study": "meta-gemini-budget6",
+      "status": "complete",
+      "phase": "analysis",
+      "output": "meta-gemini-budget6.json",
+      "analysis": "meta-gemini-budget6.analysis.json",
+      "analysis_status": "verified",
+      "terminal": "meta-gemini-budget6.terminal.json"
+    }
+  ],
+  "predeclaration_digest": "314ccae1a5864b42de23645dcf135fa87c48a77cb66622e3ac14a36050228567"
+}

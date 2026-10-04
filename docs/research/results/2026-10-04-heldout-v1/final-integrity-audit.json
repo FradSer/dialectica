@@ -1,0 +1,105 @@
+{
+  "archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876",
+  "scope": "immutable frozen report/analysis/terminal bindings and every receipt; final source drift is intentional and separately validated",
+  "studies": [
+    {
+      "name": "evidence-roster-budget12",
+      "rows": 96,
+      "receipts": 452,
+      "totals": {
+        "prompt_tokens": 1413962,
+        "output_tokens": 383060,
+        "total_tokens": 1797022,
+        "cached_tokens": 3072,
+        "unknown_calls": 0,
+        "model_calls": 1225
+      }
+    },
+    {
+      "name": "claims-gemini-k6",
+      "rows": 96,
+      "receipts": 96,
+      "totals": {
+        "prompt_tokens": 330897,
+        "output_tokens": 215015,
+        "total_tokens": 545912,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 799
+      }
+    },
+    {
+      "name": "claims-gemini-k3",
+      "rows": 96,
+      "receipts": 96,
+      "totals": {
+        "prompt_tokens": 188022,
+        "output_tokens": 119575,
+        "total_tokens": 307597,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 443
+      }
+    },
+    {
+      "name": "strong-meta-single",
+      "rows": 24,
+      "receipts": 24,
+      "totals": {
+        "prompt_tokens": 13440,
+        "output_tokens": 26055,
+        "total_tokens": 39495,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 24
+      }
+    },
+    {
+      "name": "strong-claim-single",
+      "rows": 24,
+      "receipts": 24,
+      "totals": {
+        "prompt_tokens": 15096,
+        "output_tokens": 33573,
+        "total_tokens": 48669,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 24
+      }
+    },
+    {
+      "name": "meta-gemini-budget12",
+      "rows": 120,
+      "receipts": 120,
+      "totals": {
+        "prompt_tokens": 387515,
+        "output_tokens": 164970,
+        "total_tokens": 552485,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 789
+      }
+    },
+    {
+      "name": "meta-gemini-budget6",
+      "rows": 120,
+      "receipts": 120,
+      "totals": {
+        "prompt_tokens": 242581,
+        "output_tokens": 97455,
+        "total_tokens": 340036,
+        "cached_tokens": 0,
+        "unknown_calls": 0,
+        "model_calls": 485
+      }
+    }
+  ],
+  "totals": {
+    "prompt_tokens": 2591513,
+    "output_tokens": 1039703,
+    "total_tokens": 3631216,
+    "cached_tokens": 3072,
+    "unknown_calls": 0,
+    "model_calls": 3789
+  }
+}

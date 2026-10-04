@@ -1,0 +1,11 @@
+{
+  "status": "complete",
+  "phase": "analysis",
+  "report": "strong-meta-single.json",
+  "input_report_digest": "b8642bb826b4f8bdd305ce70abe64edde6b4c00faa3fbb34b93b3cdd9458b703",
+  "input_protocol_digest": "29f2649c3286fe502b8832de2cb19f194fb9ab17b8369981b1905ce2c10d576a",
+  "input_task_digest": "41cdd2f00acffa38b4bd2cca62f426d1222566ca7ae7b13eda8e1bea044c6ac3",
+  "input_configuration_digest": "08cb1a0b8cacc6c1832e1f08ed8fce9ee6b15a871041d22ed38e74eccdd209fe",
+  "analysis_digest": "cce16aaab433da898ed65d2b1ee15e865fe9a1f672f2d310c8c54e09fa0d25a5",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876"
+}

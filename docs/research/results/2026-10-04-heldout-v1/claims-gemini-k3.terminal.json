@@ -1,0 +1,11 @@
+{
+  "status": "complete",
+  "phase": "analysis",
+  "report": "claims-gemini-k3.json",
+  "input_report_digest": "cf54e8a053a01132f941a90c5a11f6f9318433542a64966172c4d0a4cb915183",
+  "input_protocol_digest": "95db16210cf5e80ad24759036476c1ccf31a087482506b06913c4dd7e9ab6a92",
+  "input_task_digest": "41cdd2f00acffa38b4bd2cca62f426d1222566ca7ae7b13eda8e1bea044c6ac3",
+  "input_configuration_digest": "dc55e2001756ba4be948a4783b5a5e1f9126591f3674fa6408ec4d35753f2aac",
+  "analysis_digest": "868512705d8c94c1a2b787ca96a97b110619f2afd511f31beae60631c489a75e",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876"
+}

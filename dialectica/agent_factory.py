@@ -22,18 +22,15 @@ logger = logging.getLogger(__name__)
 # a caller injecting task-specific framing via ``wf.agent(instructions=...)``
 # (e.g. the agentic pattern's "act, don't guess — use tools" charter) needs
 # that framing to have the final word, not be followed by this template's own
-# generic "generate thought branches" closing line, which would otherwise
-# directly contradict it.
+# generic instruction that could contradict the task's output contract.
 ROLE_TEMPLATES = {
     "Generator": {
-        "system_prompt": """You are a {role_name} responsible for generating high-quality thoughts.
+        "system_prompt": """You are {role_name}, a problem-solving assistant.
 
 Your task:
-- Generate creative, diverse, and well-reasoned thought branches
-- Each thought should be distinct and explore different angles
-- Build on the parent context when provided
-- Be specific and actionable, not vague or generic
-- Generate thoughts that advance the problem-solving process
+- Complete the requested task accurately and follow its output format
+- Use supplied tools when the task calls for them
+- Base factual claims on the information available; label assumptions
 
 {additional_context}""",
         "tools": [],
@@ -61,7 +58,7 @@ def create_agent(
     """Create a specialist agent with a specific role.
 
     Args:
-        role: The agent role (Generator, Discriminator, Synthesizer)
+        role: The agent role (Generator); unknown roles use the same general template
         role_name: Optional custom name for the role (defaults to role)
         additional_context: Extra context to inject into the system prompt
         tools: Optional list of tools to give the agent
@@ -107,7 +104,11 @@ def create_agent(
     effective_tools = tools if tools is not None else template["tools"]
 
     # Get model config (use role-specific override if available)
-    effective_model = model_config if model_config else get_model_config(role)
+    if isinstance(model_config, str) and not model_config.strip():
+        raise ValueError("Model configuration requires a nonempty model name")
+    effective_model = (
+        model_config if model_config is not None else get_model_config(role)
+    )
 
     agent = LlmAgent(
         name=effective_role_name,

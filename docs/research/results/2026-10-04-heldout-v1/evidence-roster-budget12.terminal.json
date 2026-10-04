@@ -1,0 +1,11 @@
+{
+  "status": "complete",
+  "phase": "analysis",
+  "report": "evidence-roster-budget12.json",
+  "input_report_digest": "17cc046f8dfad470acbea3d10f810824853c6ced84c0c157e239116204d8c259",
+  "input_protocol_digest": "ca82233129497b99e75c5e0f60cd0ad88b2adef204a66b85630a5b61158e5fa6",
+  "input_task_digest": "cb764eec083505a32133cc95e8a887ff17974c342fe475aac872f196a9feb086",
+  "input_configuration_digest": "7b46d7ad54d1be0bd4a75e98ef7857f0d932be8bcc136c9c6902a996d046a8e4",
+  "analysis_digest": "70ae8f264a2ed87eacb5d1a8f69e40c876ef1487b170eafab448db383adead0f",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876"
+}

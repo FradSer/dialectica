@@ -1,0 +1,11 @@
+{
+  "status": "complete",
+  "phase": "analysis",
+  "report": "strong-claim-single.json",
+  "input_report_digest": "46e44545e56d846cf3047faeb28734d871672a43682eba577740f8807e4c1a7a",
+  "input_protocol_digest": "9cff3ecda4f75e04825f92168bca34d9fe12e663974c2408899ac7f510c74856",
+  "input_task_digest": "41cdd2f00acffa38b4bd2cca62f426d1222566ca7ae7b13eda8e1bea044c6ac3",
+  "input_configuration_digest": "895d96688d8ca4d66d402f1cf024050ca1fb578d44286729032da55a19ecb7d6",
+  "analysis_digest": "9b65adae86a46c7e78997aa5b305e5e19ee5e506c6e72f11da1ff92f4760a36f",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876"
+}

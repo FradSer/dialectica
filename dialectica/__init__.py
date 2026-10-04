@@ -14,19 +14,17 @@ The evals collapsed the public surface to what the data actually justifies:
 - ``create_repair_engine`` — verifier-in-the-loop for verifiable tasks. Ties
   matched-cost best-of-K on pass-rate but reaches it far cheaper
   (short-circuits on success). Verifier is an injected
-  ``Callable[[answer], (passed, feedback)]``. The one other proven win
-  besides the kernel's tool-using capability.
+  ``Callable[[answer], (passed, feedback)]``. Historical cost observations
+  depend on the tested task, model and verifier.
 
-Everything else this project measured — the agentic engine as its own class,
-the heterogeneous ensemble + float scorer, the dialectic spiral, the legacy
-ToT+GAN beam search — either needs nothing beyond ``agent(tools=...)`` or was
-measured to tie/lose a prompt-matched single call as a pure-LLM scaffold
-(dialectic: 0-3-2; ToT+GAN: dominated; ensemble: CUT — roster heterogeneity
-helps, the scorer does not). They live in ``examples/patterns/`` (not shipped,
-same as ``evals/``). For open-ended meta-tasks the measured recipe is hetero
-reflection (``examples.patterns.reflection_pattern.create_reflection_engine``)
-composed on this kernel — still not a third shipped engine. See README
-"Patterns" and Evaluation findings #6 / #7.
+Research variants live in ``examples/patterns/`` (not shipped, like ``evals/``).
+Historical self-contained experiments did not justify promoting ToT/GAN or
+scorer-based ensembles. Open-ended experiments found conditional gains for
+heterogeneous reflection and a tuned dialectic; their small task pools and
+judge protocols limit generalization. The repeated held-out claim/controller
+studies likewise did not establish an adoption-worthy advantage. Reference
+patterns compose on the kernel and retain their measured costs and limitations;
+execution alone is not evidence of quality. See README Evaluation.
 
 Example:
     from dialectica import Workflow, agent

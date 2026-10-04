@@ -1,0 +1,35 @@
+{
+  "schema": "receipt-checkpoint-v1",
+  "scope": "completed receipts only; not a complete experiment analysis",
+  "created_at": "2026-10-03T18:54:00.903388+00:00",
+  "input_report": "evidence-roster-budget12.json",
+  "input_report_sha256": "f40953a7bb58aba6c4c550d8093715cb342d22e2bb7936bb901b1b740645fc0e",
+  "source_archive_sha256": "36f9805f209d3e864e9eb29eedca1b78184531155c6b6e379f96383f01eac876",
+  "rows_saved": 48,
+  "groups": {
+    "calibration": {
+      "receipts": 2,
+      "workflow_calls": 4,
+      "model_calls": 4,
+      "reported_tokens": 1896,
+      "unknown_calls": 0,
+      "failed_receipts": 0
+    },
+    "generation": {
+      "receipts": 48,
+      "workflow_calls": 263,
+      "model_calls": 263,
+      "reported_tokens": 343337,
+      "unknown_calls": 0,
+      "failed_receipts": 0
+    },
+    "judging": {
+      "receipts": 180,
+      "workflow_calls": 360,
+      "model_calls": 360,
+      "reported_tokens": 561974,
+      "unknown_calls": 0,
+      "failed_receipts": 0
+    }
+  }
+}

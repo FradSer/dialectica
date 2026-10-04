@@ -1,0 +1,49 @@
+{
+  "schema": "objective-analysis-v1",
+  "split": "heldout",
+  "baseline": "single",
+  "bootstrap_draws": 2000,
+  "seed": 10429,
+  "resampling_unit": "task; repeats averaged within task",
+  "inference_scope": "exploratory; no multiplicity correction",
+  "failure_policy": "failed generation counts as incorrect system outcome",
+  "cost_scope": "reported tokens only; provider billing and hidden retries opaque",
+  "limitations": [
+    "Intervals condition on this task pool, not all possible tasks.",
+    "Degenerate bootstrap at a floor/ceiling does not prove certainty.",
+    "Small task pools and multiple comparisons limit adoption claims."
+  ],
+  "strata": [
+    {
+      "model": "openai:gpt-5.5",
+      "arms": {
+        "single": {
+          "tasks": 8,
+          "trials": 24,
+          "success_rate": 1,
+          "interval": [
+            1,
+            1
+          ],
+          "degenerate_bootstrap": true,
+          "failures": 0,
+          "reported_tokens": 48669,
+          "mean_reported_tokens": 2027.875,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 24,
+          "model_calls": 24,
+          "seconds": 643.8221452552825
+        }
+      },
+      "comparisons": []
+    }
+  ],
+  "predeclaration_status": "verified",
+  "source_drift": {},
+  "rule_drift": false,
+  "input_report_digest": "46e44545e56d846cf3047faeb28734d871672a43682eba577740f8807e4c1a7a",
+  "input_protocol_digest": "9cff3ecda4f75e04825f92168bca34d9fe12e663974c2408899ac7f510c74856",
+  "input_task_digest": "41cdd2f00acffa38b4bd2cca62f426d1222566ca7ae7b13eda8e1bea044c6ac3",
+  "input_configuration_digest": "895d96688d8ca4d66d402f1cf024050ca1fb578d44286729032da55a19ecb7d6"
+}

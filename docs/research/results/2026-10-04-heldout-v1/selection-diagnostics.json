@@ -1,0 +1,183 @@
+{
+  "scope": "post-hoc descriptive diagnostics, not a new predeclared superiority analysis",
+  "failure_coverage": "missing on failed arms; never imputed as zero",
+  "studies": {
+    "claims-gemini-k6": {
+      "raw_sha256": "d7ddc4a8d37914f438ff85936c64bfa8e19aa9fbc174a7e5ed79e0fa6439ca0e",
+      "arms": {
+        "single": {
+          "trials": 24,
+          "coverage_observed": 16,
+          "coverage_missing": 8,
+          "covered": 4,
+          "selected": 4,
+          "selection_loss": 0
+        },
+        "consensus": {
+          "trials": 24,
+          "coverage_observed": 20,
+          "coverage_missing": 4,
+          "covered": 13,
+          "selected": 7,
+          "selection_loss": 6
+        },
+        "self_refine": {
+          "trials": 24,
+          "coverage_observed": 19,
+          "coverage_missing": 5,
+          "covered": 12,
+          "selected": 7,
+          "selection_loss": 5
+        },
+        "claims": {
+          "trials": 24,
+          "coverage_observed": 22,
+          "coverage_missing": 2,
+          "covered": 9,
+          "selected": 6,
+          "selection_loss": 3,
+          "same_candidate_trials": 22,
+          "same_candidate_passed": 6,
+          "rescued": 0,
+          "harmed": 0
+        }
+      }
+    },
+    "claims-gemini-k3": {
+      "raw_sha256": "cf54e8a053a01132f941a90c5a11f6f9318433542a64966172c4d0a4cb915183",
+      "arms": {
+        "single": {
+          "trials": 24,
+          "coverage_observed": 19,
+          "coverage_missing": 5,
+          "covered": 3,
+          "selected": 3,
+          "selection_loss": 0
+        },
+        "consensus": {
+          "trials": 24,
+          "coverage_observed": 21,
+          "coverage_missing": 3,
+          "covered": 9,
+          "selected": 3,
+          "selection_loss": 6
+        },
+        "self_refine": {
+          "trials": 24,
+          "coverage_observed": 23,
+          "coverage_missing": 1,
+          "covered": 12,
+          "selected": 7,
+          "selection_loss": 5
+        },
+        "claims": {
+          "trials": 24,
+          "coverage_observed": 23,
+          "coverage_missing": 1,
+          "covered": 8,
+          "selected": 7,
+          "selection_loss": 1,
+          "same_candidate_trials": 23,
+          "same_candidate_passed": 7,
+          "rescued": 0,
+          "harmed": 0
+        }
+      }
+    },
+    "meta-gemini-budget12": {
+      "raw_sha256": "0f652131cc512a7f6b7a303942869076e61297fb5cc3ae1c9cc911b1d112502d",
+      "arms": {
+        "single": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 5,
+          "selected": 5,
+          "selection_loss": 0
+        },
+        "consensus": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 8,
+          "selected": 3,
+          "selection_loss": 5
+        },
+        "self_refine": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 21,
+          "selected": 8,
+          "selection_loss": 13
+        },
+        "staged": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 2,
+          "selected": 2,
+          "selection_loss": 0
+        },
+        "direct": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 3,
+          "selected": 3,
+          "selection_loss": 0
+        }
+      }
+    },
+    "meta-gemini-budget6": {
+      "raw_sha256": "1799b43d6559c2e37f80072a262647982d4d478fa17fd36ab78afe1fa8d743a5",
+      "arms": {
+        "single": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 5,
+          "selected": 5,
+          "selection_loss": 0
+        },
+        "consensus": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 6,
+          "selected": 4,
+          "selection_loss": 2
+        },
+        "self_refine": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 19,
+          "selected": 10,
+          "selection_loss": 9
+        },
+        "staged": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 4,
+          "selected": 4,
+          "selection_loss": 0
+        },
+        "direct": {
+          "trials": 24,
+          "coverage_observed": 24,
+          "coverage_missing": 0,
+          "covered": 0,
+          "selected": 0,
+          "selection_loss": 0
+        }
+      }
+    }
+  },
+  "parent_validation": {
+    "successful_trials_recomputed_from_raw_candidates_and_verifier": 403,
+    "failure_coverage": "missing preserved",
+    "heldout_tuning": false
+  }
+}

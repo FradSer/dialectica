@@ -1,0 +1,137 @@
+{
+  "schema": "objective-analysis-v1",
+  "split": "heldout",
+  "baseline": "single",
+  "bootstrap_draws": 2000,
+  "seed": 10429,
+  "resampling_unit": "task; repeats averaged within task",
+  "inference_scope": "exploratory; no multiplicity correction",
+  "failure_policy": "failed generation counts as incorrect system outcome",
+  "cost_scope": "reported tokens only; provider billing and hidden retries opaque",
+  "limitations": [
+    "Intervals condition on this task pool, not all possible tasks.",
+    "Degenerate bootstrap at a floor/ceiling does not prove certainty.",
+    "Small task pools and multiple comparisons limit adoption claims."
+  ],
+  "strata": [
+    {
+      "model": "openai:gemini-3.5-flash-lite",
+      "arms": {
+        "single": {
+          "tasks": 8,
+          "trials": 24,
+          "success_rate": 0.125,
+          "interval": [
+            0,
+            0.375
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 5,
+          "reported_tokens": 17949,
+          "mean_reported_tokens": 747.875,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 24,
+          "model_calls": 24,
+          "seconds": 77.40841453918256
+        },
+        "consensus": {
+          "tasks": 8,
+          "trials": 24,
+          "success_rate": 0.125,
+          "interval": [
+            0,
+            0.375
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 3,
+          "reported_tokens": 85006,
+          "mean_reported_tokens": 3541.9166666666665,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 135,
+          "model_calls": 135,
+          "seconds": 384.7053845007904
+        },
+        "self_refine": {
+          "tasks": 8,
+          "trials": 24,
+          "success_rate": 0.29166666666666663,
+          "interval": [
+            0.125,
+            0.4583333333333333
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 1,
+          "reported_tokens": 113926,
+          "mean_reported_tokens": 4746.916666666667,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 140,
+          "model_calls": 140,
+          "seconds": 381.33381574833766
+        },
+        "claims": {
+          "tasks": 8,
+          "trials": 24,
+          "success_rate": 0.2916666666666667,
+          "interval": [
+            0.041666666666666664,
+            0.625
+          ],
+          "degenerate_bootstrap": false,
+          "failures": 1,
+          "reported_tokens": 90716,
+          "mean_reported_tokens": 3779.8333333333335,
+          "unknown_calls": 0,
+          "cost_complete": true,
+          "workflow_calls": 144,
+          "model_calls": 144,
+          "seconds": 341.3695911243558
+        }
+      },
+      "comparisons": [
+        {
+          "arm": "consensus",
+          "baseline": "single",
+          "tasks": 8,
+          "delta": 0,
+          "interval": [
+            0,
+            0
+          ],
+          "degenerate_bootstrap": true
+        },
+        {
+          "arm": "self_refine",
+          "baseline": "single",
+          "tasks": 8,
+          "delta": 0.16666666666666666,
+          "interval": [
+            -0.04166666666666668,
+            0.375
+          ],
+          "degenerate_bootstrap": false
+        },
+        {
+          "arm": "claims",
+          "baseline": "single",
+          "tasks": 8,
+          "delta": 0.16666666666666666,
+          "interval": [
+            0,
+            0.4166666666666667
+          ],
+          "degenerate_bootstrap": false
+        }
+      ]
+    }
+  ],
+  "predeclaration_status": "verified",
+  "source_drift": {},
+  "rule_drift": false,
+  "input_report_digest": "cf54e8a053a01132f941a90c5a11f6f9318433542a64966172c4d0a4cb915183",
+  "input_protocol_digest": "95db16210cf5e80ad24759036476c1ccf31a087482506b06913c4dd7e9ab6a92",
+  "input_task_digest": "41cdd2f00acffa38b4bd2cca62f426d1222566ca7ae7b13eda8e1bea044c6ac3",
+  "input_configuration_digest": "dc55e2001756ba4be948a4783b5a5e1f9126591f3674fa6408ec4d35753f2aac"
+}
