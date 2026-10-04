@@ -289,3 +289,91 @@ def test_tot_gan_pattern_runs_a_singledepth_beam():
 
     assert result["final_answer"] == "final synthesized answer"
     assert result["stats"]["total_thoughts"] >= 1
+
+
+def test_self_refine_pattern_runs_to_max_steps():
+    from examples.patterns.self_refine_pattern import create_self_refine_engine
+
+    responses = iter(["answer v1", "answer v2", "answer v3"])
+
+    async def fake(agent, instruction: str) -> str:
+        return next(responses)
+
+    engine = create_self_refine_engine("solve task", max_steps=3, policy="last")
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(engine.run())
+
+    assert result["final_answer"] == "answer v3"
+    assert result["steps"] == 3
+    assert result["converged"] is False
+    assert result["trajectory"] == ["answer v1", "answer v2", "answer v3"]
+
+
+def test_self_refine_pattern_stops_on_convergence():
+    from examples.patterns.self_refine_pattern import create_self_refine_engine
+
+    responses = iter(
+        ["answer v1", "stable answer", "stable answer", "should not reach"]
+    )
+
+    async def fake(agent, instruction: str) -> str:
+        return next(responses)
+
+    engine = create_self_refine_engine("solve task", max_steps=5, policy="convergence")
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(engine.run())
+
+    assert result["final_answer"] == "stable answer"
+    assert result["steps"] == 3
+    assert result["converged"] is True
+
+
+def test_self_refine_pattern_custom_selector():
+    from examples.patterns.self_refine_pattern import create_self_refine_engine
+
+    responses = iter(["[bad 1]", "[good 2]", "[bad 3]"])
+
+    async def fake(agent, instruction: str) -> str:
+        return next(responses)
+
+    # Custom selector picks index with "[good"
+    def checker(answers: list[str]) -> int:
+        for idx, ans in enumerate(answers):
+            if "[good" in ans:
+                return idx
+        return 0
+
+    engine = create_self_refine_engine("solve task", max_steps=3, selector=checker)
+    with patch("dialectica.agent_runtime.run_agent", fake):
+        result = asyncio.run(engine.run())
+
+    assert result["final_answer"] == "[good 2]"
+    assert result["selected_index"] == 1
+
+
+def test_self_refine_pattern_plurality_and_first():
+    from examples.patterns.self_refine_pattern import create_self_refine_engine
+
+    # First policy
+    responses = iter(["first answer", "second answer"])
+
+    async def fake_first(ag, ins: str) -> str:
+        return next(responses)
+
+    engine = create_self_refine_engine("solve task", max_steps=2, policy="first")
+    with patch("dialectica.agent_runtime.run_agent", fake_first):
+        res = asyncio.run(engine.run())
+    assert res["final_answer"] == "first answer"
+    assert res["selected_index"] == 0
+
+    # Plurality policy
+    responses_p = iter(["opt A", "opt B", "opt A", "opt B", "opt B"])
+
+    async def fake_p(ag, ins: str) -> str:
+        return next(responses_p)
+
+    engine_p = create_self_refine_engine("solve task", max_steps=5, policy="plurality")
+    with patch("dialectica.agent_runtime.run_agent", fake_p):
+        res_p = asyncio.run(engine_p.run())
+    assert res_p["final_answer"] == "opt B"
+    assert res_p["selected_index"] == 4
