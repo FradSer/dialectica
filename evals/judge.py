@@ -8,6 +8,7 @@ manufacture a winner. Configure the model with ``JUDGE_MODEL_CONFIG``.
 
 import json
 import logging
+from typing import Literal
 
 from google.adk.agents import LlmAgent
 from pydantic import BaseModel, Field, ValidationError
@@ -44,7 +45,9 @@ Return your verdict as a single JSON object."""
 class JudgeVerdict(BaseModel):
     """The judge LLM's verdict for one A/B comparison (prompt-driven JSON)."""
 
-    winner: str = Field(default="tie", description='"A", "B", or "tie".')
+    winner: Literal["A", "B", "tie"] = Field(
+        default="tie", description='"A", "B", or "tie".'
+    )
     reasoning: str = Field(default="", description="Brief justification.")
     parse_failed: bool = Field(
         default=False,
@@ -97,7 +100,9 @@ def parse_judge_verdict(response: str) -> JudgeVerdict:
             data = json.loads(candidate)
         except ValueError:
             continue
-        if isinstance(data, dict) and str(data.get("winner", "")).strip():
+        if isinstance(data, dict) and isinstance(data.get("winner"), str):
+            winner = data["winner"].strip().upper()
+            data["winner"] = "tie" if winner == "TIE" else winner
             try:
                 return JudgeVerdict.model_validate(data)
             except ValidationError:
@@ -110,6 +115,10 @@ def _position_of(verdict: JudgeVerdict) -> str:
     """Normalize the verdict's winner to "A", "B" or "tie"."""
     winner = verdict.winner.strip().upper()
     return winner if winner in {"A", "B"} else "tie"
+
+
+class JudgeMeasurementError(RuntimeError):
+    """No usable measurement; do not count this comparison as a tie."""
 
 
 class BlindJudge:
@@ -152,5 +161,9 @@ class BlindJudge:
             )
             verdict = parse_judge_verdict(
                 await agent_runtime.run_agent(self.agent, instruction)
+            )
+        if verdict.parse_failed:
+            raise JudgeMeasurementError(
+                "judge failed to return a valid verdict after retries"
             )
         return verdict
