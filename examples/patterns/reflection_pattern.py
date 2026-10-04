@@ -28,7 +28,6 @@ is opt-in until an ablation shows it lifts or ties on the same matrices.
 import logging
 from typing import Any
 
-from dialectica import Workflow
 from dialectica import workflow as wf
 
 logger = logging.getLogger(__name__)
@@ -332,7 +331,7 @@ class ReflectionEngine:
             )
             return final
 
-        final_answer = await Workflow(script).run()
+        final_answer = await wf.workflow(script)
         logger.info(
             "Reflection complete (heterogeneous=%s, stages=%d)",
             self.heterogeneous,
