@@ -35,8 +35,9 @@ async def trajectory(problem: str, models: list[str], steps: int) -> list[str]:
         context = ""
         if answers:
             context = (
-                f"\nPREVIOUS ANSWER:\n{answers[-1]}\nIndependently check every constraint "
-                "and arithmetic step. Correct any flaw and retain a correct answer."
+                f"\nPREVIOUS ANSWER:\n{answers[-1]}\n"
+                "Independently check every constraint and arithmetic step. "
+                "Correct any flaw and retain a correct answer."
             )
         answers.append(
             await wf.agent(
