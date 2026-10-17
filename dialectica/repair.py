@@ -28,7 +28,7 @@ the engine retains completed verifier evidence in ``last_history``; standalone r
 import inspect
 import logging
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import Any, Literal
 
 from . import workflow as wf
@@ -214,7 +214,7 @@ class IterativeRepairEngine:
                 "final_answer": answer,
                 "passed": passed,
                 "status": verdict.status,
-                "verification": verdict,
+                "verification": asdict(verdict),
                 "attempts": attempt,
                 "history": history,
             }

@@ -40,7 +40,7 @@ installation was used without changing runtime/development dependencies.
 
 | Check | Result |
 | --- | --- |
-| `.venv/bin/pytest -q` | **267 passed, 9 deselected**, 31.64 seconds |
+| `.venv/bin/pytest -q` | **267 passed, 9 deselected** |
 | `.venv/bin/ruff check .` | Passed |
 | `.venv/bin/ruff format --check .` | Passed |
 | `uvx pyright --pythonpath .venv/bin/python dialectica evals/workflow_bug_fixtures.py evals/workflow_bugfix_eval.py examples/bugfix_workflow.py` | **0 errors, 0 warnings** |

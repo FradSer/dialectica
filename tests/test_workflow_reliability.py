@@ -231,6 +231,9 @@ async def test_verifier_indeterminate_stops_repairs_with_evidence(
     result = await wf.Workflow(script, journal_dir=tmp_path).run()
     assert result["passed"] is False
     assert result["status"] == "indeterminate"
+    import json
+
+    assert json.loads(json.dumps(result))["verification"]["evidence"] == "exit=127"
     assert result["history"][0]["evidence"] == "exit=127"
     assert len(calls) == 1
 
