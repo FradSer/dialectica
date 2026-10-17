@@ -1,81 +1,27 @@
-"""Workflow orchestration primitives — a composable multi-agent runtime.
+"""Embeddable Python workflow kernel with explicit reliability boundaries.
 
-A Python re-implementation of the orchestration surface Claude Code's ``Workflow``
-tool provides, built on this repo's single LLM seam (``agent_runtime.run_agent``).
-It exists so arbitrary multi-agent workflows — research, review, design,
-planning and experiments — can be expressed as plain Python instead of
-hardcoded into one fixed engine loop.
+agent() is a workflow step, potentially containing multiple model turns.
+parallel/pipeline settle all siblings and raise BatchFailed by default; collect
+and explicit legacy modes preserve a partial Workflow.report. sees= selects only
+named prior outputs and is a context convenience, not an authority boundary.
 
-The primitives:
-
-  * ``agent(prompt, *, schema=None, tools=None, instructions="", label=None,
-    phase=None, model=None, isolation=None, agent_type=None, sees=None)`` —
-    one workflow step, potentially containing multiple model turns.
-    ``isolation="worktree"`` runs in a fresh git worktree;
-    ``agent_type`` (e.g. ``"Explore"``) applies a preset charter; ``sees``
-    is a per-step access list (Fugu-Ultra-style isolation — see below).
-    See module body for full semantics.
-  * ``workflow(script_or_name, *, args=None)`` — inline child workflow (one
-    nesting level) or registered name via ``register_workflow``.
-  * ``run_id()`` — current run id for resume/journaling.
-  * ``phase(title)`` / ``log(msg)`` / ``budget()`` / ``args()`` — progress and metering.
-  * ``parallel`` / ``pipeline`` — max 4,096 items per call; 1,000 ``agent()``
-    calls per run.
-
-HONEST SCOPE: orchestration is an execution capability, not a quality guarantee.
-Historical and held-out comparisons in README describe specific tasks, models,
-budgets and evaluation protocols. Tools can supply external observations;
-verifiers can supply concrete feedback. Schema-only workflows may be useful,
-but their benefit requires comparison against strong single-call and repeated-
-call controls, including controller costs, failures and uncertainty. Local
-negative findings do not establish a universal impossibility law.
-
-PER-STEP ACCESS LISTS (``sees=``): a direct port of the anti-"orchestration
-collapse" mechanism Sakana's Fugu-Ultra uses. In a multi-step workflow the
-default is *isolation* — an agent sees only its own prompt, never another
-agent's transcript, so the first agent can't silently set the trajectory for
-all later ones. ``sees=["gather", "critique"]`` is the opt-in access list:
-the outputs of the named prior steps (looked up by their ``label=``) are
-appended to this agent's prompt as prior context, and *only* those. This is
-the capability-add lever for multi-step independence — it lets a later stage
-build on designated earlier outputs without letting every stage see every
-prior transcript (which Fugu-Ultra's report shows causes collapse to the
-first agent). Unknown labels are ignored, not errors, so an access list
-survives conditional branches. Does not require any training (unlike
-Fugu-Ultra's learned router); it is a pure context-visibility primitive
-over the existing ``parallel``/``pipeline``/``agent`` surface.
-
-Example — a 3-angle research fan-out + synthesis (mocked in tests):
-
-    async def script():
-        phase("Gather")
-        angles = ["broad", "skeptical", "practitioner"]
-        findings = await parallel([
-            lambda angle=angle: agent(f"Research angle: {angle}")
-            for angle in angles
-        ])
-        phase("Synthesize")
-        return await agent(
-            "Synthesize: " + " | ".join(f for f in findings if f)
-        )
-
-    result = await Workflow(script).run()
-
-Resume / journaling replays the longest unchanged ``agent()`` prefix from a
-per-run journal (``.dialectica/workflows/<run_id>/``). Registry-backed
-``workflow("name")``, ``meta`` phase validation, lifetime/item caps, and
-``agent(isolation="worktree")`` match the Claude Code Workflow tool's
-programmatic surface (IDE host UI excluded).
+Resume requires a host-managed resume_version plus stable code/input/tool/model
+fingerprints. External effects require versioned verification before reuse or
+explicit idempotent rerun authorization. Worktrees expose task-local paths;
+tools, OS sandboxing and external acceptance checks belong to the host.
 """
 
 import asyncio
+import inspect
 import logging
 import os
+import traceback
 from collections.abc import Awaitable, Callable, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from functools import wraps
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -84,6 +30,7 @@ from .agent_factory import create_agent
 from .agent_runtime import TokenUsage
 from .json_repair import repair_json_escapes, strip_code_fence
 from .llm_config import _parse_model_config, get_model_config
+from .tool_policy import enforce_tools
 from .workflow_journal import (
     _MAX_AGENT_CALLS,
     _MAX_ITEM_CAP,
@@ -91,6 +38,7 @@ from .workflow_journal import (
     agent_cache_key,
     default_journal_dir,
     deserialize_agent_result,
+    journal_lock,
     serialize_agent_result,
 )
 from .workflow_registry import (
@@ -105,6 +53,7 @@ from .workflow_worktree import WorkflowWorktreeError, worktree_path, worktree_se
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 # Cap overlapping agent() calls. The Workflow tool caps concurrent agent()
 # calls (excess calls queue) — the semaphore is acquired inside agent() around
@@ -126,22 +75,53 @@ class WorkflowAgentCapExceeded(RuntimeError):
     """Raised when a run exceeds the lifetime agent() cap (1000)."""
 
 
+class ResumeUnsafeError(RuntimeError):
+    """A prior effectful step needs host reconciliation before it may run again."""
+
+
+@dataclass(frozen=True)
+class ItemOutcome:
+    index: int
+    status: str
+    value: Any = None
+    error_type: str | None = None
+    error: str | None = None
+    traceback: str | None = None
+    completed_stages: int = 0
+
+
+class BatchFailed(RuntimeError):
+    """All siblings have settled; outcomes preserve successes and failure evidence."""
+
+    def __init__(self, outcomes: list[ItemOutcome]):
+        self.outcomes = outcomes
+        super().__init__(
+            f"{sum(o.status == 'failed' for o in outcomes)} batch items failed"
+        )
+
+
+@dataclass
+class WorkflowReport:
+    run_id: str
+    status: str = "running"
+    value: Any = None
+    outcomes: list[ItemOutcome] = field(default_factory=list)
+    error: str | None = None
+    usage: TokenUsage = field(default_factory=TokenUsage)
+    agent_steps: int = 0
+
+
 @dataclass
 class Budget:
-    """Call/token budget for a workflow run.
+    """Per-invocation admission meters, shared by all branches and child workflows.
 
-    ``unit`` selects what ``total`` means and what ``spent()``/``remaining()``
-    report: ``"calls"`` (default) counts ``agent()`` calls; ``"tokens"``
-    counts API-reported output tokens (thinking included — the Workflow
-    tool's unit). Both meters always accumulate regardless of unit —
-    ``spent_calls()``, ``spent_tokens()`` and ``usage()`` expose them for
-    observability even when no total is set. The gate fires at ``agent()``
-    entry: once ``spent()`` reaches ``total``, further calls raise
-    ``BudgetExhausted`` (a token total can be overshot by the call in flight;
-    the next call throws). The pool is per-workflow-run, shared across all
-    branches — global, not per-branch. Mocked responses without usage
-    metadata (plain strs through the ``run_agent`` seam) meter as zero
-    tokens.
+    calls counts admitted agent steps, not model turns. tokens gates reported
+    output tokens (including reported thinking). Already running invocations can
+    overshoot; queued dispatch and structured re-asks recheck the gate. Unknown
+    usage blocks further token-budget admission. Neither meter caps dollars.
+    model_turn_limit separately caps observed ADK before-model admissions,
+    including tool loops/retries/cache shortcuts, excluding hidden SDK retries.
+    Cached replay costs no new steps/tokens; usage.jsonl retains prior receipts.
     """
 
     total: int | None = None
@@ -153,6 +133,8 @@ class Budget:
     _cached_tokens: int = field(default=0, init=False, repr=False)
     _unknown_calls: int = field(default=0, init=False, repr=False)
     _model_calls: int = field(default=0, init=False, repr=False)
+    model_turn_limit: int | None = None
+    _admitted_model_turns: int = field(default=0, init=False, repr=False)
 
     def __post_init__(self) -> None:
         if self.unit not in ("calls", "tokens"):
@@ -182,13 +164,28 @@ class Budget:
     def remaining(self) -> float:
         return float("inf") if self.total is None else max(0, self.total - self.spent())
 
-    def _charge(self) -> None:
+    def _check(self) -> None:
+        if self.total is not None and self.unit == "tokens" and self._unknown_calls:
+            raise BudgetExhausted("Token budget cannot admit work after unknown usage")
         if self.total is not None and self.spent() >= self.total:
             noun = "agent calls" if self.unit == "calls" else "output tokens"
             raise BudgetExhausted(
                 f"Workflow budget exhausted: {self.spent()}/{self.total} {noun}."
             )
+
+    def _charge(self) -> None:
+        self._check()
         self._calls += 1
+
+    def _admit_model_turn(self) -> None:
+        if (
+            self.model_turn_limit is not None
+            and self._admitted_model_turns >= self.model_turn_limit
+        ):
+            raise agent_runtime.ModelTurnLimitExceeded(
+                "Workflow model-turn limit reached"
+            )
+        self._admitted_model_turns += 1
 
     def _record(self, usage: TokenUsage) -> None:
         self._prompt_tokens += usage.prompt_tokens
@@ -215,6 +212,7 @@ class _RunCtx:
     args: Any = None
     depth: int = 0
     agent_sequence: int = 0
+    replay_decisions: list[asyncio.Event] = field(default_factory=list)
     registry_name: str | None = None
     meta: dict[str, Any] | None = None
     # Per-step access-list store: label -> str(result). Populated by agent()
@@ -222,6 +220,7 @@ class _RunCtx:
     # prior context. Fugu-Ultra-style isolation: default is "own transcript
     # only"; sees= opts in to designated prior step outputs.
     step_outputs: dict[str, str] = field(default_factory=dict)
+    outcomes: list[ItemOutcome] = field(default_factory=list)
 
 
 _current: ContextVar[_RunCtx | None] = ContextVar(
@@ -314,6 +313,34 @@ def in_workflow() -> bool:
     return _current.get() is not None
 
 
+def _record_agent_failure(
+    call: Callable[P, Awaitable[T]],
+) -> Callable[P, Awaitable[T]]:
+    @wraps(call)
+    async def recorded(*args: P.args, **kwargs: P.kwargs) -> T:
+        ctx = _ctx()
+        sequence = ctx.agent_sequence
+        try:
+            return await call(*args, **kwargs)
+        except BaseException as error:
+            ctx.outcomes.append(
+                ItemOutcome(
+                    sequence,
+                    "failed",
+                    error_type=type(error).__name__,
+                    error=str(error),
+                    traceback=traceback.format_exc(),
+                )
+            )
+            raise
+
+    return recorded
+
+
+_verifying_cache: ContextVar[bool] = ContextVar("verifying_cache", default=False)
+
+
+@_record_agent_failure
 async def agent(
     prompt: str,
     *,
@@ -327,13 +354,17 @@ async def agent(
     isolation: str | None = None,
     agent_type: str | None = None,
     sees: list[str] | None = None,
+    replay_version: str | None = None,
+    verify_cached: Callable[[Any], bool | Awaitable[bool]] | None = None,
+    replay: str = "verify",
 ) -> Any:
     """One LLM call. Returns the model's text, or a validated ``schema`` instance.
 
-    With ``schema`` set, the agent uses ADK ``output_schema`` for enforced JSON
+    With ``schema`` set, the agent uses ADK ``output_schema`` for requested JSON
     and the result is validated into the Pydantic model; a transiently
     empty/malformed response is re-asked up to ``max_attempts`` times, then
-    returns ``None`` (a failed agent must not kill its batch). Without ``schema``
+    returns ``None`` and marks the run partial. Tool-bearing steps never
+    automatically re-ask or retry an entire invocation because effects may recur. Without ``schema``
     the raw text is returned. ``tools`` wires plain callables (or ADK
     ``FunctionTool``s) into this call's agent so it can act — read a file, run
     a command, query a service — the same wiring the demoted agentic pattern
@@ -354,6 +385,8 @@ async def agent(
     Fugu-Ultra anti-collapse lever (see module docstring): selective context
     visibility, opt-in, no training required.
     """
+    if _verifying_cache.get():
+        raise RuntimeError("verify_cached must not invoke workflow agents")
     if isolation is not None and isolation != "worktree":
         raise ValueError(
             f"unknown isolation {isolation!r}: only 'worktree' is supported"
@@ -365,29 +398,103 @@ async def agent(
             f"Workflow agent cap exceeded: {_MAX_AGENT_CALLS} agent() calls per run."
         )
 
+    if verify_cached is not None and not replay_version:
+        raise ValueError("verify_cached requires an explicit replay_version")
+    if replay not in ("verify", "rerun"):
+        raise ValueError("replay must be 'verify' or explicit 'rerun'")
+    if max_attempts < 1:
+        raise ValueError("max_attempts must be positive")
+    enforce_tools(tools or [], agent_type)
+    resolved_model = (
+        _parse_model_config(model)
+        if model is not None
+        else get_model_config("GENERATOR")
+    )
+    effective_prompt = prompt
+    if sees:
+        blocks = [ctx.step_outputs[name] for name in sees if name in ctx.step_outputs]
+        if blocks:
+            effective_prompt = (
+                "Prior context from named steps:\n"
+                + "\n---\n".join(blocks)
+                + "\n---\n\nTask:\n"
+                + prompt
+            )
     cache_key = agent_cache_key(
-        prompt,
+        effective_prompt,
         schema=schema,
         tools=tools,
         instructions=instructions,
         label=label,
         phase=phase,
-        model=model,
+        model=resolved_model,
         isolation=isolation,
         agent_type=agent_type,
         sees=sees,
+        replay_version=replay_version,
+        max_attempts=max_attempts,
     )
     sequence = ctx.agent_sequence
-    cached = ctx.journal.lookup(sequence, cache_key)
-    if cached is not None:
-        ctx.agent_sequence += 1
-        result = deserialize_agent_result(cached, schema)
-        _store_step_output(ctx, label, result)
-        return result
-
-    ctx.budget._charge()
-    # Reserve before yielding so parallel calls get stable, distinct positions.
+    # Reserve before awaiting a host verifier as well as before live model calls.
     ctx.agent_sequence += 1
+    # Every tool may consult mutable external state; all tool/worktree calls
+    # require host reconciliation, including steps interrupted before completion.
+    effectful = bool(tools) or isolation is not None
+    prior_effect = ctx.journal.resuming and sequence in ctx.journal.effectful_sequences
+    # Verifiers may overlap, but a cached suffix cannot commit before all
+    # earlier decisions. Waiting on every event also preserves ordering when
+    # an intermediate decision fails or is cancelled.
+    earlier_decisions = tuple(ctx.replay_decisions)
+    decision = asyncio.Event()
+    ctx.replay_decisions.append(decision)
+    try:
+        cached = ctx.journal.lookup(sequence, cache_key)
+        reusable = False
+        result: Any = None
+        if cached is not None and replay != "rerun":
+            result = deserialize_agent_result(cached, schema)
+            reusable = not effectful and not prior_effect
+            if verify_cached is not None and replay_version:
+                token = _verifying_cache.set(True)
+                try:
+                    verdict = verify_cached(result)
+                    if inspect.isawaitable(verdict):
+                        verdict = await verdict
+                    reusable = verdict is True
+                except Exception:  # noqa: BLE001 — failed validation forbids reuse
+                    reusable = False
+                finally:
+                    _verifying_cache.reset(token)
+        for earlier in earlier_decisions:
+            await earlier.wait()
+        if reusable and ctx.journal.lookup(sequence, cache_key) is cached:
+            if phase:
+                ctx.phases.append(phase)
+            _store_step_output(ctx, label, result)
+            return result
+        # A rejected or unavailable prefix invalidates every cached suffix,
+        # including when external effects prevent an automatic rerun.
+        ctx.journal.invalidate_from(sequence)
+        if prior_effect and replay != "rerun":
+            raise ResumeUnsafeError(
+                f"Step {sequence} has prior external effects or observations; "
+                "supply a versioned verify_cached returning True, or explicitly "
+                "authorize replay='rerun' with host-managed idempotency"
+            )
+    except BaseException:
+        ctx.journal.invalidate_from(sequence)
+        raise
+    finally:
+        decision.set()
+    ctx.budget._charge()
+    if effectful:
+        ctx.journal.effectful_sequences.add(sequence)
+    # Persist intent before dispatch, so a process death never hides a started tool.
+    pending = serialize_agent_result(None, schema)
+    pending.sequence, pending.cache_key, pending.prompt = sequence, cache_key, prompt
+    pending.result_kind = "pending"
+    ctx.journal.append(pending)
+    ctx.journal.persist(ctx.journal_path)
     step_usage = Budget()
     if phase:
         ctx.phases.append(phase)
@@ -396,7 +503,7 @@ async def agent(
     if isolation == "worktree":
         worktree_note = (
             "\n\nYou are running in an isolated git worktree. "
-            "Confine file edits and commands to the current working directory."
+            "Tools must use that explicit path; this is not an OS sandbox."
         )
 
     name = _to_identifier(label) if label else "WorkflowAgent"
@@ -405,43 +512,23 @@ async def agent(
         agent_obj = create_agent(
             role="Generator",
             role_name=name,
-            additional_context=instructions + worktree_note,
-            model_config=_parse_model_config(model)
-            if model is not None
-            else get_model_config("GENERATOR"),
+            additional_context=instructions
+            + worktree_note
+            + (f"\nAbsolute worktree path: {worktree_path.get()}" if isolation else ""),
+            model_config=resolved_model,
             tools=tools,
             output_schema=schema,
             agent_type=agent_type,
         )
 
-        effective_prompt = prompt
-        if sees:
-            prior = ctx.step_outputs
-            # Only steps that have *already finished* contribute; a label not
-            # yet written (a concurrent parallel() sibling that hasn't
-            # completed, or one that never ran) is skipped, not an error.
-            # This keeps access lists resilient to conditional branches and
-            # avoids a partial-read race under concurrency: the write happens
-            # after this agent's own LLM call returns, so a sees= reference
-            # to a not-yet-finished sibling is treated as absent rather than
-            # reading a half-written value. Callers wanting a guaranteed
-            # visible dependency should run the producer before the consumer
-            # (await it sequentially, not as a parallel() sibling).
-            blocks = [prior[s] for s in sees if s in prior]
-            if blocks:
-                effective_prompt = (
-                    "Prior context from named steps:\n"
-                    + "\n---\n".join(blocks)
-                    + "\n---\n\nTask:\n"
-                    + prompt
-                )
+        call_prompt = effective_prompt
         # The JSON-format instruction is gated on the *task* prompt (not the
         # prior-context-augmented effective_prompt): an injected prior output
         # that happens to mention "json" must not suppress the schema
         # formatting instruction and risk prose -> parse failure.
         if schema is not None and "json" not in prompt.lower():
-            effective_prompt = (
-                effective_prompt + "\n\nReturn your answer as a single JSON object."
+            call_prompt = (
+                call_prompt + "\n\nReturn your answer as a single JSON object."
             )
 
         sem = ctx.semaphore
@@ -449,16 +536,22 @@ async def agent(
         async def _call() -> str:
             try:
                 if sem is None:
-                    response = await agent_runtime.run_agent(
-                        agent_obj, effective_prompt
-                    )
+                    if ctx.budget.unit == "tokens":
+                        ctx.budget._check()
+                    response = await agent_runtime.run_agent(agent_obj, call_prompt)
                 else:
                     async with sem:
-                        response = await agent_runtime.run_agent(
-                            agent_obj, effective_prompt
-                        )
+                        if ctx.budget.unit == "tokens":
+                            ctx.budget._check()
+                        response = await agent_runtime.run_agent(agent_obj, call_prompt)
             except BaseException as error:
-                usage = getattr(error, "dialectica_usage", None)
+                usage = getattr(
+                    error,
+                    "dialectica_usage",
+                    None
+                    if isinstance(error, BudgetExhausted)
+                    else TokenUsage(unknown_calls=1),
+                )
                 if usage is not None:
                     ctx.budget._record(usage)
                     step_usage._record(usage)
@@ -466,7 +559,7 @@ async def agent(
                         ctx.journal_path, sequence, usage, failed=True
                     )
                 raise
-            usage = getattr(response, "usage", None)
+            usage = getattr(response, "usage", TokenUsage(unknown_calls=1))
             if usage is not None:
                 ctx.budget._record(usage)
                 step_usage._record(usage)
@@ -480,11 +573,12 @@ async def agent(
         if schema is None:
             return response
 
-        for attempt in range(1, max_attempts + 1):
+        attempts = 1 if tools else max_attempts
+        for attempt in range(1, attempts + 1):
             result = _parse_structured(response, schema)
             if result is not None:
                 return result
-            if attempt < max_attempts:
+            if attempt < attempts:
                 logger.warning(
                     "agent(%s) unparseable structured output, re-asking %d/%d",
                     label or "agent",
@@ -495,14 +589,22 @@ async def agent(
         logger.warning(
             "agent(%s) returning None after %d parse failures", label, max_attempts
         )
+        ctx.outcomes.append(
+            ItemOutcome(
+                sequence,
+                "failed",
+                error_type="InvalidOutput",
+                error="Structured output attempts exhausted",
+            )
+        )
         return None
 
     try:
         if isolation == "worktree":
             async with worktree_session(label=name, run_id=ctx.run_id) as handle:
                 result = await _execute_agent()
-                if handle.dirty:
-                    log(f"worktree kept (dirty): {handle.path}")
+            if handle.dirty:
+                log(f"worktree kept (dirty): {handle.path}")
         else:
             result = await _execute_agent()
     except BaseException:
@@ -605,61 +707,95 @@ def _first_json_object_span(text: str) -> tuple[int, int] | None:
     return None
 
 
-async def parallel(thunks: Sequence[Callable[[], Awaitable[Any]]]) -> list[Any]:
-    """Run zero-arg coroutines concurrently and WAIT for all (a barrier).
+def _batch_result(outcomes: list[ItemOutcome], errors: str) -> list[Any]:
+    ctx = _ctx()
+    ctx.outcomes.extend(outcomes)
+    if errors == "raise" and any(o.status == "failed" for o in outcomes):
+        raise BatchFailed(outcomes)
+    if errors == "collect":
+        return outcomes
+    return [o.value if o.status == "completed" else None for o in outcomes]
 
-    A thunk that raises (or whose awaited value raises) resolves to ``None``;
-    the call never rejects. Filter with ``[x for x in res if x is not None]``.
-    Thunks hold no concurrency slot themselves — the run's cap gates the
-    ``agent()`` calls inside them.
+
+def _validate_batch(count: int, errors: str) -> None:
+    _ctx()
+    if errors not in ("raise", "collect", "legacy"):
+        raise ValueError("errors must be 'raise', 'collect' or explicit 'legacy'")
+    if count > _MAX_ITEM_CAP:
+        raise ValueError(f"batch accepts at most {_MAX_ITEM_CAP} items, got {count}")
+
+
+async def _gather_settled(*coroutines):
+    tasks = [asyncio.create_task(coroutine) for coroutine in coroutines]
+    try:
+        return await asyncio.gather(*tasks)
+    except asyncio.CancelledError:
+        # A cancelled child must not outlive the run and keep mutating its journal.
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+
+async def parallel(
+    thunks: Sequence[Callable[[], Awaitable[Any]]], *, errors: str = "raise"
+) -> list[Any]:
+    """Wait for every sibling, then raise BatchFailed with all outcomes on failure.
+
+    errors='collect' returns ItemOutcome objects. Explicit errors='legacy' returns
+    values/None, while Workflow.report still records a partial terminal state.
+    Cancellation propagates instead of being converted to a successful value.
     """
-    _ctx()  # primitives are only valid inside a Workflow script
-    if len(thunks) > _MAX_ITEM_CAP:
-        raise ValueError(
-            f"parallel() accepts at most {_MAX_ITEM_CAP} thunks, got {len(thunks)}"
-        )
+    _validate_batch(len(thunks), errors)
 
-    async def _run(thunk: Callable[[], Awaitable[Any]]) -> Any:
+    async def run(index, thunk):
         try:
-            return await thunk()
-        except Exception as e:  # noqa: BLE001 — workflow contract: failure -> null
-            logger.warning("parallel thunk failed: %s", e)
-            return None
+            return ItemOutcome(index, "completed", value=await thunk())
+        except Exception as error:  # noqa: BLE001 — retain all batch failure evidence
+            return ItemOutcome(
+                index,
+                "failed",
+                error_type=type(error).__name__,
+                error=str(error),
+                traceback=traceback.format_exc(),
+            )
 
-    return await asyncio.gather(*(_run(t) for t in thunks))
+    return _batch_result(
+        await _gather_settled(*(run(i, t) for i, t in enumerate(thunks))), errors
+    )
 
 
 async def pipeline(
-    items: Sequence[Any], *stages: Callable[[Any, Any, int], Awaitable[Any]]
+    items: Sequence[Any],
+    *stages: Callable[[Any, Any, int], Awaitable[Any]],
+    errors: str = "raise",
 ) -> list[Any]:
-    """Run each item through every stage with NO barrier between stages.
+    """Pipeline with structured failures including last value and completed stages."""
+    _validate_batch(len(items), errors)
 
-    Item A can be in stage 3 while item B is still in stage 1 — wall-clock is
-    the slowest single-item chain, not the sum of slowest-per-stage. Each stage
-    callback receives ``(prev_result, original_item, index)``; use
-    ``original_item``/``index`` to label work without threading context through
-    stage 1's return value. A stage that throws drops that item to ``None`` and
-    skips its remaining stages. The run's concurrency cap gates the ``agent()``
-    calls inside stages, not whole item chains — an item idling in a non-LLM
-    stage holds no slot.
-    """
-    _ctx()  # primitives are only valid inside a Workflow script
-    if len(items) > _MAX_ITEM_CAP:
-        raise ValueError(
-            f"pipeline() accepts at most {_MAX_ITEM_CAP} items, got {len(items)}"
-        )
-
-    async def _chain(item: Any, index: int) -> Any:
+    async def chain(item, index):
+        prev, completed = item, 0
         try:
-            prev = item
             for stage in stages:
                 prev = await stage(prev, item, index)
-            return prev
-        except Exception as e:  # noqa: BLE001 — pipeline contract: failure -> null
-            logger.warning("pipeline item %d dropped: %s", index, e)
-            return None
+                completed += 1
+            return ItemOutcome(
+                index, "completed", value=prev, completed_stages=completed
+            )
+        except Exception as error:  # noqa: BLE001 — retain all batch failure evidence
+            return ItemOutcome(
+                index,
+                "failed",
+                value=prev,
+                error_type=type(error).__name__,
+                error=str(error),
+                traceback=traceback.format_exc(),
+                completed_stages=completed,
+            )
 
-    return await asyncio.gather(*(_chain(it, i) for i, it in enumerate(items)))
+    return _batch_result(
+        await _gather_settled(*(chain(it, i) for i, it in enumerate(items))), errors
+    )
 
 
 async def workflow(
@@ -726,7 +862,14 @@ class Workflow:
         resume_run_id: str | None = None,
         journal_dir: str | Path | None = None,
         registry_name: str | None = None,
+        resume_version: str | None = None,
+        model_turn_limit: int | None = None,
     ):
+        if model_turn_limit is not None and model_turn_limit < 1:
+            raise ValueError("model_turn_limit must be positive")
+        self._model_turn_limit = model_turn_limit
+        self.report: WorkflowReport | None = None
+        self._resume_version = resume_version
         self.script = script
         self._args = args
         self._budget_total = budget_total
@@ -738,6 +881,16 @@ class Workflow:
         self._registry_name = registry_name
 
     async def run(self) -> Any:
+        if self._resume_run_id:
+            if Path(
+                self._resume_run_id
+            ).name != self._resume_run_id or self._resume_run_id in (".", ".."):
+                raise ValueError("run_id must be a single directory name")
+            with journal_lock(self._journal_dir / self._resume_run_id):
+                return await self._run()
+        return await self._run()
+
+    async def _run(self) -> Any:
         if self._meta is not None:
             _validate_meta(self._meta)
         cap = (
@@ -751,9 +904,14 @@ class Workflow:
             registry_name=self._registry_name,
             resume_run_id=self._resume_run_id,
             journal_dir=self._journal_dir,
+            resume_version=self._resume_version,
         )
         ctx = _RunCtx(
-            budget=Budget(total=self._budget_total, unit=self._budget_unit),
+            budget=Budget(
+                total=self._budget_total,
+                unit=self._budget_unit,
+                model_turn_limit=self._model_turn_limit,
+            ),
             run_id=journal.run_id,
             journal=journal,
             journal_path=journal_path,
@@ -763,22 +921,52 @@ class Workflow:
             registry_name=self._registry_name,
             meta=self._meta,
         )
+        lock = journal_lock(journal_path.parent) if not self._resume_run_id else None
+        if lock is not None:
+            lock.__enter__()
+        self.report = WorkflowReport(journal.run_id)
         token = _current.set(ctx)
+        guard_token = agent_runtime.model_call_guard.set(ctx.budget._admit_model_turn)
         try:
             result = await self.script()
             _check_meta_phases(ctx)
+            self.report.value = result
+            self.report.status = (
+                "partial"
+                if any(o.status == "failed" for o in ctx.outcomes)
+                else "completed"
+            )
             return result
+        except BaseException as error:
+            self.report.status = (
+                "cancelled" if isinstance(error, asyncio.CancelledError) else "failed"
+            )
+            self.report.error = f"{type(error).__name__}: {error}"
+            raise
         finally:
-            ctx.journal.persist(ctx.journal_path)
-            _current.reset(token)
+            ctx.journal.terminal_state = self.report.status
+            self.report.outcomes = list(ctx.outcomes)
+            self.report.usage = ctx.budget.usage()
+            self.report.agent_steps = ctx.budget.spent_calls()
+            try:
+                ctx.journal.persist(ctx.journal_path)
+            finally:
+                _current.reset(token)
+                agent_runtime.model_call_guard.reset(guard_token)
+                if lock is not None:
+                    lock.__exit__(None, None, None)
 
 
 __all__ = [
+    "BatchFailed",
     "Budget",
     "BudgetExhausted",
+    "ItemOutcome",
+    "ResumeUnsafeError",
     "Workflow",
     "WorkflowAgentCapExceeded",
     "WorkflowMetaError",
+    "WorkflowReport",
     "WorkflowWorktreeError",
     "agent",
     "args",

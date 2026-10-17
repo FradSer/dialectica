@@ -1,0 +1,6 @@
+Baseline: main 19c9f98
+First three regressions were run before the fixes:
+FAILED tests/test_workflow_reliability.py::test_concurrent_worktrees_never_change_process_cwd
+FAILED tests/test_workflow_reliability.py::test_explore_rejects_unclassified_write_tool
+FAILED tests/test_workflow_reliability.py::test_schema_content_changes_cache_key
+3 failed in 3.56s

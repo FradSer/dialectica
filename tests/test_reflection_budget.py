@@ -4,8 +4,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from dialectica import BudgetExhausted, Workflow
+from dialectica import Workflow
 from dialectica.agent_runtime import AgentResponse, TokenUsage
+from dialectica.workflow import BatchFailed
 from examples.patterns.reflection_pattern import create_reflection_engine
 
 
@@ -19,7 +20,8 @@ async def test_reflection_cannot_open_an_unbudgeted_run_inside_a_parent():
 
     with (
         patch("dialectica.agent_runtime.run_agent", transport),
-        pytest.raises(BudgetExhausted),
+        pytest.raises(BatchFailed) as caught,
     ):
         await Workflow(script, budget_total=3).run()
     assert transport.await_count == 3
+    assert any(o.error_type == "BudgetExhausted" for o in caught.value.outcomes)

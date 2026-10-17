@@ -169,8 +169,8 @@ async def test_real_inflight_async_tool_is_cancelled_and_runner_closes(monkeypat
     assert model._turns == 1
 
 
-async def test_retry_keeps_toolset_open_and_uses_fresh_session(monkeypatch):
-    """A failed attempt must not close tools or leak history into its retry."""
+async def test_tool_failure_does_not_restart_effects_and_closes_toolset(monkeypatch):
+    """A later transport failure must not repeat an already executed tool."""
     monkeypatch.delenv("DIALECTICA_TOOL_WORKERS", raising=False)
     calls = []
 
@@ -210,10 +210,10 @@ async def test_retry_keeps_toolset_open_and_uses_fresh_session(monkeypatch):
     agent = create_agent(
         "Generator", tools=[toolset], model_config=model, output_schema=Answer
     )
-    response = await run_agent(agent, "go", base_delay=0)
-    assert Answer.model_validate_json(response) == Answer(value=42)
-    assert len(calls) == 2
-    assert response.usage.total_tokens == 45
-    assert response.usage.unknown_calls == 1
+    with pytest.raises(ConnectionError) as caught:
+        await run_agent(agent, "go", base_delay=0)
+    assert len(calls) == 1
+    assert caught.value.dialectica_usage.total_tokens == 15
+    assert caught.value.dialectica_usage.unknown_calls == 1
     assert toolset.closed
     assert toolset.closes == 1

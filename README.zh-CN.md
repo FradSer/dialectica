@@ -39,16 +39,28 @@ from dialectica import create_repair_engine
 os.environ["GOOGLE_API_KEY"] = "..."  # 环境配置由应用负责
 
 
-# 验证器对任意客观检查返回 (passed, feedback)——单元测试、JSON schema、
-# linter、断言校验的业务逻辑。引擎据反馈反复修复，直到通过或用尽次数。
-def verify(answer: str) -> tuple[bool, str]:
-    ok = "def solve" in answer  # 你的真实检查写这里
-    return ok, "" if ok else "no solve() function defined"
+# Check a concrete JSON result; use a host test runner for code repair.
+import json
+from dialectica import VerificationResult
+
+
+def verify(answer: str) -> VerificationResult:
+    try:
+        result = json.loads(answer)
+    except json.JSONDecodeError as error:
+        return VerificationResult("fail", str(error), "invalid JSON")
+    ok = result == {"sum": 6}
+    return VerificationResult(
+        "pass" if ok else "fail",
+        "" if ok else "Expected the sum of [1, 2, 3]",
+        json.dumps(result),
+    )
 
 
 async def main():
     result = await create_repair_engine(
-        "Write a solve() function that ...", verifier=verify
+        'Return a JSON object with the sum of [1, 2, 3] under key "sum".',
+        verifier=verify,
     ).run()
     print(result["passed"], result["attempts"], result["final_answer"])
 
@@ -62,13 +74,15 @@ asyncio.run(main())
 
 ## Workflow 内核与 repair
 
+可靠性契约、迁移说明、工具权限、恢复边界与离线 bug 修复评测见[详细协议](docs/workflow-reliability.md)。`parallel`/`pipeline` 默认抛出包含所有结果的 `BatchFailed`；可选 `errors="collect"` 或显式 `"legacy"`，部分失败会体现在 `Workflow.report`。worktree、提示词与上下文隔离均不是 OS 安全沙箱。
+
 ### 🔗 `Workflow` / `agent` / `parallel` / `pipeline`——执行内核
 可组合的多 agent 运行时——Claude Code `Workflow` 工具的**程序化**编排面（不含 IDE 宿主 UI）：
 `agent()` / `parallel()` / `pipeline()` / `workflow()` / `phase()` / `log()` / `budget()` / `run_id()`。
 
-- **`agent(..., isolation="worktree", agent_type="Explore", sees=[...])`**——`tools` 是能力加成杠杆；`isolation="worktree"` 在独立 git worktree 中运行（无变更则自动清理）；`agent_type` 应用预设角色章程；**`sees`** 是按步骤的访问列表（借鉴 Sakana Fugu-Ultra 的"防编排坍塌"机制）：默认完全隔离（一个 agent 永远看不到另一个 agent 的 transcript），`sees=["gather","critique"]` 只把指定前置步骤的输出注入本次调用的 prompt。未知/未完成的标签会被跳过而非报错，故访问列表能在条件分支下存活。
+- **`agent(..., isolation="worktree", agent_type="Explore", sees=[...])`**——`tools` 是能力加成杠杆；`isolation="worktree"` 在独立 git worktree 中运行（无变更则自动清理）；`agent_type="Explore"` 在创建 ADK agent 前拒绝未声明或具有写权限的工具；**`sees`** 是按步骤的访问列表（借鉴 Sakana Fugu-Ultra 的"防编排坍塌"机制）：默认完全隔离（一个 agent 永远看不到另一个 agent 的 transcript），`sees=["gather","critique"]` 只把指定前置步骤的输出注入本次调用的 prompt。未知/未完成的标签会被跳过而非报错，故访问列表能在条件分支下存活。
 - **`workflow(script_or_name)`**——子 workflow 内联执行（一层嵌套），共享外层 budget；可用 `register_workflow` 按名称调用。
-- **Resume**——`agent()` 调用记入 `.dialectica/workflows/<run_id>/`；`Workflow(..., resume_run_id=...)` 从缓存重放最长不变前缀。
+- **Resume**——`agent()` 调用记入 `.dialectica/workflows/<run_id>/`；`Workflow(..., resume_version="v1", resume_run_id=...)` 仅复用契约可验证的不变前缀，副作用须由宿主复核。
 - **护栏**——每 run 最多 1000 次 `agent()`；`parallel`/`pipeline` 每次最多 4096 项。
 - **`Workflow(..., meta={...})`**——可选元数据；`phase()` 标题须与 `meta.phases` 一致。
 - **诚实适用范围**：无 `tools` 的纯 schema 工作流仍是纯 LLM scaffold；收益需按任务、模型和实际成本验证。
@@ -290,11 +304,11 @@ export DIALECTICA_DISABLE_THINKING=true
 不代表所有远端模型都已验证。传输失败重试期间复用同一 Runner，每次尝试使用
 独立的新 session；整体调用成功、失败或任务取消后统一关闭工具集与插件。
 任务取消会直接传播，不会重试。无效请求、认证失败、模型不存在，以及明确的
-订阅过期或计费额度错误会立即返回；临时网络和容量错误仍会重试。
+订阅过期或计费额度错误会立即返回。无工具调用可重试临时故障；含工具的调用失败后不会自动重启，以免重复副作用。
 
 日志保存每步上报的用量，包括结构化输出重新询问时成功返回的调用。并行步骤在
 模型调用前分配唯一编号，按调用顺序恢复；缓存中的具名输出也会恢复 `sees=` 上下文。
-变更后的后缀会替换旧记录；含重复并行编号的历史日志会在恢复时重新计算。
+变更后的后缀会替换旧记录。新版日志采用原子快照与独占运行锁，拒绝旧版或损坏日志；复用必须提供显式宿主版本，且代码、输入、schema、工具与模型配置指纹可验证。
 缓存重放不增加本次 token 预算。ADK 模型回调会在事件生成前捕获已上报的 token，
 失败尝试纳入重试合计，最终异常通过 `dialectica_usage` 暴露用量。失败步骤会记录，
 但不会作为成功结果重放；只追加的 `usage.jsonl` 收据在恢复替换缓存后仍保留用量。
@@ -305,9 +319,7 @@ export DIALECTICA_DISABLE_THINKING=true
 `TokenUsage.model_calls` 记录 ADK 在派发前观察到的模型轮次，包括运行时重试、
 工具循环与缓存短路，并写入预算、日志和实验收据。工作流 `spent_calls()` 仍计
 agent 步骤；SDK 和供应商内部重试不在这个计数中，不能据此声称准确的 HTTP
-请求数或计费次数。缺少该字段的旧日志仍可读取，其默认零表示当时未记录。
-`tokens` 预算限制已上报的输出 token（含已上报的思考 token）；输入、总量与
-缓存用量分别记录。
+请求数或计费次数。`tokens` 对已上报输出量做准入检查，在途调用仍可能超限；未知 usage 会阻止后续准入。`Workflow(model_turn_limit=...)` 另行限制跨步骤观察到的 ADK 模型准入次数。输入、总量与缓存用量分别记录，预算不保证美元硬上限。
 
 显式模型配置格式错误、供应商不支持或缺少 OpenAI/OpenRouter 凭据时，会在派发前
 报错，不会静默换成 Google 模型。请使用 `provider:model`（`openrouter:vendor/model`
@@ -331,7 +343,7 @@ agent 步骤；SDK 和供应商内部重试不在这个计数中，不能据此�
 ### 参数
 
 - **`agent()`**——`tools`、`instructions`、`schema`、`model`（单次覆盖）、`isolation="worktree"`、`agent_type`（如 `"Explore"`）、`sees`（按步骤的访问列表，选择性上下文可见）。
-- **`Workflow`**——`budget_total` / `budget_unit`（`"calls"` 或 `"tokens"`）、`resume_run_id`、`meta`、`concurrency`；`budget().usage()` 在后端上报 cache hit 时含 `cached_tokens`。
+- **`Workflow`**——`budget_total` / `budget_unit`（`"calls"` 或 `"tokens"`）、`resume_version`、`resume_run_id`、`model_turn_limit`、`meta`、`concurrency`；`budget().usage()` 在后端上报 cache hit 时含 `cached_tokens`。
 - **`create_repair_engine`**——`verifier`（必填）、`max_attempts`、`solution_format`、`models`（可选 roster）。
 - **模式**——见 `examples/patterns/` 里各模式自己的 docstring/工厂签名；它们保留了被降级引擎原本的参数（例如 ensemble 模式的 `scorer`/`policy`，dialectic 模式的 `criteria`/`rounds`）。
 
@@ -343,15 +355,19 @@ agent 步骤；SDK 和供应商内部重试不在这个计数中，不能据此�
 from dialectica import create_repair_engine
 
 
-def verify(code: str) -> tuple[bool, str]:
-    # 你的真实检查——跑测试、校验 schema 等
-    return True, ""
-
-
-engine = create_repair_engine("Write solve()", verifier=verify, max_attempts=3)
+# Reuse the concrete JSON checker from the installation example above.
+engine = create_repair_engine(
+    'Return JSON with the sum of [1, 2, 3] under key "sum".',
+    verifier=verify,
+    max_attempts=3,
+)
 result = await engine.run()
-# {"final_answer", "passed", "attempts", "history"}
+# status: pass / fail / indeterminate; history includes feedback and evidence.
 ```
+
+For an executable code-repair example and its host tools, see
+[`examples/bugfix_workflow.py`](examples/bugfix_workflow.py) and the
+[matched evaluation protocol](docs/workflow-reliability.md).
 
 ### 工具使用 stage（内核原语）
 

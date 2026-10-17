@@ -11,8 +11,10 @@ import logging
 from typing import Any
 
 from google.adk.agents import LlmAgent
+from google.adk.models.base_llm import BaseLlm
 
 from .llm_config import get_model_config
+from .tool_policy import enforce_tools
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +57,7 @@ def create_agent(
     role_name: str | None = None,
     additional_context: str = "",
     tools: list[Any] | None = None,
-    model_config: str | None = None,
+    model_config: str | BaseLlm | None = None,
     output_schema: type | None = None,
     agent_type: str | None = None,
 ) -> LlmAgent:
@@ -105,7 +107,9 @@ def create_agent(
         .strip()
     )
 
-    effective_tools = tools if tools is not None else template["tools"]
+    effective_tools = enforce_tools(
+        tools if tools is not None else template["tools"], agent_type
+    )
 
     # Get model config (use role-specific override if available)
     if isinstance(model_config, str) and not model_config.strip():

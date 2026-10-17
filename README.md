@@ -34,17 +34,28 @@ from dialectica import create_repair_engine
 os.environ["GOOGLE_API_KEY"] = "..."  # the app owns env setup
 
 
-# A verifier returns (passed, feedback) for ANY objective check — unit tests,
-# a JSON schema, a linter, assertion-checked logic. The engine repairs against
-# the feedback until it passes or runs out of attempts.
-def verify(answer: str) -> tuple[bool, str]:
-    ok = "def solve" in answer  # your real check goes here
-    return ok, "" if ok else "no solve() function defined"
+# Check a concrete JSON result; use a host test runner for code repair.
+import json
+from dialectica import VerificationResult
+
+
+def verify(answer: str) -> VerificationResult:
+    try:
+        result = json.loads(answer)
+    except json.JSONDecodeError as error:
+        return VerificationResult("fail", str(error), "invalid JSON")
+    ok = result == {"sum": 6}
+    return VerificationResult(
+        "pass" if ok else "fail",
+        "" if ok else "Expected the sum of [1, 2, 3]",
+        json.dumps(result),
+    )
 
 
 async def main():
     result = await create_repair_engine(
-        "Write a solve() function that ...", verifier=verify
+        'Return a JSON object with the sum of [1, 2, 3] under key "sum".',
+        verifier=verify,
     ).run()
     print(result["passed"], result["attempts"], result["final_answer"])
 
@@ -65,10 +76,10 @@ A composable multi-agent runtime — the programmatic surface Claude Code's
 `pipeline()` / `workflow()` / `phase()` / `log()` / `budget()` / `run_id()`.
 For *meta-task* orchestration (research, review, planning, design).
 
-- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None, isolation=None, agent_type=None, sees=None)`** — one workflow agent step, potentially containing multiple model turns. `schema` requests structured JSON; **`tools`** is the capability-add lever (8/8 vs 0/8 on hidden-oracle). `isolation="worktree"` runs in a fresh git worktree (auto-removed if clean). `agent_type` (e.g. `"Explore"`) applies a read-only exploration charter. ADK supports `tools` + `schema` through model capabilities and a response-tool fallback. **`sees`** is a per-step access list (inspired by Sakana Fugu-Ultra's anti-"orchestration-collapse" mechanism): default is full isolation (an agent never sees another agent's transcript); `sees=["gather","critique"]` injects only the named prior steps' outputs into this call's prompt. Unknown/unfinished labels are skipped, not errors, so access lists survive conditional branches.
+- **`agent(prompt, *, schema=None, tools=None, instructions="", label=None, phase=None, model=None, isolation=None, agent_type=None, sees=None)`** — one workflow agent step, potentially containing multiple model turns. `schema` requests structured JSON; **`tools`** is the capability-add lever (8/8 vs 0/8 on hidden-oracle). `isolation="worktree"` runs in a fresh git worktree (auto-removed if clean). `agent_type` (e.g. `"Explore"`) enforces declared read tools before ADK construction (unclassified/write tools are rejected). ADK supports `tools` + `schema` through model capabilities and a response-tool fallback. **`sees`** is a per-step access list (inspired by Sakana Fugu-Ultra's anti-"orchestration-collapse" mechanism): default is full isolation (an agent never sees another agent's transcript); `sees=["gather","critique"]` injects only the named prior steps' outputs into this call's prompt. Unknown/unfinished labels are skipped, not errors, so access lists survive conditional branches.
 - **`workflow(script_or_name, *, args=None)`** — inline child workflow (one nesting level); shares outer budget. Pass a registered name via `register_workflow`.
-- **`parallel(thunks)`** / **`pipeline(items, *stages)`** — concurrent barrier / per-item staged flow; max 4,096 items per call; 1,000 `agent()` calls per run.
-- **Resume** — each run journals `agent()` calls under `.dialectica/workflows/<run_id>/`; `Workflow(..., resume_run_id=...)` replays the longest unchanged prefix from cache.
+- **`parallel(thunks)`** / **`pipeline(items, *stages)`** — concurrent barrier / per-item staged flow; failures raise `BatchFailed` with all outcomes by default (`errors="collect"` or explicit `"legacy"` available); max 4,096 items per call; 1,000 `agent()` calls per run.
+- **Resume** — each run journals `agent()` calls under `.dialectica/workflows/<run_id>/`; `Workflow(..., resume_version="v1", resume_run_id=...)` can reuse a verified unchanged prefix. See the [resume contract](docs/workflow-reliability.md).
 - **`Workflow(..., meta={...})`** — optional `name`/`description`/`phases` metadata; phase titles must match `phase()` calls.
 - **Honest scope**: schema-only judge/synthesize workflows (no `tools`) remain pure-LLM scaffolds; evaluate their benefit under the task, model and cost conditions rather than assuming one.
 
@@ -140,6 +151,8 @@ time. Any quality benefit from additional samples or interaction requires a
 separate comparison. Context caching (below) saves tokens on
 multi-turn **tool loops inside one `agent()` call** — not across independent
 `agent()` stages unless you share session state yourself.
+
+See [workflow reliability contracts and the offline bug-fix evaluation](docs/workflow-reliability.md) for migration, tool permissions, recovery and evidence. Worktree/prompt/context separation is not an OS security sandbox.
 
 ### 🛠️ Execution-guided repair — verifier-in-the-loop (`create_repair_engine`)
 For verifiable tasks: **generate → run an injected verifier → repair against the
@@ -341,13 +354,12 @@ model. A runner stays open across transport retries, with a fresh session per at
 and closes its toolsets and plugins once after overall success, failure or task
 cancellation. Task cancellation propagates without retry. Invalid requests,
 authentication failures, missing models and explicit expired-subscription or
-billing-quota errors fail immediately; transient network/capacity errors retry.
+billing-quota errors fail immediately. Tool-free transient failures retry; tool-bearing invocations never automatically restart after a failure.
 
 Journals store per-step reported usage, including successful structured-output
 re-asks. Parallel steps reserve unique positions before model calls and replay
 in invocation order; cached labeled results restore `sees=` context. Changed
-suffixes replace stale entries. Legacy journals with duplicate parallel positions
-are recomputed on resume. Cached replay incurs no new token budget charges;
+suffixes replace stale entries. Version-2 journals use atomic snapshots and exclusive run locks; legacy or damaged journals are refused. Reuse requires an explicit host version and verifiable fingerprints. External effects require host reconciliation; see the [full contract](docs/workflow-reliability.md). Cached replay incurs no new token budget charges;
 ADK model callbacks capture reported tokens before event creation, so failed
 attempts are included in retry totals and final exceptions expose
 `dialectica_usage`. Failed steps are journaled but never replayed as successful
@@ -361,10 +373,7 @@ zero billing.
 including runtime retries, tool-loop turns and cache short circuits. It is
 recorded in budgets, journals and experiment receipts; workflow `spent_calls()`
 still counts agent steps. SDK and provider-internal retries remain outside this
-counter, so it does not establish exact HTTP request or billing counts. Old
-journals lacking the field remain readable; their default zero means the
-counter was not recorded. A `tokens` budget caps reported output tokens,
-including reported thinking; input/total/cached usage is recorded separately.
+counter, so it does not establish exact HTTP request or billing counts. A `tokens` budget gates reported output tokens; in-flight work can overshoot, and unknown usage blocks later admission. `Workflow(model_turn_limit=...)` separately caps observed ADK model admissions across steps. Input/total/cached usage is recorded separately. These limits do not establish a dollar cap.
 
 Explicit model configuration fails before dispatch for malformed values,
 unsupported providers or missing OpenAI/OpenRouter credentials; it never
@@ -392,7 +401,7 @@ Known-good Gemini ids are `gemini-3.5-flash` (default) and `gemini-3.1-pro-previ
 ### Parameters
 
 - **`agent()`** — see the signature under [Workflow kernel](#workflow-kernel--repair).
-- **`Workflow`** — `budget_total` / `budget_unit` (`"calls"` or `"tokens"`), `resume_run_id`, `meta`, `concurrency`; `budget().usage()` includes `cached_tokens` when the backend reports cache hits.
+- **`Workflow`** — `budget_total` / `budget_unit` (`"calls"` or `"tokens"`), `resume_version`, `resume_run_id`, `model_turn_limit`, `meta`, `concurrency`; `budget().usage()` includes `cached_tokens` when the backend reports cache hits.
 - **`create_repair_engine`** — `verifier` (mandatory), `max_attempts`, `solution_format`, `models` (optional roster).
 - **Patterns** — see each pattern's own docstring/factory signature in `examples/patterns/`; they keep their demoted engine's original parameters (e.g. `scorer`/`policy` for the ensemble pattern, `criteria`/`rounds` for the dialectic pattern).
 
@@ -404,15 +413,19 @@ Known-good Gemini ids are `gemini-3.5-flash` (default) and `gemini-3.1-pro-previ
 from dialectica import create_repair_engine
 
 
-def verify(code: str) -> tuple[bool, str]:
-    # your real check — run the tests, validate the schema, etc.
-    return True, ""
-
-
-engine = create_repair_engine("Write solve()", verifier=verify, max_attempts=3)
+# Reuse the concrete JSON checker from the installation example above.
+engine = create_repair_engine(
+    'Return JSON with the sum of [1, 2, 3] under key "sum".',
+    verifier=verify,
+    max_attempts=3,
+)
 result = await engine.run()
-# {"final_answer", "passed", "attempts", "history"}
+# status: pass / fail / indeterminate; history includes feedback and evidence.
 ```
+
+For an executable code-repair example and its host tools, see
+[`examples/bugfix_workflow.py`](examples/bugfix_workflow.py) and the
+[matched evaluation protocol](docs/workflow-reliability.md).
 
 ### Tool-using stage (kernel primitive)
 

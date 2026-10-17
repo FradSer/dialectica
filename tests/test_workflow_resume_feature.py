@@ -41,7 +41,9 @@ def run_two_agents(simple_llm, tmp_path):
         return wf.run_id()
 
     with patch("dialectica.agent_runtime.run_agent", simple_llm):
-        run_id = asyncio.run(Workflow(script, journal_dir=journal_dir).run())
+        run_id = asyncio.run(
+            Workflow(script, resume_version="test-v1", journal_dir=journal_dir).run()
+        )
     journal = RunJournal.load(run_id, journal_dir)
     return journal.entries
 
@@ -66,11 +68,14 @@ def resume_same_script(counting_llm, tmp_path):
         return "done"
 
     with patch("dialectica.agent_runtime.run_agent", fake):
-        asyncio.run(Workflow(script, journal_dir=journal_dir).run())
+        asyncio.run(
+            Workflow(script, resume_version="test-v1", journal_dir=journal_dir).run()
+        )
         state["calls"] = 0
         asyncio.run(
             Workflow(
                 script,
+                resume_version="test-v1",
                 journal_dir=journal_dir,
                 resume_run_id=holder["run_id"],
             ).run()
@@ -95,11 +100,16 @@ def resume_different_args(counting_llm, tmp_path):
         return "done"
 
     with patch("dialectica.agent_runtime.run_agent", fake):
-        asyncio.run(Workflow(script, args={"a": 1}, journal_dir=journal_dir).run())
+        asyncio.run(
+            Workflow(
+                script, resume_version="test-v1", args={"a": 1}, journal_dir=journal_dir
+            ).run()
+        )
         state["calls"] = 0
         asyncio.run(
             Workflow(
                 script,
+                resume_version="test-v1",
                 args={"a": 2},
                 journal_dir=journal_dir,
                 resume_run_id=holder["run_id"],
@@ -121,7 +131,9 @@ def read_run_id(simple_llm, tmp_path):
         return wf.run_id()
 
     with patch("dialectica.agent_runtime.run_agent", simple_llm):
-        return asyncio.run(Workflow(script, journal_dir=journal_dir).run())
+        return asyncio.run(
+            Workflow(script, resume_version="test-v1", journal_dir=journal_dir).run()
+        )
 
 
 @then("the run id is a non-empty string")

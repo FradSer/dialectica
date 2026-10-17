@@ -22,22 +22,59 @@ script it joins that run's context, so its attempts are charged to the outer
 ``budget_total`` and share the outer concurrency cap (the child-workflow rule);
 standalone it opens its own fresh ``Workflow`` context. A joined run can
 therefore raise ``BudgetExhausted`` mid-loop when the outer budget runs out —
-the partial history is lost with it, exactly as any other over-budget
-``wf.agent()`` call would; standalone runs are unbudgeted and never raise it.
+the engine retains completed verifier evidence in ``last_history``; standalone runs are unbudgeted and never raise it.
 """
 
+import inspect
 import logging
-from collections.abc import Callable
-from typing import Any
+from collections.abc import Awaitable, Callable
+from dataclasses import asdict, dataclass
+from typing import Any, Literal
 
 from . import workflow as wf
 
 logger = logging.getLogger(__name__)
 
+
 # Given the model's raw answer, return (passed, feedback). ``feedback`` is the
 # concrete failure to repair against (assertion errors, wrong output, a stack
 # trace) — empty when it passed.
-Verifier = Callable[[str], tuple[bool, str]]
+@dataclass(frozen=True)
+class VerificationResult:
+    """Host evidence: pass/fail/indeterminate; only explicit pass accepts work."""
+
+    status: Literal["pass", "fail", "indeterminate"]
+    feedback: str = ""
+    evidence: str = ""
+
+    def __post_init__(self):
+        if self.status not in ("pass", "fail", "indeterminate"):
+            raise ValueError("invalid verification status")
+
+
+VerifierValue = VerificationResult | tuple[bool, str]
+Verifier = Callable[[str], VerifierValue | Awaitable[VerifierValue]]
+
+
+async def verify(verifier: Verifier, answer: str) -> VerificationResult:
+    """Legacy bool tuples are supported; checker errors are indeterminate."""
+    try:
+        value = verifier(answer)
+        if inspect.isawaitable(value):
+            value = await value
+        if isinstance(value, VerificationResult):
+            return value
+        if (
+            isinstance(value, tuple)
+            and len(value) == 2
+            and type(value[0]) is bool
+            and isinstance(value[1], str)
+        ):
+            return VerificationResult("pass" if value[0] else "fail", value[1])
+        return VerificationResult("indeterminate", "Invalid verifier return value")
+    except Exception as error:  # noqa: BLE001 — checker failure is indeterminate
+        return VerificationResult("indeterminate", f"{type(error).__name__}: {error}")
+
 
 SOLVE_PROMPT = (
     "Solve the following problem. Reason it through, then provide your "
@@ -77,7 +114,10 @@ class IterativeRepairEngine:
         solution_format: str = "",
         labels: list[str] | None = None,
     ):
+        self.last_history: list[dict[str, Any]] = []
         self.problem = problem
+        if not models:
+            raise ValueError("models must not be empty")
         self._models = models
         # The label recorded in history per attempt — the raw ``provider:model``
         # config for a roster, else a placeholder for the single-model default.
@@ -105,6 +145,8 @@ class IterativeRepairEngine:
         a roster, else the single-model placeholder) that produced the attempt.
         """
 
+        self.last_history = []
+
         async def script() -> dict[str, Any]:
             idx = 0
             answer = (
@@ -116,15 +158,24 @@ class IterativeRepairEngine:
                     label=self._labels[idx],
                 )
             ).strip()
-            passed, feedback = self.verifier(answer)
+            verdict = await verify(self.verifier, answer)
+            passed, feedback = verdict.status == "pass", verdict.feedback
             history: list[dict[str, Any]] = [
-                {"attempt": 1, "passed": passed, "model": self._labels[idx]}
+                {
+                    "attempt": 1,
+                    "passed": passed,
+                    "model": self._labels[idx],
+                    "status": verdict.status,
+                    "feedback": feedback,
+                    "evidence": verdict.evidence,
+                }
             ]
+            self.last_history = list(history)
             logger.info("Attempt 1: passed=%s (model=%s)", passed, self._labels[idx])
 
             failed: list[tuple[str, str]] = []
             attempt = 1
-            while not passed and attempt < self.max_attempts:
+            while verdict.status == "fail" and attempt < self.max_attempts:
                 failed.append((answer, feedback))
                 attempt += 1
                 idx = (attempt - 1) % len(self._models)
@@ -139,10 +190,19 @@ class IterativeRepairEngine:
                         label=self._labels[idx],
                     )
                 ).strip()
-                passed, feedback = self.verifier(answer)
+                verdict = await verify(self.verifier, answer)
+                passed, feedback = verdict.status == "pass", verdict.feedback
                 history.append(
-                    {"attempt": attempt, "passed": passed, "model": self._labels[idx]}
+                    {
+                        "attempt": attempt,
+                        "passed": passed,
+                        "model": self._labels[idx],
+                        "status": verdict.status,
+                        "feedback": feedback,
+                        "evidence": verdict.evidence,
+                    }
                 )
+                self.last_history = list(history)
                 logger.info(
                     "Repair attempt %d: passed=%s (model=%s)",
                     attempt,
@@ -153,6 +213,8 @@ class IterativeRepairEngine:
             return {
                 "final_answer": answer,
                 "passed": passed,
+                "status": verdict.status,
+                "verification": asdict(verdict),
                 "attempts": attempt,
                 "history": history,
             }

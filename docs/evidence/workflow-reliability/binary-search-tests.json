@@ -1,0 +1,70 @@
+{
+  "path_normalization": "Executable and workspace prefixes normalized; test output and exit codes otherwise unchanged",
+  "runs": [
+    {
+      "command": [
+        "<python>",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "test_target.py"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "test_regression (test_target.Regression.test_regression) ... FAIL\n\n======================================================================\nFAIL: test_regression (test_target.Regression.test_regression)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/private<workspace>/test_target.py\", line 6, in test_regression\n    assert search([1], 1) == 0\n           ^^^^^^^^^^^^^^^^^^^\nAssertionError\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nFAILED (failures=1)\n"
+    },
+    {
+      "command": [
+        "<python>",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "test_target.py"
+      ],
+      "exit_code": 1,
+      "stdout": "",
+      "stderr": "test_regression (test_target.Regression.test_regression) ... FAIL\n\n======================================================================\nFAIL: test_regression (test_target.Regression.test_regression)\n----------------------------------------------------------------------\nTraceback (most recent call last):\n  File \"/private<workspace>/test_target.py\", line 6, in test_regression\n    assert search([1], 1) == 0\n           ^^^^^^^^^^^^^^^^^^^\nAssertionError\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nFAILED (failures=1)\n"
+    },
+    {
+      "command": [
+        "<python>",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "test_target.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_regression (test_target.Regression.test_regression) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+    },
+    {
+      "command": [
+        "<python>",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "test_target.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_regression (test_target.Regression.test_regression) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+    },
+    {
+      "command": [
+        "<python>",
+        "-B",
+        "-m",
+        "unittest",
+        "-v",
+        "test_target.py"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": "test_regression (test_target.Regression.test_regression) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.000s\n\nOK\n"
+    }
+  ]
+}

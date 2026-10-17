@@ -54,7 +54,10 @@ def parallel_llm():
     return fake
 
 
-@when("parallel runs three thunks including a failing one", target_fixture="result")
+@when(
+    "parallel runs three thunks including a failing one in explicit legacy mode",
+    target_fixture="result",
+)
 def run_parallel(parallel_llm):
     async def script():
         return await wf.parallel(
@@ -62,7 +65,8 @@ def run_parallel(parallel_llm):
                 lambda: wf.agent("call:alpha"),
                 lambda: wf.agent("call:bad"),
                 lambda: wf.agent("call:gamma"),
-            ]
+            ],
+            errors="legacy",
         )
 
     with patch("dialectica.agent_runtime.run_agent", parallel_llm):
@@ -136,12 +140,14 @@ def throw_setup():
     return fake, stage
 
 
-@when("pipeline runs three items", target_fixture="throw_result")
+@when(
+    "pipeline runs three items in explicit legacy mode", target_fixture="throw_result"
+)
 def run_pipeline_throw(throw_setup):
     fake, stage = throw_setup
 
     async def script():
-        return await wf.pipeline(["a", "b", "c"], stage)
+        return await wf.pipeline(["a", "b", "c"], stage, errors="legacy")
 
     with patch("dialectica.agent_runtime.run_agent", fake):
         return asyncio.run(Workflow(script).run())
@@ -607,7 +613,7 @@ def run_two_plain_calls(prose_llm):
 @then("the budget records zero tokens spent")
 def plain_zero_tokens(plain_budget):
     assert plain_budget.spent_tokens() == 0
-    assert plain_budget.usage() == TokenUsage()
+    assert plain_budget.usage() == TokenUsage(unknown_calls=2)
     assert plain_budget.spent_calls() == 2
 
 
