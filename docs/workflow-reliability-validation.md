@@ -40,7 +40,7 @@ installation was used without changing runtime/development dependencies.
 
 | Check | Result |
 | --- | --- |
-| `.venv/bin/pytest -q` | **267 passed, 9 deselected** |
+| `.venv/bin/pytest -q` | **276 passed, 9 deselected** |
 | `.venv/bin/ruff check .` | Passed |
 | `.venv/bin/ruff format --check .` | Passed |
 | `uvx pyright --pythonpath .venv/bin/python dialectica evals/workflow_bug_fixtures.py evals/workflow_bugfix_eval.py examples/bugfix_workflow.py` | **0 errors, 0 warnings** |
@@ -86,3 +86,33 @@ provider budget, pin/audit actual model revisions, attach provider billing recei
 and replace/augment the small fixtures with representative historical bugs.
 Windows locking has an implementation path but was not exercised on this host.
 A host-provided OS/container sandbox is still needed for untrusted live code.
+
+## Independent code review after incomplete external coverage
+
+An independent reviewer agent audited PR #10 against base `19c9f98` without
+editing the implementation or invoking live models. The reviewed initial head was
+`6e19443`. Two new-contract defects and one existing compatibility omission were
+reproduced with offline calls:
+
+| Finding | Reproduction and fix |
+| --- | --- |
+| P1: asynchronous cached verification could reuse an invalidated parallel suffix | First step rejected its cache while a later verifier accepted; resume returned `first-fresh, tail-old`. Concurrent verifiers now wait for all earlier cache decisions and recheck validity before returning. Live execution stays outside the decision barrier. |
+| P2: caught preflight refusals could report completed | Caught budget, Explore permission and unsafe-resume refusals now retain typed errors/tracebacks and mark a normally returning script partial. One public boundary records failures, including execution and persistence errors. |
+| P2: cached agent skipped phase registration (also present on base) | A declared agent phase now registers on cached return, so resumed meta validation matches initial execution. |
+
+The six direct parametrized regressions failed before these fixes and passed
+following them. Three additional regressions cover refusal of an invalidated
+external suffix without repeating its effects, cancellation releasing decision
+waiters, and refusal of workflow-agent reentry from a verifier without deadlock.
+The same reviewer independently reran the original reproducer and all nine new
+regressions after the fixes, confirmed the public signature/coroutine behavior,
+and reported no remaining blocking findings.
+See `tests/test_independent_review_regressions.py`. A verifier uses host checks
+directly; it cannot invoke workflow agents and create circular decision waits.
+
+This is independent agent code review and offline regression evidence, not a
+completed external service review. Devin skipped substantive review because its
+trial expired with no credits. Code Terrier's latest completed review on the
+previous head was neutral: exploration budget reached, full coverage unavailable.
+Neither service result establishes a clean code review. No reviewer quota,
+billing or configuration was changed, and the PR was not split or merged.

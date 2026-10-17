@@ -19,8 +19,9 @@ import traceback
 from collections.abc import Awaitable, Callable, Sequence
 from contextvars import ContextVar
 from dataclasses import dataclass, field
+from functools import wraps
 from pathlib import Path
-from typing import Any, TypeVar
+from typing import Any, ParamSpec, TypeVar
 
 from pydantic import BaseModel, ValidationError
 
@@ -52,6 +53,7 @@ from .workflow_worktree import WorkflowWorktreeError, worktree_path, worktree_se
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
+P = ParamSpec("P")
 
 # Cap overlapping agent() calls. The Workflow tool caps concurrent agent()
 # calls (excess calls queue) — the semaphore is acquired inside agent() around
@@ -210,6 +212,7 @@ class _RunCtx:
     args: Any = None
     depth: int = 0
     agent_sequence: int = 0
+    replay_decisions: list[asyncio.Event] = field(default_factory=list)
     registry_name: str | None = None
     meta: dict[str, Any] | None = None
     # Per-step access-list store: label -> str(result). Populated by agent()
@@ -310,6 +313,34 @@ def in_workflow() -> bool:
     return _current.get() is not None
 
 
+def _record_agent_failure(
+    call: Callable[P, Awaitable[T]],
+) -> Callable[P, Awaitable[T]]:
+    @wraps(call)
+    async def recorded(*args: P.args, **kwargs: P.kwargs) -> T:
+        ctx = _ctx()
+        sequence = ctx.agent_sequence
+        try:
+            return await call(*args, **kwargs)
+        except BaseException as error:
+            ctx.outcomes.append(
+                ItemOutcome(
+                    sequence,
+                    "failed",
+                    error_type=type(error).__name__,
+                    error=str(error),
+                    traceback=traceback.format_exc(),
+                )
+            )
+            raise
+
+    return recorded
+
+
+_verifying_cache: ContextVar[bool] = ContextVar("verifying_cache", default=False)
+
+
+@_record_agent_failure
 async def agent(
     prompt: str,
     *,
@@ -354,6 +385,8 @@ async def agent(
     Fugu-Ultra anti-collapse lever (see module docstring): selective context
     visibility, opt-in, no training required.
     """
+    if _verifying_cache.get():
+        raise RuntimeError("verify_cached must not invoke workflow agents")
     if isolation is not None and isolation != "worktree":
         raise ValueError(
             f"unknown isolation {isolation!r}: only 'worktree' is supported"
@@ -408,28 +441,51 @@ async def agent(
     # require host reconciliation, including steps interrupted before completion.
     effectful = bool(tools) or isolation is not None
     prior_effect = ctx.journal.resuming and sequence in ctx.journal.effectful_sequences
-    cached = ctx.journal.lookup(sequence, cache_key)
-    if cached is not None and replay != "rerun":
-        result = deserialize_agent_result(cached, schema)
-        reusable = not effectful and not prior_effect
-        if verify_cached is not None and replay_version:
-            try:
-                verdict = verify_cached(result)
-                if inspect.isawaitable(verdict):
-                    verdict = await verdict
-                reusable = verdict is True
-            except Exception:  # noqa: BLE001 — failed validation forbids reuse
-                reusable = False
-        if reusable:
+    # Verifiers may overlap, but a cached suffix cannot commit before all
+    # earlier decisions. Waiting on every event also preserves ordering when
+    # an intermediate decision fails or is cancelled.
+    earlier_decisions = tuple(ctx.replay_decisions)
+    decision = asyncio.Event()
+    ctx.replay_decisions.append(decision)
+    try:
+        cached = ctx.journal.lookup(sequence, cache_key)
+        reusable = False
+        result: Any = None
+        if cached is not None and replay != "rerun":
+            result = deserialize_agent_result(cached, schema)
+            reusable = not effectful and not prior_effect
+            if verify_cached is not None and replay_version:
+                token = _verifying_cache.set(True)
+                try:
+                    verdict = verify_cached(result)
+                    if inspect.isawaitable(verdict):
+                        verdict = await verdict
+                    reusable = verdict is True
+                except Exception:  # noqa: BLE001 — failed validation forbids reuse
+                    reusable = False
+                finally:
+                    _verifying_cache.reset(token)
+        for earlier in earlier_decisions:
+            await earlier.wait()
+        if reusable and ctx.journal.lookup(sequence, cache_key) is cached:
+            if phase:
+                ctx.phases.append(phase)
             _store_step_output(ctx, label, result)
             return result
-    if prior_effect and replay != "rerun":
-        raise ResumeUnsafeError(
-            f"Step {sequence} has prior external effects or observations; "
-            "supply a versioned verify_cached returning True, or explicitly "
-            "authorize replay='rerun' with host-managed idempotency"
-        )
-    ctx.journal.invalidate_from(sequence)
+        # A rejected or unavailable prefix invalidates every cached suffix,
+        # including when external effects prevent an automatic rerun.
+        ctx.journal.invalidate_from(sequence)
+        if prior_effect and replay != "rerun":
+            raise ResumeUnsafeError(
+                f"Step {sequence} has prior external effects or observations; "
+                "supply a versioned verify_cached returning True, or explicitly "
+                "authorize replay='rerun' with host-managed idempotency"
+            )
+    except BaseException:
+        ctx.journal.invalidate_from(sequence)
+        raise
+    finally:
+        decision.set()
     ctx.budget._charge()
     if effectful:
         ctx.journal.effectful_sequences.add(sequence)
@@ -551,16 +607,7 @@ async def agent(
                 log(f"worktree kept (dirty): {handle.path}")
         else:
             result = await _execute_agent()
-    except BaseException as error:
-        ctx.outcomes.append(
-            ItemOutcome(
-                sequence,
-                "failed",
-                error_type=type(error).__name__,
-                error=str(error),
-                traceback=traceback.format_exc(),
-            )
-        )
+    except BaseException:
         entry = serialize_agent_result(None, schema)
         entry.result_kind = "error"
         entry.sequence = sequence

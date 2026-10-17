@@ -77,7 +77,10 @@ protected by the host. Local journal files are trusted input, not signed evidenc
 
 Only successful text/schema results can be reused. A missing/changed/failed step, rejected cached verification or explicit rerun
 invalidates the suffix. Parallel steps reserve invocation positions before yielding;
-reordering branches invalidates reuse. No in-flight model request is resumed.
+reordering branches invalidates reuse. Host verification may overlap, but a cached
+result waits for all earlier cache decisions and rechecks suffix validity before
+returning. Rejected, failed or cancelled verification decisions invalidate the
+suffix even when external effects prevent rerun. No in-flight model request is resumed.
 Completed pure steps can be reused after process interruption; non-agent Python
 code in the script runs again and must be restart-safe.
 
@@ -85,7 +88,9 @@ All tool/worktree steps are conservatively external, even read tools whose
 observations may change. Reusing one requires both `replay_version="artifact-v1"`
 and `verify_cached(result)` returning exactly `True` (sync or async). The callback
 must check current authoritative evidence, e.g. artifact hash plus a fresh test run.
-Exceptions, false or indeterminate checks forbid reuse. A prior external step that
+Exceptions, false or indeterminate checks forbid reuse. A verifier must not invoke
+workflow agents (including through child workflows); this is refused to avoid
+circular cache-decision waits. Use host tools directly for authoritative checks. A prior external step that
 cannot be reconciled raises `ResumeUnsafeError`, including a crash after dispatch
 but before a response was journaled. This refusal survives code/input invalidation.
 A completed cached result can only be validated when the full fingerprint matches.
