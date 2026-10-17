@@ -1,0 +1,19 @@
+{
+  "partial_failure_result": [
+    "kept",
+    null
+  ],
+  "token_budget_10_concurrency_1": {
+    "dispatched": [
+      "one",
+      "two"
+    ],
+    "reported_output_tokens": 20
+  },
+  "non_boolean_verifier_accepted": {
+    "passed": "yes",
+    "type": "str"
+  },
+  "changed_script_same_fingerprint": true,
+  "equivalent_tool_instances_different_key": true
+}

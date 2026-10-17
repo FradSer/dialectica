@@ -6,7 +6,7 @@ Feature: Workflow orchestration primitives
 
   Scenario: parallel waits for all and converts a failed thunk to null
     Given a mocked LLM that returns a string per call and fails on "bad"
-    When parallel runs three thunks including a failing one
+    When parallel runs three thunks including a failing one in explicit legacy mode
     Then it returns three results with the failed one null
     And the other two are their strings
 
@@ -17,7 +17,7 @@ Feature: Workflow orchestration primitives
 
   Scenario: a pipeline stage that throws drops only that item
     Given a mocked LLM and a stage that throws on item index 1
-    When pipeline runs three items
+    When pipeline runs three items in explicit legacy mode
     Then item 0 and item 2 survive and item 1 is null
 
   Scenario: agent with a schema returns a validated model instance

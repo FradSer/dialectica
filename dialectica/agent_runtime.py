@@ -13,7 +13,7 @@ import asyncio
 import logging
 import os
 import random
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from contextvars import ContextVar
 from dataclasses import dataclass, field, fields
 from typing import Self
@@ -40,6 +40,15 @@ from .adk_config import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+class ModelTurnLimitExceeded(RuntimeError):
+    """The shared host model-turn admission limit has been reached."""
+
+
+model_call_guard: ContextVar[Callable[[], None] | None] = ContextVar(
+    "dialectica_model_call_guard", default=None
+)
 
 
 @dataclass(frozen=True)
@@ -171,6 +180,9 @@ class _UsagePlugin(BasePlugin):
     async def before_model_callback(
         self, *, callback_context: CallbackContext, llm_request: LlmRequest
     ) -> None:
+        guard = model_call_guard.get()
+        if guard is not None:
+            guard()
         tracker = _active_usage.get()
         if tracker is not None:
             key = id(callback_context.actions)
@@ -279,7 +291,14 @@ async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
             run_config=run_config,
         )
     except BaseException as error:
-        error.dialectica_usage = tracker.usage()
+        # ADK wraps plugin exceptions; restore the public admission-limit type.
+        cause = error
+        while cause is not None:
+            if isinstance(cause, ModelTurnLimitExceeded):
+                vars(cause)["dialectica_usage"] = tracker.usage()
+                raise cause from error
+            cause = cause.__cause__
+        vars(error)["dialectica_usage"] = tracker.usage()
         raise
     finally:
         _active_usage.reset(usage_token)
@@ -288,7 +307,7 @@ async def _call_agent_once(agent: LlmAgent, instruction: str) -> str:
             try:
                 await runner.close()
             except BaseException as error:
-                error.dialectica_usage = tracker.usage()
+                vars(error)["dialectica_usage"] = tracker.usage()
                 raise
 
     tracker.reconcile(events)
@@ -367,14 +386,14 @@ async def run_agent(
             agent, instruction, max_attempts=max_attempts, base_delay=base_delay
         )
     except BaseException as error:
-        error.dialectica_usage = scope.usage
+        vars(error)["dialectica_usage"] = scope.usage
         raise
     finally:
         try:
             if scope.runner is not None:
                 await scope.runner.close()
         except BaseException as error:
-            error.dialectica_usage = scope.usage
+            vars(error)["dialectica_usage"] = scope.usage
             raise
         finally:
             _runner_scope.reset(token)
@@ -404,9 +423,13 @@ async def _run_agent_with_retries(
             accumulated = _combine_usage(
                 accumulated, getattr(e, "dialectica_usage", TokenUsage())
             )
-            e.dialectica_usage = accumulated
+            vars(e)["dialectica_usage"] = accumulated
             if scope := _runner_scope.get():
                 scope.usage = accumulated
+            # Replaying a whole tool invocation may repeat completed writes.
+            # The host must reconcile effects before authorizing another attempt.
+            if isinstance(e, ModelTurnLimitExceeded) or getattr(agent, "tools", None):
+                raise
             if not isinstance(e, Exception) or isinstance(
                 e, LlmCallsLimitExceededError
             ):

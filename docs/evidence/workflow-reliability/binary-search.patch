@@ -1,0 +1,10 @@
+--- a/target.py
++++ b/target.py
+@@ -1,6 +1,6 @@
+ def search(xs, target):
+     lo, hi = 0, len(xs) - 1
+-    while lo < hi:
++    while lo <= hi:
+         mid = (lo + hi) // 2
+         if xs[mid] == target:
+             return mid

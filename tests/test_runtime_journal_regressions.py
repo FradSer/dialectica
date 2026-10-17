@@ -29,13 +29,18 @@ async def test_out_of_order_parallel_resume_reuses_every_result(tmp_path):
         )
 
     with patch("dialectica.agent_runtime.run_agent", fake):
-        assert await Workflow(script, journal_dir=tmp_path).run() == ["first", "second"]
+        assert await Workflow(
+            script, resume_version="test-v1", journal_dir=tmp_path
+        ).run() == ["first", "second"]
         journal = RunJournal.load(holder["id"], tmp_path)
         assert [e.sequence for e in journal.entries] == [0, 1]
         assert sum(e.usage.total_tokens for e in journal.entries) == 246
         calls.clear()
         assert await Workflow(
-            script, journal_dir=tmp_path, resume_run_id=holder["id"]
+            script,
+            resume_version="test-v1",
+            journal_dir=tmp_path,
+            resume_run_id=holder["id"],
         ).run() == ["first", "second"]
         assert calls == []
 
@@ -55,14 +60,24 @@ async def test_cached_producer_restores_context_and_changed_tail(tmp_path):
         return await wf.agent("changed" if changed else "consume", sees=["producer"])
 
     with patch("dialectica.agent_runtime.run_agent", fake):
-        await Workflow(script, journal_dir=tmp_path).run()
+        await Workflow(script, resume_version="test-v1", journal_dir=tmp_path).run()
         changed = True
         calls.clear()
-        await Workflow(script, journal_dir=tmp_path, resume_run_id=holder["id"]).run()
+        await Workflow(
+            script,
+            resume_version="test-v1",
+            journal_dir=tmp_path,
+            resume_run_id=holder["id"],
+        ).run()
         assert len(calls) == 1
         assert "shared-value-731" in calls[0]
         calls.clear()
-        await Workflow(script, journal_dir=tmp_path, resume_run_id=holder["id"]).run()
+        await Workflow(
+            script,
+            resume_version="test-v1",
+            journal_dir=tmp_path,
+            resume_run_id=holder["id"],
+        ).run()
         assert calls == []
         assert len(RunJournal.load(holder["id"], tmp_path).entries) == 2
 
@@ -107,7 +122,9 @@ async def test_structured_reasks_record_all_successful_call_usage(tmp_path):
         return await wf.agent("produce", schema=Answer)
 
     with patch("dialectica.agent_runtime.run_agent", fake):
-        result = await Workflow(script, journal_dir=tmp_path).run()
+        result = await Workflow(
+            script, resume_version="test-v1", journal_dir=tmp_path
+        ).run()
     assert result.value == 731
     assert RunJournal.load(holder["id"], tmp_path).entries[0].usage.total_tokens == 246
 
@@ -127,13 +144,16 @@ async def test_legacy_duplicate_positions_are_recomputed(tmp_path):
         )
 
     with patch("dialectica.agent_runtime.run_agent", fake):
-        await Workflow(script, journal_dir=tmp_path).run()
+        await Workflow(script, resume_version="test-v1", journal_dir=tmp_path).run()
         journal = RunJournal.load(holder["id"], tmp_path)
         journal.entries[1].sequence = 0
         journal.persist(tmp_path / holder["id"] / "journal.jsonl")
         calls.clear()
         assert await Workflow(
-            script, journal_dir=tmp_path, resume_run_id=holder["id"]
+            script,
+            resume_version="test-v1",
+            journal_dir=tmp_path,
+            resume_run_id=holder["id"],
         ).run() == ["first", "second"]
         assert calls == ["first", "second"]
         assert [

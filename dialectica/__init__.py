@@ -39,11 +39,16 @@ load ``.env`` itself; the consuming application owns environment setup.
 """
 
 from .agent_runtime import TokenUsage
-from .repair import IterativeRepairEngine, create_repair_engine
+from .repair import IterativeRepairEngine, VerificationResult, create_repair_engine
+from .tool_policy import tool_capability
 from .workflow import (
+    BatchFailed,
     Budget,
     BudgetExhausted,
+    ItemOutcome,
+    ResumeUnsafeError,
     Workflow,
+    WorkflowReport,
     agent,
     args,
     budget,
@@ -57,6 +62,12 @@ from .workflow import (
 __all__ = [  # noqa: RUF022 — logical grouping, not alphabetical
     # Workflow primitives — the composable execution kernel. agent(tools=...)
     # is what lets a stage add capability instead of only rearranging text.
+    "BatchFailed",
+    "ItemOutcome",
+    "ResumeUnsafeError",
+    "WorkflowReport",
+    "VerificationResult",
+    "tool_capability",
     "Budget",
     "BudgetExhausted",
     "TokenUsage",

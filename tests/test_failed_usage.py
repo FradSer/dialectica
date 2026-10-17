@@ -49,15 +49,15 @@ async def test_failed_tool_turn_is_metered_and_journaled(tmp_path):
         ),
         pytest.raises(ValueError) as caught,
     ):
-        await Workflow(script, journal_dir=tmp_path).run()
-    assert caught.value.dialectica_usage.total_tokens == 45
-    assert caught.value.dialectica_usage.model_calls == 3
-    assert holder["budget"].usage().model_calls == 3
+        await Workflow(script, resume_version="test-v1", journal_dir=tmp_path).run()
+    assert caught.value.dialectica_usage.total_tokens == 15
+    assert caught.value.dialectica_usage.model_calls == 1
+    assert holder["budget"].usage().model_calls == 1
     assert holder["budget"].spent_calls() == 1
     journal = RunJournal.load(holder["id"], tmp_path)
     assert journal.entries[0].result_kind == "error"
-    assert journal.entries[0].usage.total_tokens == 45
-    assert journal.entries[0].usage.model_calls == 3
+    assert journal.entries[0].usage.total_tokens == 15
+    assert journal.entries[0].usage.model_calls == 1
     assert journal.lookup(0, journal.entries[0].cache_key) is None
 
 
@@ -110,11 +110,14 @@ async def test_failed_receipt_survives_resume_replacing_error_entry(tmp_path):
 
     with patch("dialectica.agent_runtime.run_agent", fake):
         with pytest.raises(ConnectionError):
-            await Workflow(script, journal_dir=tmp_path).run()
+            await Workflow(script, resume_version="test-v1", journal_dir=tmp_path).run()
         failed = False
         assert (
             await Workflow(
-                script, journal_dir=tmp_path, resume_run_id=holder["id"]
+                script,
+                resume_version="test-v1",
+                journal_dir=tmp_path,
+                resume_run_id=holder["id"],
             ).run()
             == "ok"
         )
@@ -129,7 +132,10 @@ async def test_failed_receipt_survives_resume_replacing_error_entry(tmp_path):
         assert sum(r["usage"]["unknown_calls"] for r in receipts) == 1
         assert (
             await Workflow(
-                script, journal_dir=tmp_path, resume_run_id=holder["id"]
+                script,
+                resume_version="test-v1",
+                journal_dir=tmp_path,
+                resume_run_id=holder["id"],
             ).run()
             == "ok"
         )

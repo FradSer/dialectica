@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
-import os
+import shutil
 import subprocess
 import tempfile
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
@@ -61,28 +62,30 @@ async def worktree_session(
     label: str,
     run_id: str,
 ) -> AsyncIterator[_WorktreeHandle]:
-    """Create a git worktree for one agent() call; remove if unchanged."""
+    """Expose an absolute task-local path; never change the process cwd.
+
+    Host tools must use worktree_path.get() explicitly (e.g. subprocess cwd).
+    Worktrees isolate Git changes, not OS authority. Keep on status errors.
+    """
     root = _repo_root()
     safe_label = _sanitize_label(label)
     short_id = run_id.replace("-", "")[:8]
-    branch = f"wf_{safe_label}_{short_id}"
+    branch = f"wf_{safe_label}_{short_id}_{uuid.uuid4().hex[:8]}"
     tmp = Path(tempfile.mkdtemp(prefix=f"wf_{safe_label}_"))
     add = _run_git("worktree", "add", "-b", branch, str(tmp), cwd=root)
     if add.returncode != 0:
+        shutil.rmtree(tmp)
         raise WorkflowWorktreeError(
             f"git worktree add failed: {add.stderr.strip() or add.stdout.strip()}"
         )
     handle = _WorktreeHandle(path=tmp, branch=branch)
     token = worktree_path.set(tmp)
-    prev_cwd = os.getcwd()
     try:
-        os.chdir(tmp)
         yield handle
     finally:
-        os.chdir(prev_cwd)
         worktree_path.reset(token)
         status = _run_git("status", "--porcelain", cwd=tmp)
-        handle.dirty = bool(status.stdout.strip())
+        handle.dirty = status.returncode != 0 or bool(status.stdout.strip())
         if handle.dirty:
             logger.info("Worktree %s has changes; keeping at %s", branch, tmp)
         else:
