@@ -112,7 +112,28 @@ directly; it cannot invoke workflow agents and create circular decision waits.
 
 This is independent agent code review and offline regression evidence, not a
 completed external service review. Devin skipped substantive review because its
-trial expired with no credits. Code Terrier's latest completed review on the
-previous head was neutral: exploration budget reached, full coverage unavailable.
+trial expired with no credits. At that point Code Terrier's completed review
+on the previous head was neutral: exploration budget reached, full coverage unavailable.
 Neither service result establishes a clean code review. No reviewer quota,
 billing or configuration was changed, and the PR was not split or merged.
+
+## Completed external review on `bb04df1`
+
+Code Terrier check `117328490390` completed at **2026-10-17 06:33:31 UTC**
+with conclusion `success`, but its actual report was **"1 issue · 1 bug"**;
+the check conclusion did not mean no findings. The complete report, review
+submissions, inline comments, issue comments and annotations were read.
+[Review 5556651048](https://github.com/FradSer/dialectica/pull/10#pullrequestreview-5556651048)
+identified a valid medium-severity migration omission in the opt-in live resume
+test: its initial and two resumed `Workflow` constructions omitted the explicit
+shared `resume_version`, so each resume recomputed all three agent steps.
+
+All three constructions now use `resume_version="test-v1"`. Directly invoking the
+unchanged test assertions with an offline `run_agent` adapter reproduced failure
+at `assert len(calls) == 1` before the fix, then passed both the one-call changed
+consumer and zero-call final replay assertions after the fix. This verified the
+resume test's orchestration without making a provider request; the live test
+remains opt-in and was not claimed as a live pass. No library behavior changed.
+There were no inline review comments or check annotations, and the only issue
+comment was the earlier scope-limit notice. No explicit reviewer retry or quota,
+billing or configuration change was made.

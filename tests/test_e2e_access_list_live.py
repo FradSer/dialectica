@@ -183,7 +183,9 @@ async def test_parallel_resume_preserves_context_and_usage_with_live_model(tmp_p
         )
 
     with patch("dialectica.agent_runtime.run_agent", observed_call):
-        first = await Workflow(script, journal_dir=tmp_path).run()
+        first = await Workflow(
+            script, journal_dir=tmp_path, resume_version="test-v1"
+        ).run()
         assert secret in first
         journal = RunJournal.load(holder["id"], tmp_path)
         assert [entry.sequence for entry in journal.entries] == [0, 1, 2]
@@ -191,14 +193,20 @@ async def test_parallel_resume_preserves_context_and_usage_with_live_model(tmp_p
         changed = True
         calls.clear()
         resumed = await Workflow(
-            script, journal_dir=tmp_path, resume_run_id=holder["id"]
+            script,
+            journal_dir=tmp_path,
+            resume_run_id=holder["id"],
+            resume_version="test-v1",
         ).run()
         assert secret in resumed
         assert len(calls) == 1
         assert secret in calls[0]
         calls.clear()
         replayed = await Workflow(
-            script, journal_dir=tmp_path, resume_run_id=holder["id"]
+            script,
+            journal_dir=tmp_path,
+            resume_run_id=holder["id"],
+            resume_version="test-v1",
         ).run()
         assert replayed == resumed
         assert calls == []
